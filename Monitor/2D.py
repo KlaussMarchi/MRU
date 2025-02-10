@@ -28,10 +28,10 @@ class TimeGraph:
             print('value: ', value)
 
             if value is not None:
-                dt = 0.100
                 t = value['t']
                 a = value['az']
 
+                dt = 0.030
                 self.v = self.v + a*dt
                 self.x = self.x + self.v*dt + (a*0.5*dt**2)
                 

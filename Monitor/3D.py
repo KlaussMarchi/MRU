@@ -68,8 +68,6 @@ class TimeGraph:
 
 
 
-
-
 def getArduinoData():
     global device
 
