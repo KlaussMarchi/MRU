@@ -67,7 +67,7 @@ Sensor sensor;
 void setup() {
     Serial.begin(9600);
     sensor.setup();
-    //sensor.tare();
+    sensor.tare();
 
     while (!Serial.available())
         continue;

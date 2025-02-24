@@ -6,7 +6,6 @@ unsigned long startProg;
 
 struct Sensor{
     float ax, ay, az, tp, wx, wy, wz;
-    float tareAX, tareAY, tareAZ, aScale;
 
     void setup() {
         Wire.begin();
@@ -15,28 +14,6 @@ struct Sensor{
         Wire.write(0); 
         Wire.endTransmission(true);
         aScale = 9.81/32768.00;
-    }
-
-    void tare() {
-        const unsigned long startTime = millis();
-        float sumX = 0.0;
-        float sumY = 0.0;
-        float sumZ = 0.0;
-        int size = 0;
-
-        while(millis() - startTime < 5000){
-            update();
-            sumX += ax;
-            sumY += ay;
-            sumZ += az;
-            
-            delay(10);
-            size++;
-        }
-
-        tareAX = sumX / size;
-        tareAY = sumY / size;
-        tareAZ = sumZ / size;
     }
 
     float getNext(){
@@ -55,9 +32,9 @@ struct Sensor{
         wy = getNext();
         wz = getNext();
         tp = getNext();
-        ax = (getNext() - tareAX) * aScale;      
-        ay = (getNext() - tareAY) * aScale;
-        az = (getNext() - tareAZ) * aScale;
+        ax = getNext();
+        ay = getNext();
+        az = getNext();
         return true;
     }
 };
@@ -67,7 +44,6 @@ Sensor sensor;
 void setup() {
     Serial.begin(9600);
     sensor.setup();
-    sensor.tare();
 
     while (!Serial.available())
         continue;
