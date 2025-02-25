@@ -4,8 +4,8 @@ import control as ctl
 
 class LaplaceFilter:
     output = None
-
-    def __init__(self, Ts=0.2, UP=0.030, T=0.1):
+    
+    def __init__(self, Ts=1.0, UP=0.1, T=0.05):
         zeta = -np.log(UP)/np.sqrt(np.pi**2 + np.log(UP)**2)
         Wn = 4/(zeta*Ts)
 

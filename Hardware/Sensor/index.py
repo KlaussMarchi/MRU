@@ -1,57 +1,68 @@
+import smbus
 import threading
-import mpu6050
-from time import time
+from time import time, sleep
 from Utils.functions import sendEvent
 from Utils.variables import dt
+from Utils.classes import AsyncThreading
 
+PWR_MGMT_1   = 0x6B
+SMPLRT_DIV   = 0x19
+CONFIG       = 0x1A
+GYRO_CONFIG  = 0x1B
+INT_ENABLE   = 0x38
+ACCEL_XOUT_H = 0x3B
+ACCEL_YOUT_H = 0x3D
+ACCEL_ZOUT_H = 0x3F
+GYRO_XOUT_H  = 0x43
+GYRO_YOUT_H  = 0x45
+GYRO_ZOUT_H  = 0x47
+DEVICE_ADDRESS = 0x68
 
 class Sensor:
     variables = {}
-    sensor   = None
-    addrress = (0x68)
-    SDA_PIN  = 2
-    SCL_PIN  = 3
     startTime = None
     stream    = False
 
-    def __init__(self, address=None):
-        if address is not None:
-            self.addrress = address
+    def __init__(self):
+        self.bus = smbus.SMBus(1)
 
     def setup(self):
-        self.sensor = mpu6050.mpu6050(self.addrress)
+        self.bus.write_byte_data(DEVICE_ADDRESS, SMPLRT_DIV, 7)
+        self.bus.write_byte_data(DEVICE_ADDRESS, PWR_MGMT_1, 1)
+        self.bus.write_byte_data(DEVICE_ADDRESS, CONFIG, 0)
+        self.bus.write_byte_data(DEVICE_ADDRESS, GYRO_CONFIG, 24)
+        self.bus.write_byte_data(DEVICE_ADDRESS, INT_ENABLE, 1)
         self.startTime = time()
         
+    def getRaw(self, addr):
+        high  = self.bus.read_byte_data(DEVICE_ADDRESS, addr)
+        low   = self.bus.read_byte_data(DEVICE_ADDRESS, addr+1)
+        value = (high << 8) | low
+        
+        if value > 32768:
+            value = value - 65536
+        
+        return value
+
     def startStream(self):
         sendEvent('success', 'sensor')
+        thread = AsyncThreading(self.handleStream)
         self.startTime = time()
-        thread = threading.Thread(target=self.handleStream)
-        thread.daemon = True
-        thread.start()
-    
-    def getVariables(self):
-        acceleration = self.sensor.get_accel_data()
-        gyroscope    = self.sensor.get_gyro_data()
-        temperature  = self.sensor.get_temp()
 
+    def getVariables(self):
         return {
             't': (time() - self.startTime),
-            'ax': acceleration['x'],
-            'ay': acceleration['y'],
-            'az': acceleration['z'],
-            'wx': gyroscope['x'],
-            'wy': gyroscope['y'],
-            'wz': gyroscope['z'],
-            'T':  temperature
+            'ax': self.getRaw(ACCEL_XOUT_H) / 16384.0,  
+            'ay': self.getRaw(ACCEL_YOUT_H) / 16384.0,
+            'az': self.getRaw(ACCEL_ZOUT_H) / 16384.0,
+            'wx': self.getRaw(GYRO_XOUT_H) / 131.0,  
+            'wy': self.getRaw(GYRO_YOUT_H) / 131.0,
+            'wz': self.getRaw(GYRO_ZOUT_H) / 131.0,
         }
     
     def handleStream(self):
-        startTime = time()
+        self.variables = self.getVariables()
+        sendEvent('event', f'variables: {self.variables}')
+        sleep(0.05)
 
-        while True:
-            if time() - startTime < dt:
-                continue
-            
-            startTime = time()
-            self.variables = self.getVariables()
-            sendEvent('event', f'variables: {self.variables}')
+
