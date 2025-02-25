@@ -4,19 +4,22 @@ from time import time, sleep
 from Utils.functions import sendEvent
 from Utils.variables import dt
 from Utils.classes import AsyncThreading
+from Filter.laplace import LaplaceFilter
+import matplotlib.pyplot as plt
 
 PWR_MGMT_1   = 0x6B
 SMPLRT_DIV   = 0x19
 CONFIG       = 0x1A
 GYRO_CONFIG  = 0x1B
 INT_ENABLE   = 0x38
-ACCEL_XOUT_H = 0x3B
-ACCEL_YOUT_H = 0x3D
-ACCEL_ZOUT_H = 0x3F
-GYRO_XOUT_H  = 0x43
+ACCEL_XOUT_H = 0x43
+ACCEL_YOUT_H = 0x3B
+ACCEL_ZOUT_H = 0x47
+GYRO_XOUT_H  = 0x3D
 GYRO_YOUT_H  = 0x45
-GYRO_ZOUT_H  = 0x47
+GYRO_ZOUT_H  = 0x3F
 DEVICE_ADDRESS = 0x68
+
 
 class Sensor:
     variables = {}
@@ -55,7 +58,7 @@ class Sensor:
             'ax': self.getRaw(ACCEL_XOUT_H) / 16384.0,  
             'ay': self.getRaw(ACCEL_YOUT_H) / 16384.0,
             'az': self.getRaw(ACCEL_ZOUT_H) / 16384.0,
-            'wx': self.getRaw(GYRO_XOUT_H) / 131.0,  
+            'wx': self.getRaw(GYRO_XOUT_H) / 131.0, 
             'wy': self.getRaw(GYRO_YOUT_H) / 131.0,
             'wz': self.getRaw(GYRO_ZOUT_H) / 131.0,
         }
@@ -66,3 +69,30 @@ class Sensor:
         sleep(0.05)
 
 
+
+def sensorTest():
+    filter = LaplaceFilter(Ts=1.5, UP=0.01, T=0.05)
+    sensor = Sensor()
+    sensor.setup()
+    
+    x = []
+    y = []
+    z = []
+
+    for i in range(250):
+        response = sensor.getVariables()
+        print(f'[{i}] {response}')
+
+        if response is None:
+            continue
+
+        x.append(response['t'])
+        y.append(response['az'])
+        z.append(filter.update(response['az']))
+        sleep(0.05)
+
+    plt.plot(x, y)
+    plt.plot(x, z)
+    plt.legend()
+    plt.grid()
+    plt.show()
