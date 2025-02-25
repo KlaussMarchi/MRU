@@ -2,7 +2,7 @@ import serial, json
 import serial.tools.list_ports
 from time import sleep, time
 from Utils.functions import sendEvent
-import threading
+from Utils.classes import AsyncThreading
 
 
 class Device:
@@ -25,7 +25,7 @@ class Device:
 
         try:
             self.device = serial.Serial(self.port, self.rate, timeout=self.timeout)
-            return sendEvent('success', 'device connected successfully')
+            return sendEvent('success', 'device connected successfully', 5.0)
         except Exception as error:
             self.device = None
             return sendEvent('error', error, delay=3.0)
@@ -50,44 +50,44 @@ class Device:
         return parts[0].strip()
 
     def sendData(self, message, breakLine=True):
-        if self.device is None:
-            return sendEvent('error', 'device not settled')
-        
         message = message.strip()
 
         if breakLine:
-            message = message + '\r\n' 
+            message = (message + '\r\n')
+        
+        if self.device is None:
+            return sendEvent('error', 'device not settled')
 
         try:
             self.device.write(message.encode())
+            sendEvent('event', f'sent: {message.strip()}')
         except Exception as error:
             return sendEvent('error', error)
         
         return True
     
     def getData(self, timeout=5.0):
-        if self.device is None:
-            return None
-
-        response  = None
         startTime = time()
 
+        if self.device is None:
+            return None
+        
         try:
-            while self.available() and time() - startTime < timeout: 
-                response = self.device.readline().decode('utf-8').strip()
+            while not self.available():
+                if time() - startTime > timeout:
+                    sendEvent('error', 'timeout exceeded')
+                    return None
+            return self.device.readline().decode('utf-8').strip()
         except Exception as error:
-            if response is not None:
-                return response
+            sendEvent('error', error)
+            return None
 
-            return sendEvent('error', error)
-
-        return response
-    
     def available(self):
         if not self.device:
             return 0
         
-        return self.device.in_waiting
+        totalBytes = self.device.in_waiting 
+        return totalBytes if totalBytes > 0 else 0
     
     def getResponse(self, msg):
         if not self.sendData(msg):

@@ -2,24 +2,8 @@ import serial, json
 import serial.tools.list_ports
 from time import sleep, time
 import threading
-
-
-def sendEvent(eventType, message, delay=0.0):
-    status = None
-
-    if eventType == 'error':
-        print(f'\033[31m[error]\033[0m', message)
-        status = False
-    elif eventType == 'success':
-        print(f'\033[34m[success]\033[0m', message)
-        status = True
-    else:
-        print(f'\033[32m[event]\033[0m', message)
-
-    if delay > 0.0:
-        sleep(delay)
-
-    return status
+from Utils.functions import sendEvent 
+from Utils.classes import AsyncThreading
 
 
 class Device:
@@ -42,7 +26,7 @@ class Device:
 
         try:
             self.device = serial.Serial(self.port, self.rate, timeout=self.timeout)
-            return sendEvent('success', 'device connected successfully')
+            return sendEvent('success', 'device connected successfully', 5.0)
         except Exception as error:
             self.device = None
             return sendEvent('error', error, delay=3.0)
@@ -67,44 +51,44 @@ class Device:
         return parts[0].strip()
 
     def sendData(self, message, breakLine=True):
-        if self.device is None:
-            return sendEvent('error', 'device not settled')
-        
         message = message.strip()
 
         if breakLine:
-            message = message + '\r\n' 
+            message = (message + '\r\n')
+
+        if self.device is None:
+            return sendEvent('error', 'device not settled')
 
         try:
             self.device.write(message.encode())
+            sendEvent('event', f'sent: {message.strip()}')
         except Exception as error:
             return sendEvent('error', error)
         
         return True
     
     def getData(self, timeout=5.0):
-        if self.device is None:
-            return None
-
-        response  = None
         startTime = time()
 
+        if self.device is None:
+            return None
+        
         try:
-            while self.available() and time() - startTime < timeout: 
-                response = self.device.readline().decode('utf-8').strip()
+            while not self.available():
+                if time() - startTime > timeout:
+                    sendEvent('error', 'timeout exceeded')
+                    return None
+            return self.device.readline().decode('utf-8').strip()
         except Exception as error:
-            if response is not None:
-                return response
+            sendEvent('error', error)
+            return None
 
-            return sendEvent('error', error)
-
-        return response
-    
     def available(self):
         if not self.device:
             return 0
         
-        return self.device.in_waiting
+        totalBytes = self.device.in_waiting 
+        return totalBytes if totalBytes > 0 else 0
     
     def getResponse(self, msg):
         if not self.sendData(msg):
@@ -113,22 +97,20 @@ class Device:
         return self.getData(10)
 
     def startStream(self, command='start'):
-        if not self.sendData(command) or self.active:
+        if not self.sendData(command):
             return sendEvent('error', 'cant start stream', 5.0)
 
         while not self.available():
             continue
         
         sendEvent('success', 'stream started')
-        thread = threading.Thread(target=self.handleStream)
-        thread.daemon = True
-        thread.start()
+        self.thread = AsyncThreading(self.handleStream)
 
     def handleStream(self):
         while True:
             try:
-                sendEvent('event', 'enviando...')
                 response = self.getData()
+                sendEvent('arduino', response, color='blue')
 
                 if not response:
                     continue
@@ -137,10 +119,4 @@ class Device:
             except Exception as error:
                 sendEvent('error', error)
                 continue
-
-    def getTarget(self):
-        if self.data is None:
-            return None
-        
-        return self.data['t'], self.data['ax']
 

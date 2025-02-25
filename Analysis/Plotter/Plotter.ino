@@ -13,7 +13,6 @@ struct Sensor{
         Wire.write(0x6B); 
         Wire.write(0); 
         Wire.endTransmission(true);
-        aScale = 9.81/32768.00;
     }
 
     float getNext(){
@@ -54,7 +53,7 @@ void setup() {
 void loop() {
     static unsigned long startTime;
 
-    if(millis() - startTime < 30)
+    if(millis() - startTime < 50)
         return;
     
     startTime = millis();
