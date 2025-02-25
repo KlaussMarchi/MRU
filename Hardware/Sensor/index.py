@@ -55,12 +55,12 @@ class Sensor:
     def getVariables(self):
         return {
             't': (time() - self.startTime),
-            'ax': self.getRaw(ACCEL_XOUT_H) / 16384.0,  
-            'ay': self.getRaw(ACCEL_YOUT_H) / 16384.0,
-            'az': self.getRaw(ACCEL_ZOUT_H) / 16384.0,
-            'wx': self.getRaw(GYRO_XOUT_H) / 131.0, 
-            'wy': self.getRaw(GYRO_YOUT_H) / 131.0,
-            'wz': self.getRaw(GYRO_ZOUT_H) / 131.0,
+            'ax': self.getRaw(ACCEL_XOUT_H),  
+            'ay': self.getRaw(ACCEL_YOUT_H),
+            'az': self.getRaw(ACCEL_ZOUT_H),
+            'wx': self.getRaw(GYRO_XOUT_H), 
+            'wy': self.getRaw(GYRO_YOUT_H),
+            'wz': self.getRaw(GYRO_ZOUT_H),
         }
     
     def handleStream(self):
@@ -71,7 +71,7 @@ class Sensor:
 
 
 def sensorTest():
-    filter = LaplaceFilter(Ts=1.5, UP=0.01, T=0.05)
+    filter = LaplaceFilter(Ts=1.0, UP=0.01, T=0.05)
     sensor = Sensor()
     sensor.setup()
     
@@ -87,8 +87,8 @@ def sensorTest():
             continue
 
         x.append(response['t'])
-        y.append(response['az'])
-        z.append(filter.update(response['az']))
+        y.append(response['wz'])
+        z.append(filter.update(response['wz']))
         sleep(0.05)
 
     plt.plot(x, y)
