@@ -1,14 +1,6 @@
 import numpy as np
 
 
-pythonColors = {
-    'blue' : '\033[34m',
-    'red'  : '\033[31m',
-    'green': '\033[32m',
-    'white': '\033[0m', 
-}
-
-
 # ------------------ KALMAN FILTER ---------------------------------
 n  = 3
 P  = np.eye(n) # Covariância inicial do estado

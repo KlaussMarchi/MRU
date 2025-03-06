@@ -1,8 +1,28 @@
-from Utils.variables import pythonColors
 from time import sleep
 
 
-def sendEvent(eventType, message, delay=0.0, color='blue'):
+def sendEvent(eventType, message, color='blue', delay=0.0):
+    status = eventType
+    
+    pythonColors = {
+        'blue' : '\033[34m',
+        'red'  : '\033[31m',
+        'green': '\033[32m',
+        'white': '\033[0m', 
+    }
+
+    if eventType == 'success':
+        status = True
+        color  = 'blue'
+
+    if eventType == 'error':
+        status = False
+        color  = 'red'
+
+    if eventType == 'event':
+        status = None
+        color = 'green'
+
     status = True if eventType == 'success' else False if eventType == 'error' else None
     color  = pythonColors[color]
     reset  = pythonColors['white']
@@ -10,5 +30,3 @@ def sendEvent(eventType, message, delay=0.0, color='blue'):
     print(f'{color}[{eventType}]{reset}', message)
     if delay > 0.0: sleep(delay)
     return status
-
-

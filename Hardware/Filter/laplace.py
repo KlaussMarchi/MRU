@@ -3,23 +3,23 @@ import control as ctl
 
 
 class LaplaceFilter:
-    output = None
+    num = []
+    den = []
     
-    def __init__(self, Ts=1.0, UP=0.1, T=0.05):
+    def __init__(self, Ts=1.0, UP=0.1, dt=0.05):
         zeta = -np.log(UP)/np.sqrt(np.pi**2 + np.log(UP)**2)
         Wn = 4/(zeta*Ts)
 
         s = ctl.TransferFunction.s
         C = Wn**2/(s**2 + 2*zeta*Wn*s + Wn**2)
 
-        C_z = ctl.c2d(C, T, method='tustin')
-        self.output = self.getFrac(C_z)
-        self.xSize  = len(self.output[0])
-        self.ySize  = len(self.output[1])
-        self.Xn = np.zeros(self.xSize)
-        self.Yn = np.zeros(self.ySize)
+        C_z = ctl.c2d(C, dt, method='tustin')
+        self.num, self.den = self.getFraction(C_z)
+        self.Xn = np.zeros_like(self.num)
+        self.Yn = np.zeros_like(self.den)
+        self.dt = dt
 
-    def getFrac(self, G_z):
+    def getFraction(self, G_z):
         num, den = ctl.tfdata(G_z)
         num = np.squeeze(num)
         den = np.squeeze(den)
@@ -30,25 +30,26 @@ class LaplaceFilter:
         if type(num) == np.float64:
             num = np.array([num])
 
-        return list(num), list(den)
+        num = [float(val) for val in num]
+        den = [float(val) for val in den]
+        return (num, den) 
 
     def compute(self):
-        num, den = self.output
         out = 0.0
 
-        for i in range(0, len(num)):
-            out += self.Xn[i]*(num[i])
+        for i in range(0, len(self.num)):
+            out += self.Xn[i]*(self.num[i])
         
-        for i in range(1, len(den)):
-            out += self.Yn[i]*(-1*den[i])
+        for i in range(1, len(self.den)):
+            out += self.Yn[i]*(-1*self.den[i])
 
         return out
 
     def update(self, input):
-        for n in range(self.xSize-1, 0, -1):
+        for n in range(len(self.num)-1, 0, -1):
             self.Xn[n] = self.Xn[n-1]
 
-        for n in range(self.ySize-1, 0, -1):
+        for n in range(len(self.den)-1, 0, -1):
             self.Yn[n] = self.Yn[n-1]
         
         self.Xn[0] = input
@@ -56,10 +57,10 @@ class LaplaceFilter:
         return self.Yn[0]
 
 
-#l = LaplaceFilter(Ts=8, UP=0.001)
+#l = LaplaceFilter(Ts=2.0, UP=0.3, dt=0.1)
 #import matplotlib.pyplot as plt
-#tData = np.linspace(0, 10, 1000)
-#xData = np.random.uniform(-1, 1, 1000)
+#tData = np.arange(0, 5, 0.1)
+#xData = np.ones_like(tData)
 #yData = [l.update(x) for x in xData]
 #plt.plot(tData, xData)
 #plt.plot(tData, yData)

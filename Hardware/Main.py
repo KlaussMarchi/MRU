@@ -1,12 +1,10 @@
 from Sensor.index import Sensor, sensorTest
-from Serial.index import Device
+from Device.index import Device
 from Filter.laplace import LaplaceFilter
 from time import sleep
 
 
 def main():
-    return sensorTest()
-
     device = Device()
     device.connect()
 

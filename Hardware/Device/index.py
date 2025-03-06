@@ -25,7 +25,7 @@ class Device:
 
         try:
             self.device = serial.Serial(self.port, self.rate, timeout=self.timeout)
-            return sendEvent('success', 'device connected successfully', 5.0)
+            return sendEvent('success', 'device connected successfully', delay=5.0)
         except Exception as error:
             self.device = None
             return sendEvent('error', error, delay=3.0)

@@ -1,11 +1,10 @@
-import smbus
-import threading
 from time import time, sleep
 from Utils.functions import sendEvent
 from Utils.variables import dt
 from Utils.classes import AsyncThreading
 from Filter.laplace import LaplaceFilter
 import matplotlib.pyplot as plt
+import smbus
 
 PWR_MGMT_1   = 0x6B
 SMPLRT_DIV   = 0x19
