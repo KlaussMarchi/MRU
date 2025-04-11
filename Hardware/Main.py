@@ -5,6 +5,7 @@ from time import sleep
 
 
 def main():
+    return sensorTest()
     device = Device()
     device.connect()
 
