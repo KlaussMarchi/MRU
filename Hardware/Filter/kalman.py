@@ -23,6 +23,7 @@ class KalmanFilter:
         I = np.eye(self.A.shape[0])  # Matriz identidade
         self.P = np.dot(I - np.dot(K, self.H), self.P)
 
+
     def predictFuture(self, steps, U=None):
         original_x = self.x.copy()  # Salva o estado atual
         original_P = self.P.copy()  # Salva a covariância atual

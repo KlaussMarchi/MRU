@@ -11,7 +11,7 @@ class Device:
     rate   = None
     data   = None
 
-    def __init__(self, port=None, rate=9600, timeout=1.0):
+    def __init__(self, port=None, rate=9600, timeout=3.0):
         self.port = port
         self.rate = rate
         self.timeout = timeout
@@ -53,7 +53,7 @@ class Device:
         message = message.strip()
 
         if breakLine:
-            message = (message + '\r\n')
+            message = (message + '\n')
         
         if self.device is None:
             return sendEvent('error', 'device not settled')
@@ -82,6 +82,20 @@ class Device:
             sendEvent('error', error)
             return None
 
+    def getJson(self, timeout=5.0):
+        data = self.getData(timeout)
+
+        if data is None:
+            return None
+        
+        try:
+            return eval(data)
+        except Exception as error:
+            sendEvent('error', error)
+        
+        return None
+
+
     def available(self):
         if not self.device:
             return 0
@@ -95,4 +109,10 @@ class Device:
 
         return self.getData(10)
 
+    def startStream(self):
+        sendEvent('event', 'starting stream with device')
+        self.sendData('START')
+        self.device.reset_input_buffer()
 
+        while self.available():
+            continue

@@ -6,9 +6,12 @@ class LaplaceFilter:
     num = []
     den = []
     
-    def __init__(self, Ts=1.0, UP=0.1, dt=0.05):
+    def __init__(self, Ts=1.0, UP=0.1, dt=0.05, Tp=None):
         zeta = -np.log(UP)/np.sqrt(np.pi**2 + np.log(UP)**2)
-        Wn = 4/(zeta*Ts)
+        Wn   = 4/(zeta*Ts)
+
+        if Tp is not None:
+            Wn = np.pi/(Tp*np.sqrt(1 - zeta**2))
 
         s = ctl.TransferFunction.s
         C = Wn**2/(s**2 + 2*zeta*Wn*s + Wn**2)
@@ -55,13 +58,3 @@ class LaplaceFilter:
         self.Xn[0] = input
         self.Yn[0] = self.compute()
         return self.Yn[0]
-
-
-#l = LaplaceFilter(Ts=2.0, UP=0.3, dt=0.1)
-#import matplotlib.pyplot as plt
-#tData = np.arange(0, 5, 0.1)
-#xData = np.ones_like(tData)
-#yData = [l.update(x) for x in xData]
-#plt.plot(tData, xData)
-#plt.plot(tData, yData)
-#plt.show()
