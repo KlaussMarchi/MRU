@@ -1,4 +1,9 @@
 from time import sleep
+from time import time as getTime
+
+
+def millis():
+    return int(getTime()*1000)
 
 
 def sendEvent(eventType, message, color='blue', delay=0.0):
