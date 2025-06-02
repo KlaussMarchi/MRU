@@ -1,0 +1,6 @@
+void switchBus() {
+        Wire.end();                      // Finaliza barramento anterior
+        Wire.setPins(SDA_PIN, SCL_PIN);  // Redireciona os pinos
+        Wire.begin();                    // Reinicializa com novos pinos
+        delay(10);                       // Pequeno delay para estabilizar
+    }

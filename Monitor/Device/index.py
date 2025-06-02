@@ -111,7 +111,8 @@ class Device:
 
     def startStream(self):
         sendEvent('event', 'starting stream with device')
-        self.sendData('START')
+        self.sendData('stream')
+        
         self.device.reset_input_buffer()
 
         while self.available():
