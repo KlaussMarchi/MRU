@@ -99,6 +99,17 @@ class BandFilter:
 
         return response
     
+    def getOut(self):
+        out = ''
+        
+        for i in range(0, len(self.num)): 
+            out += f'Xn{i}*({self.num[i]:.6f}) + '
+
+        for i in range(1, len(self.den)): 
+            out += f'Yn{i}*({-1*self.den[i]:.6f}) + '
+        
+        return out.replace('Xn0', 'Xn')[:-3]
+    
     def plot(self):
         ctl.bode(self.C, dB=True, Hz=False, deg=True, plot=True)
         display(self.C)
@@ -170,6 +181,17 @@ class LowBandFilter:
 
         return response 
     
+    def getOut(self):
+        out = ''
+        
+        for i in range(0, len(self.num)): 
+            out += f'Xn{i}*({self.num[i]:.6f}) + '
+
+        for i in range(1, len(self.den)): 
+            out += f'Yn{i}*({-1*self.den[i]:.6f}) + '
+        
+        return out.replace('Xn0', 'Xn')[:-3]
+
     def plot(self):
         ctl.bode(self.C, dB=True, Hz=False, deg=True, plot=True)
         display(self.C)
@@ -206,7 +228,7 @@ class Integral:
         
         out = out.replace('Xn0', 'Xn')[:-3]
         self.out = out
-            
+    
     def update(self, Xn):
         Xn1, Yn1 = self.Xn1, self.Yn1
         Yn = eval(self.out)

@@ -1,24 +1,18 @@
 
-float filter(float input){
-    static unsigned long startTime;
-    static const byte xSize=3, ySize=3;
-    static float Xn[xSize] = {0};
-    static float Yn[ySize] = {0};
+float flilter(const float Xn){
+    static unsigned long startTime = millis();
+    static const int dt = 100; // ms
+    static float Xn1, Xn2;
+    static float Yn1, Yn2;
 
-    if(millis() - startTime < 100)
-        return Yn[0];
+    if(millis() - startTime < dt)
+        return Yn1;
 
     startTime = millis();
-
-    for(byte n=xSize-1; n>0; n--) 
-        Xn[n] = Xn[n-1];
-    
-    for(byte n=ySize-1; n>0; n--) 
-        Yn[n] = Yn[n-1];
-
-    Xn[0] = input;
-    Yn[0] = Xn[0]*(0.000944) + Xn[1]*(0.001888) + Xn[2]*(0.000944) + Yn[1]*(1.911226) + Yn[2]*(-0.915003);
-    return Yn[0];
+    const float Yn = Xn*(0.027481) + Xn1*(0.000000) + Xn2*(-0.027481) + Yn1*(1.942707) + Yn2*(-0.945038);
+    Xn2 = Xn1; Xn1 = Xn;
+    Yn2 = Yn1; Yn1 = Yn;
+    return Yn;
 }
 
 void setup(){

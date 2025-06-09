@@ -4,44 +4,45 @@
 #include <Wire.h>
 #include <ArduinoJson.h>
 #include <MPU9250_asukiaaa.h>
+#include "processing.h"
+
 
 struct MPU9250{
-    const int SDA_PIN;
-    const int SCL_PIN;
+    ProcessingMPU9250 info;
     TwoWire* wire;
     MPU9250_asukiaaa imu;
-    float ax, ay, az, gx, gy, gz;
-    float mx, my, mz;
+    const int SDA_PIN;
+    const int SCL_PIN;
+    float ax, ay, az;
+    float vx, vy, vz;
+    float wx, wy, wz;
+    float roll, pitch, yaw;
 
     MPU9250(int sda, int scl, TwoWire* bus): 
         SDA_PIN(sda), 
         SCL_PIN(scl), 
-        wire(bus) {}
+        wire(bus){}
 
     void setup(){
         wire->begin(SDA_PIN, SCL_PIN);
         imu.setWire(wire);
         imu.beginAccel();
         imu.beginGyro();
-        imu.beginMag(); // Importante para habilitar o magnetômetro
     }
-
+    
     void update(){
         imu.accelUpdate();
         imu.gyroUpdate();
-        imu.magUpdate(); // Atualiza valores do magnetômetro
+        imu.magUpdate(); 
 
         ax = imu.accelX();
         ay = imu.accelY();
         az = imu.accelZ();
 
-        gx = imu.gyroX();
-        gy = imu.gyroY();
-        gz = imu.gyroZ();
-
-        mx = imu.magX();
-        my = imu.magY();
-        mz = imu.magZ();
+        wx = imu.gyroX();
+        wy = imu.gyroY();
+        wz = imu.gyroZ();
+        info.update(ax, ay, az, wx, wy, wz);
     }
 
     StaticJsonDocument<256>& getData(){
@@ -49,12 +50,9 @@ struct MPU9250{
         data["ax"] = ax; 
         data["ay"] = ay; 
         data["az"] = az;
-        data["gx"] = gx; 
-        data["gy"] = gy; 
-        data["gz"] = gz;
-        data["mx"] = mx; 
-        data["my"] = my; 
-        data["mz"] = mz;
+        data["wx"] = wx; 
+        data["wy"] = wy; 
+        data["wz"] = wz;
         return data;
     }
 

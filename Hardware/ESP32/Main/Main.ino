@@ -1,24 +1,23 @@
 #include <ArduinoJson.h>
+#include <BasicLinearAlgebra.h>
 #include <Wire.h>
 #include "global/constants.h"
 #include "global/variables.h"
 #include "global/functions.h"
-#include "objects/espserver/espserver.h"
-#include "objects/sensors/MPU6050.h"
-#include "objects/sensors/MPU9250.h"
 #include "objects/serport/serport.h"
+#include "objects/sensors/MPU6050/index.h"
+#include "objects/sensors/MPU9250/index.h"
 
 TwoWire I2C_1 = TwoWire(0);
-MPU9250 sensor1(26, 25, &I2C_1);
-
 TwoWire I2C_2 = TwoWire(1);
-MPU6050 sensor2(33, 32, &I2C_2);
+
+MPU6050 sensor1(21, 19, &I2C_2);
+MPU9250 sensor2(5, 18,  &I2C_1);
 
 
 void setup(){
     Serial.begin(115200);
     serport.setup(30);
-    espserver.connect("Klauss", "Marchi12345@");
 
     sensor1.setup();
     sensor2.setup();
@@ -27,8 +26,6 @@ void setup(){
 
 void loop(){
     serport.listen();
-    espserver.listen();
     sendLogsCheck();
     protocolCheck();
-    handleRoutes();
 }

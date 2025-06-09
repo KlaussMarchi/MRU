@@ -5,18 +5,22 @@ void protocolCheck(){
 
     String data = serport.getData();
 
-    if(data == "stream")
+    if(data == "stream"){
+        Serial.println("Stream Started!");
         variables.stream = true;
+    }
 }
 
 void sendLogsCheck(){
     static unsigned long startTime = espMillis();
 
-    if(espMillis() - startTime < 30 || !variables.stream)
+    if(espMillis() - startTime < DT_INTERVAL || !variables.stream)
         return;
-
+    
     startTime = espMillis();
     auto data = getMRU();
-    printJson(data);
+    
+    if(variables.print_on)
+        printJson(data);
 }
 
