@@ -1,2 +1,2 @@
 DT_INTERVAL = 50
-
+dt = (DT_INTERVAL/1000.0)

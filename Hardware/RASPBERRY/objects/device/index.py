@@ -1,36 +1,34 @@
 from time import ticks_ms as millis
 from time import sleep_ms as delay
 from machine import Pin
-import gc
+
 
 
 class Device:
-    startProg  = 0
-    startTime  = 0
-    lastMemory = 0
-    
     def __init__(self):
-        self.led = Pin(25, Pin.OUT)
+        self.startProg = 0
+        self.led    = Pin(25, Pin.OUT)
+        self.status = (0, 0)
+        self.settings = {
+            'timeout': 0.5,
+            'enabled': True,
+            'newThing': True,
+            'debug': True,
+            'serial': 0
+        }
 
     def setup(self):
-        self.startProg  = millis()
-        self.lastMemory = gc.mem_free()
+        self.startProg = millis()
+        self.start()
+    
+    def start(self):
+        print('programa iniciado!')
 
         for i in range(5):
             self.led.toggle()
-            delay(250)
+            delay(100)
 
         self.led.value(1)
 
-    def handle(self):
-        if millis() - self.startTime < 60000:
-            return
-        
-        self.startTime = millis()
-        variation = (gc.mem_free() - self.lastMemory)
 
-        if variation < -5120: # 5kb
-            gc.collect()
-        
-        self.lastMemory = gc.mem_free()
-
+device = Device()

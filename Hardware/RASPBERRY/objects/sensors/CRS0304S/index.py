@@ -1,33 +1,26 @@
 from machine import Pin, ADC
-from time import ticks_ms as millis
-from time import sleep_ms as delay
 from globals.constants import DT_INTERVAL
+from objects.sensors.CRS0304S.analysis import Omega, Acceleration
+
+
 
 class CRS0304S:
-    startTime  = 0
-    wx, wy, wz = (0, 0, 0)
-
     def __init__(self):
         self.pin = ADC(Pin(28))
+        self.a = Acceleration()
+        self.w = Omega()
 
     def setup(self):
-        self.startTime = millis()
         print('Sensor CRS0304S Ready')
 
     def update(self):
-        self.wx = self.pin.read_u16()
+        wx = self.pin.read_u16()
+        wy = self.pin.read_u16()
+        wz = self.pin.read_u16()
+        ax = self.pin.read_u16()
+        ay = self.pin.read_u16()
+        az = self.pin.read_u16()
+        self.a.update(ax, ay, az)
+        self.w.update(wx, wy, wz)
 
-    def handle(self):
-        if millis() - self.startTime < DT_INTERVAL:
-            return
         
-        self.startTime = millis()
-        self.update()
-        print(self.get())
-
-    def get(self):
-        return {
-            'wx': self.wx,
-            'wy': self.wy,
-            'wz': self.wz,
-        }

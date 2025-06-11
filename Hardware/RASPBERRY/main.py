@@ -1,14 +1,32 @@
 
-from objects.device.index import Device
-from objects.sensors.CRS0304S.index import CRS0304S
+from objects.device.index import device
+from objects.tasks.index import tasks
+from objects.processing.index import processing
+from objects.sensors.index import sensors
+import _thread
+lock = _thread.allocate_lock()
 
-device = Device()
-device.setup()
 
-sensor1 = CRS0304S()
-sensor1.setup()
+def thread0():
+    while True:
+        with lock:
+            processing.handle()
+            tasks.memory()
+            tasks.print()
+            
 
-while True:
-    sensor1.handle()
+def thread1():
+    while True:
+        with lock:
+            sensors.handle()
+            tasks.blink()
+            
 
-    device.handle()
+
+if __name__ == '__main__':
+    device.setup()
+    processing.setup()
+    device.status = tasks.WORKING
+    
+    _thread.start_new_thread(thread1, ())
+    thread0()
