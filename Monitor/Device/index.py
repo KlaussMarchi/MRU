@@ -16,8 +16,8 @@ class Device:
         self.rate = rate
         self.timeout = timeout
 
-    def connect(self):
-        self.port = self.port if self.port is not None else self.autoSelection()
+    def connect(self, delay=2.5):
+        self.port = self.port if self.port is not None else self.scan()
         sendEvent('event', f'trying connection: {self.port}')
         
         if self.device and self.device.is_open:
@@ -25,12 +25,12 @@ class Device:
 
         try:
             self.device = serial.Serial(self.port, self.rate, timeout=self.timeout)
-            return sendEvent('success', 'device connected successfully', delay=5.0)
+            return sendEvent('success', 'device connected successfully', delay=delay)
         except Exception as error:
             self.device = None
             return sendEvent('error', error, delay=3.0)
     
-    def autoSelection(self):
+    def scan(self):
         ports  = [port for port in serial.tools.list_ports.comports()]
         target = 0
 
@@ -48,42 +48,56 @@ class Device:
             return sendEvent('error', f'parts: {parts}')
 
         return parts[0].strip()
-
-    def sendData(self, message, breakLine=True):
-        message = message.strip()
-
-        if breakLine:
-            message = (message + '\n')
+    
+    def send(self, msg, breakLine=True):
+        msg = msg.replace(' ', '').replace('\t', '').replace('\r', '').strip()
         
-        if self.device is None:
-            return sendEvent('error', 'device not settled')
+        if breakLine:
+            msg = msg + '\r\n'
 
         try:
-            self.device.write(message.encode())
-            sendEvent('event', f'sent: {message.strip()}')
+            self.device.write(msg.encode())
+            sendEvent('python', f'sent: {msg.strip()}', 'red')
         except Exception as error:
             return sendEvent('error', error)
         
         return True
     
-    def getData(self, timeout=5.0):
+    def wait(self, timeout=5):
         startTime = time()
 
-        if self.device is None:
-            return None
-        
+        while time() - startTime < timeout:
+            if self.available():
+                return True
+
+        return False
+    
+    def get(self, timeout=7.0):
+        startTime = time()
+        response = bytearray()
+
         try:
-            while not self.available():
-                if time() - startTime > timeout:
-                    sendEvent('error', 'timeout exceeded')
-                    return None
-            return self.device.readline().decode('utf-8').strip()
+            while time() - startTime < timeout:
+                size = self.device.in_waiting
+
+                if size == 0:
+                    sleep(0.005)
+                    continue
+                
+                response.extend(self.device.read(size))
+                
+                if b'\n' in response:
+                    break
+
+            cleaned = response.decode('utf-8', errors='ignore').strip()
+            return ''.join(c for c in cleaned if c not in '\r\n')
         except Exception as error:
             sendEvent('error', error)
             return None
 
+
     def getJson(self, timeout=5.0):
-        data = self.getData(timeout)
+        data = self.get(timeout)
 
         if data is None:
             return None
@@ -95,23 +109,78 @@ class Device:
         
         return None
 
-
     def available(self):
         if not self.device:
             return 0
         
-        totalBytes = self.device.in_waiting 
+        totalBytes = self.device.in_waiting
         return totalBytes if totalBytes > 0 else 0
     
     def getResponse(self, msg):
-        if not self.sendData(msg):
+        if not self.send(msg):
             return None
 
-        return self.getData(10)
+        return self.get(10)
 
-    def startStream(self):
+    def clear(self, delay=0):
+        self.device.reset_input_buffer()
+        sleep(0.5)
+
+        while self.available():
+            try:
+                self.device.read()
+            except:
+                continue
+        
+        self.device.reset_input_buffer()
+        sleep(0.5 + delay)
+
+    def expect(self, target='OK', command=None, fail=None, timeout=5):
+        startTime  = time()
+        buffer     = str()
+        timePassed = 0
+
+        if command is not None:
+            self.send(command)
+
+        while timePassed < timeout:
+            size = self.device.in_waiting
+            timePassed = time() - startTime
+            
+            if command and timePassed > 0.95*timeout:
+                self.send(command)
+            
+            if size == 0:
+                sleep(0.005)
+                continue
+            
+            buffer += self.device.read(size).decode('utf-8', errors='ignore')
+
+            if target in buffer:
+                return True
+            
+            if fail and fail in buffer:
+                return False
+
+        return None
+    
+    def request(self, value, timeout=5.0):
+        self.send(value)
+        startTime = time()
+
+        while time() - startTime < timeout:
+            if self.available():
+                continue
+
+            return self.get()
+        
+        return None
+    
+    def stream(self, command='stream'):
         sendEvent('event', 'starting stream with device')
-        self.sendData('stream')
+        
+        if command:
+            self.sendData('stream')
         
         self.device.reset_input_buffer()
 

@@ -1,5 +1,4 @@
 from Device.index import Device
-from Server.index import Server
 from Plotter.index import TimeGraph
 from Processing.Filter.laplace import LaplaceFilter
 
@@ -7,21 +6,18 @@ from Utils.classes import AsyncThreading
 from time import sleep, time
 import numpy as np
 
-server = Server()
 device = Device(rate=115200)
 device.connect()
-device.startStream()
+device.stream(command=False)
 
 startTime = time()
 lastVal   = None
-
-filter = LaplaceFilter(Ts=0.3, UP=0.05, dt=0.05)
+filter = LaplaceFilter(Ts=1.2, UP=0.05, dt=0.015)
 
 
 def handleServer():
     global lastVal
     data = device.getJson()
-    #data  = server.getData()
     print(data)
 
     if data is None:
