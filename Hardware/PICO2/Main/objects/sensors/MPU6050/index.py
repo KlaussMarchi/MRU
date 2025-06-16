@@ -1,7 +1,7 @@
+from objects.sensors.CRS0304S.analysis import Omega, Acceleration
 from objects.wire.index import Wire
 from time import sleep
 import struct
-import ujson
 
 
 class MPU6050:
@@ -22,42 +22,57 @@ class MPU6050:
     
     def __init__(self, sda, scl):
         self.sda, self.scl = sda, scl
+        self.a = Acceleration()
+        self.w = Omega()
+
+    def setup(self):
         self.address = self.connect()
-
         self.wire.write(self.address, self.PWR_MGMT_1, 0x00)
-        sleep(0.1)
-        self.wire.write(self.address, self.SMPLRT_DIV, 0x07) # sample rate = 1 kHz
+        sleep(0.1) # sample rate = 1 kHz
+        self.wire.write(self.address, self.SMPLRT_DIV, 0x07) 
+        print('MPU ready')
 
-    def connect(self):
+    def update(self):
+        ax = self.read(self.ACCEL_XOUT_H) / self.ACCEL_SCALE_MODIFIER
+        ay = self.read(self.ACCEL_YOUT_H) / self.ACCEL_SCALE_MODIFIER
+        az = self.read(self.ACCEL_ZOUT_H) / self.ACCEL_SCALE_MODIFIER
+        wx = self.read(self.GYRO_XOUT_H) / self.GYRO_SCALE_MODIFIER
+        wy = self.read(self.GYRO_YOUT_H) / self.GYRO_SCALE_MODIFIER
+        wz = self.read(self.GYRO_ZOUT_H) / self.GYRO_SCALE_MODIFIER
+        self.a.update(ax, ay, az)
+        self.w.update(wx, wy, wz)
+
+    def get(self, update=False):
+        if update:
+            self.update()
+
+        return {
+            'wx': self.w.x, 
+            'wy': self.w.y, 
+            'wz': self.w.z, 
+            'ax': self.a.x, 
+            'ay': self.a.y, 
+            'az': self.a.z, 
+        }
+
+    def connect(self, i=3):
         self.wire = Wire(0, self.sda, self.scl, freq=400000) 
 
         if self.wire.address is None:
+            if i == 0:
+                return 0
+
             print('no device found, scanning again...')
-            sleep(1.5)
-            return self.connect()
+            sleep(1.0)
+            return self.connect(i-1)
 
         print(f'new address: {hex(self.wire.address)}')
         return self.wire.address
 
     def read(self, registerAddress):
         raw_bytes = self.wire.read(self.address, registerAddress, 2)
-        return struct.unpack('>h', raw_bytes)[0]
 
-    def update(self):
-        self.ax = self.read(self.ACCEL_XOUT_H) / self.ACCEL_SCALE_MODIFIER
-        self.ay = self.read(self.ACCEL_YOUT_H) / self.ACCEL_SCALE_MODIFIER
-        self.az = self.read(self.ACCEL_ZOUT_H) / self.ACCEL_SCALE_MODIFIER
-        self.gx = self.read(self.GYRO_XOUT_H) / self.GYRO_SCALE_MODIFIER
-        self.gy = self.read(self.GYRO_YOUT_H) / self.GYRO_SCALE_MODIFIER
-        self.gz = self.read(self.GYRO_ZOUT_H) / self.GYRO_SCALE_MODIFIER
-        
-    def toJson(self):
-        return ujson.dumps({
-            'ax': self.ax,
-            'ay': self.ay,
-            'az': self.az,
-            'gx': self.gx,
-            'gy': self.gy,
-            'gz': self.gz
-        })
-    
+        if not raw_bytes:
+            return 0.00
+
+        return struct.unpack('>h', raw_bytes)[0]

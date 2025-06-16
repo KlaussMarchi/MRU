@@ -22,6 +22,7 @@ class KalmanFilter:
         self.x = self.x + np.dot(K, y)
         I = np.eye(self.A.shape[0])  # Matriz identidade
         self.P = np.dot(I - np.dot(K, self.H), self.P)
+        return self.x
 
 
     def predictFuture(self, steps, U=None):
@@ -47,3 +48,4 @@ class KalmanFilter:
 
     def getState(self):
         return self.x
+    

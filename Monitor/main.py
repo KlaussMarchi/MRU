@@ -1,6 +1,7 @@
 from Device.index import Device
 from Plotter.index import TimeGraph
 from Processing.Filter.laplace import LaplaceFilter
+import pandas as pd
 
 from Utils.classes import AsyncThreading
 from time import sleep, time
@@ -11,8 +12,9 @@ device.connect()
 device.stream(command=False)
 
 startTime = time()
-lastVal   = None
-filter = LaplaceFilter(Ts=1.2, UP=0.05, dt=0.015)
+lastVal = None
+filter  = LaplaceFilter(Ts=1.2, UP=0.05, dt=0.015)
+df = []
 
 
 def handleServer():
@@ -23,12 +25,12 @@ def handleServer():
     if data is None:
         return
     
-    filter.update(data['wx'])
-
     lastVal = {
-        'wx': data['wx'],
-        'wx_filtered': filter.compute()
+        'wx_sensor1': data['s1']['wx'],
+        'wx_sensor2': data['s1']['wx']
     }
+
+    df.append(lastVal)
 
 
 def getData():
@@ -44,5 +46,9 @@ def getData():
 if __name__ == '__main__':
     thread = AsyncThreading(handleServer, interval=0.001)
 
-    graph = TimeGraph(callback=getData, xLim=[0, 6])
-    graph.start()
+    try:
+        graph = TimeGraph(callback=getData, xLim=[0, 6])
+        graph.start()
+    except:
+        df = pd.DataFrame(df)
+        df.to_csv('DataBase.csv', index=None)

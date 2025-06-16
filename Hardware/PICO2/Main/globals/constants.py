@@ -1,2 +1,4 @@
+RAW_DEBUG = True
+
 DT_INTERVAL = 15
 dt = (DT_INTERVAL/1000.0)

@@ -17,7 +17,6 @@ def flashPercent():
     used = total - free
     return (used / total) * 100
 
-
 class Device:
     def __init__(self):
         self.startProg = 0
@@ -25,6 +24,7 @@ class Device:
         self.status = (0, 0)
         self.FLASH = flashPercent()
         self.RAM   = ramPercent()
+
         
         self.settings = {
             'timeout': 0.5,

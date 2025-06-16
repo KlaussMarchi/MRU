@@ -2,7 +2,7 @@ import serial, json
 import serial.tools.list_ports
 from time import sleep, time
 from Utils.functions import sendEvent
-from Utils.classes import AsyncThreading
+import ast
 
 
 class Device:
@@ -88,7 +88,7 @@ class Device:
                 
                 if b'\n' in response:
                     break
-
+                        
             cleaned = response.decode('utf-8', errors='ignore').strip()
             return ''.join(c for c in cleaned if c not in '\r\n')
         except Exception as error:
@@ -103,7 +103,7 @@ class Device:
             return None
         
         try:
-            return eval(data)
+            return ast.literal_eval(data)
         except Exception as error:
             sendEvent('error', error)
         

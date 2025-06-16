@@ -10,10 +10,17 @@ class Wire:
         sleep(1.0)
     
     def write(self, address, registerAddress, value):
-        self._i2c.writeto_mem(address, registerAddress, bytes([value]))
+        try:
+            self._i2c.writeto_mem(address, registerAddress, bytes([value]))
+            return True
+        except:
+            return False
     
     def read(self, address, registerAddress, count=1):
-        return self._i2c.readfrom_mem(address, registerAddress, count)
+        try:
+            return self._i2c.readfrom_mem(address, registerAddress, count)
+        except:
+            return False
     
     def scan(self):
         return self._i2c.scan()

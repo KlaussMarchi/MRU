@@ -1,5 +1,5 @@
 from time import ticks_ms as millis
-from globals.constants import DT_INTERVAL
+from globals.constants import DT_INTERVAL, RAW_DEBUG
 
 
 class Omega:
@@ -27,12 +27,9 @@ class Omega:
         self.x = self.y = self.z = 0
 
     def update(self, wx, wy, wz):
-        self.x = self.fx.compute(wx)
-        self.y = self.fy.compute(wy)
-        self.z = self.fz.compute(wz)
-
-    def get(self):
-        return [self.x, self.y, self.z]
+        self.x = self.fx.compute(wx) if not RAW_DEBUG else wx
+        self.y = self.fy.compute(wy) if not RAW_DEBUG else wy
+        self.z = self.fz.compute(wz) if not RAW_DEBUG else wz
 
 
 class Acceleration:
@@ -60,9 +57,6 @@ class Acceleration:
         self.x = self.y = self.z = 0
 
     def update(self, ax, ay, az):
-        self.x = self.fx.compute(ax)
-        self.y = self.fy.compute(ay)
-        self.z = self.fz.compute(az)
-
-    def get(self):
-        return [self.x, self.y, self.z]
+        self.x = self.fx.compute(ax) if not RAW_DEBUG else ax
+        self.y = self.fy.compute(ay) if not RAW_DEBUG else ay
+        self.z = self.fz.compute(az) if not RAW_DEBUG else az

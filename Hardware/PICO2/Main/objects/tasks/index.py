@@ -48,7 +48,9 @@ class Tasks:
             return
         
         self.startPrint = millis()
-        println(processing.get())
+
+        println(processing.raw())
+        #println(processing.get())
 
 
 tasks = Tasks()
