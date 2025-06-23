@@ -1,11 +1,9 @@
 from Device.index import Device
 from Plotter.index import TimeGraph
 from Processing.Filter.laplace import LaplaceFilter
-import pandas as pd
-
 from Utils.classes import AsyncThreading
-from time import sleep, time
-import numpy as np
+from time import time
+import pandas as pd
 
 device = Device(rate=115200)
 device.connect()
@@ -25,11 +23,9 @@ def handleServer():
     if data is None:
         return
     
-    lastVal = {
-        'wx_sensor1': data['s1']['wx'],
-        'wx_sensor2': data['s1']['wx']
-    }
-
+    #lastVal = {'wx_sensor2': data['s2']['pitch'], 'wx_sensor3': data['s3']['pitch'],}
+    #lastVal = {'pitch': data['pitch'], 'roll': data['roll'], 'yaw': data['yaw']}
+    lastVal  = {'wy': data['wy'], }
     df.append(lastVal)
 
 

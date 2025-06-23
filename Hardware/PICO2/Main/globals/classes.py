@@ -1,4 +1,4 @@
-from time import ticks_ms as millis
+from utime import ticks_ms as millis
 from globals.constants import DT_INTERVAL
 from math import sqrt
 
@@ -17,6 +17,19 @@ class Integral:
         self.Xn1, self.Yn1 = Xn, Yn
         return Yn
 
+class Derivative:
+    def __init__(self):
+        self.Xn1 = 0
+        self.Yn1 = 0
+        self.startTime = millis()
+
+    def compute(self, Xn):
+        if millis() - self.startTime < DT_INTERVAL:
+            return self.Yn1 
+
+        Yn = Xn*(20.000000) + self.Xn1*(-20.000000) + self.Yn1*(0.367879);
+        self.Xn1, self.Yn1 = Xn, Yn
+        return Yn
 
 class Array:
     def __init__(self, data):

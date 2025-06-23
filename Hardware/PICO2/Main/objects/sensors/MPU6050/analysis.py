@@ -1,13 +1,12 @@
-from time import ticks_ms as millis
+from utime import ticks_ms as millis
 from globals.constants import DT_INTERVAL, RAW_DEBUG
 
 
 class Omega:
     class Filter:
-        Xn1 = Xn2 = 0
-        Yn1 = Yn2 = 0
-
         def __init__(self):
+            self.Xn1 = self.Xn2 = 0
+            self.Yn1 = self.Yn2 = 0
             self.startTime = millis()
 
         def compute(self, Xn):
@@ -15,7 +14,7 @@ class Omega:
                 return self.Yn1
             
             self.startTime = millis()
-            Yn = Xn*(0.133618) + self.Xn1*(-0.000000) + self.Xn2*(-0.133618) + self.Yn1*(1.669797) + self.Yn2*(-0.732763)
+            Yn = Xn*(0.019790) + self.Xn1*(0.039579) + self.Xn2*(0.019790) + self.Yn1*(1.564504) + self.Yn2*(-0.643662)
             self.Xn2, self.Xn1 = self.Xn1, Xn
             self.Yn2, self.Yn1 = self.Yn1, Yn
             return Yn
@@ -34,10 +33,9 @@ class Omega:
 
 class Acceleration:
     class Filter:
-        Xn1 = Xn2 = 0
-        Yn1 = Yn2 = 0
-
         def __init__(self):
+            self.Xn1 = self.Xn2 = 0
+            self.Yn1 = self.Yn2 = 0
             self.startTime = millis()
 
         def compute(self, Xn):
@@ -45,7 +43,7 @@ class Acceleration:
                 return self.Yn1
             
             self.startTime = millis()
-            Yn = Xn*(0.133618) + self.Xn1*(-0.000000) + self.Xn2*(-0.133618) + self.Yn1*(1.669797) + self.Yn2*(-0.732763)
+            Yn = Xn*(0.496491) + self.Xn1*(-0.000000) + self.Xn2*(-0.496491) + self.Yn1*(-0.726062) + self.Yn2*(-0.007018)
             self.Xn2, self.Xn1 = self.Xn1, Xn
             self.Yn2, self.Yn1 = self.Yn1, Yn
             return Yn

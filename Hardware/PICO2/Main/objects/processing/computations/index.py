@@ -29,10 +29,10 @@ class Velocity:
         self.intZ = Integral()
         self.x = self.y = self.z = 0
 
-    def update(self, ax, ay, az):
-        self.x = self.intX.compute(ax)
-        self.y = self.intY.compute(ay)
-        self.z = self.intZ.compute(az)
+    def update(self, a):
+        self.x = self.intX.compute(a.x)
+        self.y = self.intY.compute(a.y)
+        self.z = self.intZ.compute(a.z)
 
 class Position:
     def __init__(self):
@@ -41,10 +41,10 @@ class Position:
         self.intZ = Integral()
         self.x = self.y = self.z = 0
 
-    def update(self, vx, vy, vz):
-        self.x = self.intX.compute(vx)
-        self.y = self.intY.compute(vy)
-        self.z = self.intZ.compute(vz)
+    def update(self, v):
+        self.x = self.intX.compute(v.x)
+        self.y = self.intY.compute(v.y)
+        self.z = self.intZ.compute(v.z)
 
 class Quaternions:
     def __init__(self):
@@ -81,7 +81,7 @@ class Quaternions:
 
     def fromOmega(self, wx, wy, wz):
         omega = Array([0.0, wx, wy, wz])
-        q_dot = self.product(self.q, omega)
+        q_dot = self.product(omega, self.q)
         self.q = q_dot.dot(0.5).dot(dt).add(self.q).norm()
 
     def fromAccel(self, ax, ay, az):

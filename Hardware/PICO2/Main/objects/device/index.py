@@ -1,4 +1,4 @@
-from time import ticks_ms as millis
+from utime import ticks_ms as millis
 from time import sleep_ms as delay
 from machine import Pin
 import uos, gc
@@ -25,7 +25,6 @@ class Device:
         self.FLASH = flashPercent()
         self.RAM   = ramPercent()
 
-        
         self.settings = {
             'timeout': 0.5,
             'enabled': True,
@@ -46,6 +45,12 @@ class Device:
 
         print('programa iniciado!')
         self.led.value(1)
+
+    def time(self, reset=False):
+        if reset:
+            self.startProg = millis()
+        
+        return (millis() - self.startProg)/1000.00
 
 
 device = Device()

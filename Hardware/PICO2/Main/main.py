@@ -1,4 +1,3 @@
-
 from objects.device.index import device
 from objects.tasks.index import tasks
 from objects.processing.index import processing
@@ -10,24 +9,22 @@ lock = _thread.allocate_lock()
 def thread0():
     while True:
         with lock:
-            processing.handle()
-            tasks.memory()
-            tasks.print()
             sensors.handle()
+            tasks.print()
+            tasks.memory()
+
 
 def thread1():
     while True:
         with lock:
-            
+            processing.handle()
             tasks.blink()
-            
-        
 
 
 if __name__ == '__main__':
     device.setup()
-    processing.setup()
     sensors.setup()
+    processing.setup()
     device.status = tasks.WORKING
     
     _thread.start_new_thread(thread1, ())

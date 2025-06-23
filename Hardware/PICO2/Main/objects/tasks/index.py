@@ -1,6 +1,6 @@
-from time import ticks_ms as millis
+from utime import ticks_ms as millis
 from objects.processing.index import processing
-from globals.constants import DT_INTERVAL
+from globals.constants import DT_INTERVAL, RAW_DEBUG
 from globals.functions import println
 from objects.device.index import device
 import gc
@@ -40,6 +40,7 @@ class Tasks:
         variation = (gc.mem_free() - self.lastMemory)
         
         if variation < self.MAX_GARBAGE:
+            print('memory cleaning')
             gc.collect()
             self.lastMemory = gc.mem_free()
 
@@ -49,8 +50,10 @@ class Tasks:
         
         self.startPrint = millis()
 
-        println(processing.raw())
-        #println(processing.get())
+        if RAW_DEBUG:
+            return println(processing.raw())
+        
+        println(processing.get())
 
 
 tasks = Tasks()
