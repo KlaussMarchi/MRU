@@ -82,7 +82,7 @@ class Quaternions:
     def fromOmega(self, wx, wy, wz):
         omega = Array([0.0, wx, wy, wz])
         q_dot = self.product(omega, self.q)
-        self.q = q_dot.dot(0.5).dot(dt).add(self.q).norm()
+        self.q = (q_dot * 0.5 * dt + self.q).norm()
 
     def fromAccel(self, ax, ay, az):
         ax, ay, az = Array([ax, ay, az]).norm().data

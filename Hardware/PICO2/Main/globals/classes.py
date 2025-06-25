@@ -1,6 +1,6 @@
 from utime import ticks_ms as millis
 from globals.constants import DT_INTERVAL
-from math import sqrt
+import math
 
 
 class Integral:
@@ -56,34 +56,33 @@ class Array:
     def std(self, mean=None):
         if mean is None:
             mean = self.mean()
-        return sqrt(sum((x - mean)**2 for x in self.data) / self.length)
+        return math.sqrt(sum((x - mean)**2 for x in self.data) / self.length)
 
     def sum(self):
         return sum(self.data)
 
     def norm(self):
-        A = sqrt(sum(x ** 2 for x in self.data))
+        A = math.sqrt(sum(x ** 2 for x in self.data))
         if A == 0:
             return self.copy()
         return Array([val / A for val in self.data])
+    
+    def __add__(self, other):
+        if isinstance(other, Array):
+            return Array([a + b for a, b in zip(self.data, other.data)])
+        elif isinstance(other, (int, float)):
+            return Array([a + other for a in self.data])
+        return NotImplemented
 
-    def dot(self, other):
+    def __mul__(self, other):
         if isinstance(other, (int, float)):
             return Array([a * other for a in self.data])
-        return sum(a * b for a, b in zip(self.data, other.data))
-    
-    def add(self, other):
-        if isinstance(other, (int, float)):
-            return Array([a + other for a in self.data])
-        return Array([a + b for a, b in zip(self.data, other.data)])
-
-    def sub(self, other):
-        if isinstance(other, (int, float)):
-            return Array([a - other for a in self.data])
-        return Array([a - b for a, b in zip(self.data, other.data)])
+        return NotImplemented
     
     def copy(self):
         return Array(self.data[:])
 
     def __repr__(self):
         return f"Array({self.data})"
+    
+    __rmul__ = __mul__

@@ -2,6 +2,7 @@ from objects.device.index import device
 from objects.tasks.index import tasks
 from objects.processing.index import processing
 from objects.sensors.index import sensors
+from objects.protocol.index import protocol
 import _thread
 lock = _thread.allocate_lock()
 
@@ -18,6 +19,7 @@ def thread1():
     while True:
         with lock:
             processing.handle()
+            protocol.handle()
             tasks.blink()
 
 

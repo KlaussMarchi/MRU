@@ -1,5 +1,6 @@
 from utime import ticks_ms as millis
 from globals.constants import DT_INTERVAL, RAW_DEBUG
+import math
 
 
 class Omega:
@@ -26,9 +27,9 @@ class Omega:
         self.x = self.y = self.z = 0
 
     def update(self, wx, wy, wz):
-        self.x = self.fx.compute(wx) if not RAW_DEBUG else wx
-        self.y = self.fy.compute(wy) if not RAW_DEBUG else wy
-        self.z = self.fz.compute(wz) if not RAW_DEBUG else wz
+        self.x = (self.fx.compute(wx) if not RAW_DEBUG else wx) / 131.0 * math.pi / 180.0
+        self.y = (self.fy.compute(wy) if not RAW_DEBUG else wy) / 131.0 * math.pi / 180.0
+        self.z = (self.fz.compute(wz) if not RAW_DEBUG else wz) / 131.0 * math.pi / 180.0
 
 
 class Acceleration:
@@ -55,6 +56,6 @@ class Acceleration:
         self.x = self.y = self.z = 0
 
     def update(self, ax, ay, az):
-        self.x = self.fx.compute(ax) if not RAW_DEBUG else ax
-        self.y = self.fy.compute(ay) if not RAW_DEBUG else ay
-        self.z = self.fz.compute(az) if not RAW_DEBUG else az
+        self.x = (self.fx.compute(ax) if not RAW_DEBUG else ax) / 16384.0 * 9.80665
+        self.y = (self.fy.compute(ay) if not RAW_DEBUG else ay) / 16384.0 * 9.80665
+        self.z = (self.fz.compute(az) if not RAW_DEBUG else az) / 16384.0 * 9.80665

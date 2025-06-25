@@ -1,7 +1,7 @@
 import serial, ast
 import serial.tools.list_ports
 from time import sleep, time
-from Utils.functions import sendEvent
+from utils.functions import sendEvent, getRawStr
 
 
 class Device:
@@ -64,7 +64,7 @@ class Device:
         return parts[0].strip()
     
     def send(self, msg, breakLine=True):
-        msg = msg.strip()
+        msg = getRawStr(msg)
         
         if breakLine:
             msg = msg + '\r\n'
@@ -189,17 +189,6 @@ class Device:
             return self.get()
         
         return None
-    
-    def stream(self, command='stream'):
-        sendEvent('event', 'starting stream with device')
-        
-        if command:
-            self.sendData('stream')
-        
-        self.device.reset_input_buffer()
-
-        while self.available():
-            continue
 
 
 device = Device(rate=115200)
