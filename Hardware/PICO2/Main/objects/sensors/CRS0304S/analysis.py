@@ -3,6 +3,8 @@ from globals.constants import DT_INTERVAL, RAW_DEBUG
 
 
 class Omega:
+    confidence = 0.1
+    
     class Filter:
         def __init__(self):
             self.Xn1 = self.Xn2 = 0
@@ -32,6 +34,8 @@ class Omega:
 
 
 class Acceleration:
+    confidence = 0.1
+
     class Filter:
         def __init__(self):
             self.Xn1 = self.Xn2 = 0

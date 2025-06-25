@@ -27,7 +27,7 @@ def handleServer():
     if data is None:
         return
     
-    lastVal = {'pitch': data['pitch'], }
+    lastVal = {'wx': data['wx'], 'wy': data['wy'], }
     df_list.append(data)
 
 

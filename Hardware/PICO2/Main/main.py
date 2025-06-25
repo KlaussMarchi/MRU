@@ -14,7 +14,6 @@ def thread0():
             tasks.print()
             tasks.memory()
 
-
 def thread1():
     while True:
         with lock:
@@ -28,6 +27,5 @@ if __name__ == '__main__':
     sensors.setup()
     processing.setup()
     device.status = tasks.WORKING
-    
     _thread.start_new_thread(thread1, ())
     thread0()

@@ -1,6 +1,7 @@
 from globals.constants import dt
-from globals.classes import Integral, Array
+from globals.classes import Integral
 from globals.functions import sign
+from objects.processing.array.index import Array
 import math
 
 
