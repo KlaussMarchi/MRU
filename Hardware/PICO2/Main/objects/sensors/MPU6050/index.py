@@ -5,11 +5,6 @@ import struct
 
 
 class MPU6050:
-    PWR_MGMT_1   = 0x6B
-    SMPLRT_DIV   = 0x19
-    CONFIG       = 0x1A
-    ACCEL_XOUT_H = 0x3B
-    
     def __init__(self, sda, scl):
         self.sda, self.scl = sda, scl
         self.a = Acceleration()
@@ -17,18 +12,18 @@ class MPU6050:
 
     def setup(self):
         self.address = self.connect()
-        self.wire.write(self.address, self.PWR_MGMT_1, 0x00)
-        sleep(0.1) # sample rate = 1 kHz
-        self.wire.write(self.address, self.SMPLRT_DIV, 0x07) 
-        print('MPU ready')
+        self.wire.write(self.address, 0x6B, 0x00)
+        sleep(0.1)
+        self.wire.write(self.address, 0x19, 0x07)
+        sleep(0.1)
 
     def update(self):
-        raw = self.wire.read(self.address, self.ACCEL_XOUT_H, 14)
+        data = self.wire.read(self.address, 0x3B, 14)
 
-        if not raw or len(raw) != 14:
+        if not data or len(data) != 14:
             return
         
-        wx, wy, wz, t, ax, ay, az = struct.unpack('>hhhhhhh', raw)
+        ax, ay, az, _, wx, wy, wz = struct.unpack('>hhhhhhh', data)
         self.a.update(ax, ay, az)
         self.w.update(wx, wy, wz)
 

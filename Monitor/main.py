@@ -1,54 +1,69 @@
 from Device.index import device
 from Plotter.index import TimeGraph
-from Processing.Filter.laplace import LaplaceFilter
 from Utils.classes import AsyncThreading
-from time import time
+from time import time, sleep
 import pandas as pd
+import os, keyboard
 
-import os
 script_path = os.path.abspath(__file__)
 base_dir = os.path.dirname(script_path)
 os.chdir(base_dir)
 
-device.connect()
-device.stream(command=False)
 
-startTime = time()
-lastVal = None
-filter  = LaplaceFilter(Ts=1.2, UP=0.05, dt=0.015)
-df_list = []
+class Monitor:
+    SAVE = False
 
-
-def handleServer():
-    global lastVal
-    data = device.getJson()
-    print(data)
-
-    if data is None:
-        return
+    def __init__(self):
+        self.startTime = time()
+        self.current = None
+        self.values  = []
+        
+    def setup(self):
+        device.connect()
+        device.stream(command=False)
     
-    lastVal = {'wx': data['wx'], 'wy': data['wy'], }
-    df_list.append(data)
+    def user(self):
+        caracteres = list("abcdefghijklmnopqrstuvwxyz0123456789")
+        return any(keyboard.is_pressed(key) for key in list(keyboard.all_modifiers) + caracteres)
 
+    def save(self):
+        df = pd.DataFrame(self.values)
+        
+        if self.SAVE:
+            df.to_csv('DataBase.csv', index=None)
 
-def getData():
-    global lastVal, startTime
-    timePassed = (time() - startTime)
+    def handle(self):
+        data = device.getJson()
+        print(data)
 
-    if lastVal is None:
-        return
-    
-    return (timePassed, lastVal)
+        if data is not None:    
+            self.update(data)
+            self.values.append(data)
+
+    def update(self, data):
+        self.current = {
+            'ax': data['ax'],
+            'ay': data['ay']
+        }
+
+    def get(self):
+        if self.current is None:
+            return
+        
+        return (time() - self.startTime, self.current)
 
 
 if __name__ == '__main__':
-    thread = AsyncThreading(handleServer, interval=0.001)
+    monitor = Monitor()
+    monitor.setup()
+
+    thread = AsyncThreading(monitor.handle, interval=0.001)
 
     try:
-        graph = TimeGraph(callback=getData, xLim=[0, 6])
+        graph = TimeGraph(callback=monitor.get, xLim=[0, 6])
         graph.start()
-    except:
-        pass
+    except Exception as error:
+        print('error: ', error)
     finally:
-        df = pd.DataFrame(df_list)
-        df.to_csv('DataBase.csv', index=None)
+        if monitor.SAVE:
+            monitor.save()

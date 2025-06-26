@@ -14,6 +14,7 @@ def thread0():
             tasks.print()
             tasks.memory()
 
+
 def thread1():
     while True:
         with lock:
