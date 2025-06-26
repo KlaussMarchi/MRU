@@ -14,13 +14,13 @@ class Monitor:
     SAVE = False
 
     def __init__(self):
-        self.startTime = time()
         self.current = None
         self.values  = []
         
     def setup(self):
         device.connect()
         device.stream(command=False)
+        self.startTime = time()
     
     def user(self):
         caracteres = list("abcdefghijklmnopqrstuvwxyz0123456789")
@@ -42,8 +42,9 @@ class Monitor:
 
     def update(self, data):
         self.current = {
-            'ax': data['ax'],
-            'ay': data['ay']
+            'pitch': data['pitch'],
+            'roll': data['roll'],
+            'yaw': data['yaw'],
         }
 
     def get(self):
@@ -56,7 +57,6 @@ class Monitor:
 if __name__ == '__main__':
     monitor = Monitor()
     monitor.setup()
-
     thread = AsyncThreading(monitor.handle, interval=0.001)
 
     try:
