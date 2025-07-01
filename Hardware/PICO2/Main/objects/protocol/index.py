@@ -1,27 +1,10 @@
-from globals.constants import RAW_DEBUG, SERIAL_DEBUG
+from globals.constants import RAW_DEBUG
 from machine import UART
-import sys, uselect
-
-
-class USB:
-    def __init__(self):
-        self.poller = uselect.poll()
-        self.poller.register(sys.stdin, uselect.POLLIN)
-
-    def any(self):
-        return bool(self.poller.poll(0))
-    
-    def read(self):
-        return sys.stdin.buffer.readline()
-    
-    def write(self, message):
-        sys.stdout.write(message)
-        sys.stdout.flush()
 
 
 class Protocol:
     def __init__(self):
-        self.serial  = USB() if SERIAL_DEBUG else UART(0, baudrate=115200)
+        self.serial  = UART(0, baudrate=115200)
         self.command = ""
     
     def available(self):

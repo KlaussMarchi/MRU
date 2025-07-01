@@ -1,9 +1,9 @@
 from objects.processing.computations.index import Omega, Acceleration, Velocity, Position, Quaternions
 from objects.processing.fusion.index import Fusion
-from utime import ticks_ms as millis
+from globals.constants import DT_INTERVAL, RAW_DEBUG
 from objects.device.index import device
-from globals.constants import DT_INTERVAL
 from objects.sensors.index import sensors
+from utime import ticks_ms as millis
 
 
 class Processing:
@@ -23,14 +23,17 @@ class Processing:
         if millis() - self.startTime < DT_INTERVAL:
             return
         
+        if RAW_DEBUG:
+            return
+        
         self.startTime = millis()
-        wx = self.fusion.wx(sensors.sensor2.w, sensors.sensor3.w)
-        wy = self.fusion.wy(sensors.sensor2.w, sensors.sensor3.w)
-        wz = self.fusion.wz(sensors.sensor2.w, sensors.sensor3.w)
+        wx = self.fusion.wx(sensors.sensor1.w, sensors.sensor2.w)
+        wy = self.fusion.wy(sensors.sensor1.w, sensors.sensor2.w)
+        wz = self.fusion.wz(sensors.sensor1.w, sensors.sensor2.w)
 
-        ax = self.fusion.ax(sensors.sensor2.a, sensors.sensor3.a)
-        ay = self.fusion.ay(sensors.sensor2.a, sensors.sensor3.a)
-        az = self.fusion.az(sensors.sensor2.a, sensors.sensor3.a)
+        ax = self.fusion.ax(sensors.sensor1.a, sensors.sensor2.a)
+        ay = self.fusion.ay(sensors.sensor1.a, sensors.sensor2.a)
+        az = self.fusion.az(sensors.sensor1.a, sensors.sensor2.a)
 
         self.w.update(wx, wy, wz) # velocidade angular fundida
         self.a.update(ax, ay, az) # aceleração linear fundida
@@ -62,7 +65,7 @@ class Processing:
     def raw(self):
         data = {'time': device.time()}
         
-        for i, s in enumerate([sensors.sensor1, sensors.sensor2, sensors.sensor3]):
+        for i, s in enumerate([sensors.sensor1, sensors.sensor2]):
             data[f's{i+1}'] = s.get()
 
         return data

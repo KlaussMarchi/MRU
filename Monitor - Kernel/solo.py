@@ -4,6 +4,7 @@ from Utils.classes import AsyncThreading
 from time import time, sleep
 import pandas as pd
 import os, keyboard
+from Kernel.index import KernelSensor
 
 script_path = os.path.abspath(__file__)
 base_dir = os.path.dirname(script_path)
@@ -11,21 +12,21 @@ os.chdir(base_dir)
 
 
 class Monitor:
-    SAVE = True
+    SAVE = False
 
     def __init__(self):
         self.current = None
         self.values  = []
         
     def setup(self):
-        self.device = Device(rate=115200)
-        self.device.connect()
-        
-        self.device.stream(command=False)
+        self.kernel = KernelSensor()
+        self.kernel.port = 'COM27'
+        self.kernel.connect()
+        #self.kernel.set('frequency', 50)
         self.startTime = time()
     
     def user(self):
-        caracteres = list("abcdefghijklmnopqrstuvwxyz0123456789")
+        caracteres = list('abcdefghijklmnopqrstuvwxyz0123456789')
         return any(keyboard.is_pressed(key) for key in list(keyboard.all_modifiers) + caracteres)
 
     def save(self):
@@ -35,18 +36,21 @@ class Monitor:
             df.to_csv('DataBase.csv', index=None)
 
     def handle(self):
-        data = self.device.getJson()
-        print(data)
+        if not self.kernel.available():
+            return
+
+        data = self.kernel.getJson() 
 
         if data is None:
             return
 
+        print(data)
         self.update(data)
         self.values.append(data)
 
     def update(self, data):
         self.current = {
-            'ax_kern':  data['s1'].get('ax'),
+            'wx': data.get('wx'),
         }
 
     def get(self):

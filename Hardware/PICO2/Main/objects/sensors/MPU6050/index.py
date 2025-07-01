@@ -32,12 +32,12 @@ class MPU6050:
             self.update()
 
         return {
-            'wx': self.w.x, 
-            'wy': self.w.y, 
-            'wz': self.w.z, 
-            'ax': self.a.x, 
-            'ay': self.a.y, 
-            'az': self.a.z, 
+            'wx': self.w.x,
+            'wy': self.w.y,
+            'wz': self.w.z,
+            'ax': self.a.x,
+            'ay': self.a.y,
+            'az': self.a.z,
         }
     
     def connect(self, retries=3):

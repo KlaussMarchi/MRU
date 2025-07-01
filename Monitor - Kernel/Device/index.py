@@ -14,6 +14,7 @@ class Device:
         self.port = port
         self.rate = rate
         self.timeout = timeout
+        self.last = None
 
     def connect(self, delay=2.5):
         self.port = self.port if self.port is not None else self.scan()
@@ -190,13 +191,8 @@ class Device:
         
         return None
     
-    def stream(self, command='stream'):
-        sendEvent('event', 'starting stream with device')
+    def stream(self):
+        if not self.available():
+            return
         
-        if command:
-            self.sendData('stream')
-        
-        self.device.reset_input_buffer()
-
-        while self.available():
-            continue
+        self.last = self.getJson()   

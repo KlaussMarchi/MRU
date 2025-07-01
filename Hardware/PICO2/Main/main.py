@@ -1,5 +1,5 @@
 from objects.device.index import device
-from objects.tasks.index import tasks
+from objects.tasks.index  import tasks
 from objects.processing.index import processing
 from objects.sensors.index import sensors
 from objects.protocol.index import protocol
@@ -30,3 +30,4 @@ if __name__ == '__main__':
     device.status = tasks.WORKING
     _thread.start_new_thread(thread1, ())
     thread0()
+    
