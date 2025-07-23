@@ -1,31 +1,16 @@
 from utime import ticks_ms as millis
 from globals.constants import DT_INTERVAL, RAW_DEBUG
+from objects.processing.filters.index import ButterworthFilter
 import math
 
 
 class Omega:
     confidence = 0.1
 
-    class Filter:
-        def __init__(self):
-            self.Xn1 = self.Xn2 = 0
-            self.Yn1 = self.Yn2 = 0
-            self.startTime = millis()
-
-        def compute(self, Xn):
-            if millis() - self.startTime < DT_INTERVAL:
-                return self.Yn1
-            
-            self.startTime = millis()
-            Yn = Xn*(0.013231) + self.n1*(0.026462) + self.Xn2*(0.013231) + self.Yn1*(1.649272) + self.Yn2*(-0.702196)
-            self.Xn2, self.Xn1 = self.Xn1, Xn
-            self.Yn2, self.Yn1 = self.Yn1, Yn
-            return Yn
-    
     def __init__(self):
-        self.fx = self.Filter()
-        self.fy = self.Filter()
-        self.fz = self.Filter()
+        self.fx = ButterworthFilter(f_c=0.20)
+        self.fy = ButterworthFilter(f_c=0.20)
+        self.fz = ButterworthFilter(f_c=0.20)
         self.x = self.y = self.z = 0
     
     def update(self, wx, wy, wz):
@@ -37,26 +22,10 @@ class Omega:
 class Acceleration:
     confidence = 0.1
     
-    class Filter:
-        def __init__(self):
-            self.Xn1 = self.Xn2 = 0
-            self.Yn1 = self.Yn2 = 0
-            self.startTime = millis()
-
-        def compute(self, Xn):
-            if millis() - self.startTime < DT_INTERVAL:
-                return self.Yn1
-            
-            self.startTime = millis()
-            Yn = Xn*(0.080808) + self.Xn1*(0.000000) + self.Xn2*(-0.080808) + self.Yn1*(1.836207) + self.Yn2*(-0.838383)
-            self.Xn2, self.Xn1 = self.Xn1, Xn
-            self.Yn2, self.Yn1 = self.Yn1, Yn
-            return Yn
-    
     def __init__(self):
-        self.fx = self.Filter()
-        self.fy = self.Filter()
-        self.fz = self.Filter()
+        self.fx = ButterworthFilter(f_c=0.15)
+        self.fy = ButterworthFilter(f_c=0.15)
+        self.fz = ButterworthFilter(f_c=0.15)
         self.x = self.y = self.z = 0
 
     def update(self, ax, ay, az):

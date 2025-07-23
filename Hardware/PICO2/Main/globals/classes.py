@@ -1,6 +1,5 @@
 from utime import ticks_ms as millis
 from globals.constants import DT_INTERVAL
-import math
 
 
 class Integral:
@@ -30,4 +29,3 @@ class Derivative:
         Yn = Xn*(20.000000) + self.Xn1*(-20.000000) + self.Yn1*(0.367879);
         self.Xn1, self.Yn1 = Xn, Yn
         return Yn
-

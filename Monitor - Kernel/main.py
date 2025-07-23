@@ -50,7 +50,7 @@ class Monitor:
 
     def handle(self):
         data = {'device': self.device.last, 'kernel': self.kernel.last}
-        #print(data)
+        print(data)
 
         if None in data.values():
             return
@@ -59,12 +59,11 @@ class Monitor:
         self.values.append(data)
 
     def update(self, data):
-        n = np.mean([10.11, 10.26, 10.08, 10.09]) / np.mean([499, 498, 500, 498])
+        #if abs(data['kernel'].get('ax')) > 1000: return
 
         self.current = {
-            'ax_6050':  data['device']['s2'].get('ax'),
-            'ax_9250':  data['device']['s3'].get('ax'),
-            'ax_kernel': data['kernel'].get('ax') * n,
+            'ax_fusion': data['device']['s1'].get('ax'),
+            'ax_kernel': data['kernel'].get('ax'),
         }
         print(self.current)
 
@@ -86,5 +85,26 @@ if __name__ == '__main__':
     except Exception as error:
         print('error: ', error)
     finally:
+        print('\nsalvando database')
+
         if monitor.SAVE:
             monitor.save()
+
+
+
+
+"""
+11:08:11.165 -> angle update: 60.00º
+11:08:16.155 -> angle update: 90.00º
+11:08:21.170 -> angle update: 120.00º
+11:08:26.153 -> angle update: 90.00º
+11:08:31.159 -> angle update: 135.00º
+11:08:36.150 -> angle update: 40.00º
+11:08:41.165 -> angle update: 120.00º
+11:08:46.155 -> angle update: 75.00º
+11:08:51.156 -> angle update: 50.00º
+11:08:56.170 -> angle update: 95.00º
+11:09:01.167 -> angle update: 135.00º
+11:09:06.159 -> angle update: 40.00º
+
+"""

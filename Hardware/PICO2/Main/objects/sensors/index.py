@@ -29,6 +29,9 @@ class Sensors:
         self.sensor2.update()
         #self.sensor3.update()
         #self.sensor4.update()
+    
+    def get(self):
+        return [self.sensor1, self.sensor2]
 
 
 sensors = Sensors()

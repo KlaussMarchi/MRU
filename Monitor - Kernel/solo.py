@@ -22,7 +22,7 @@ class Monitor:
         self.kernel = KernelSensor()
         self.kernel.port = 'COM27'
         self.kernel.connect()
-        #self.kernel.set('frequency', 50)
+        self.kernel.set('frequency', 50)
         self.startTime = time()
     
     def user(self):
@@ -40,17 +40,19 @@ class Monitor:
             return
 
         data = self.kernel.getJson() 
+        print(data)
 
         if data is None:
             return
 
-        print(data)
         self.update(data)
         self.values.append(data)
 
     def update(self, data):
+        #if abs(data.get("ax")) > 1000: return
+        
         self.current = {
-            'wx': data.get('wx'),
+            'ax': data.get('ax'),
         }
 
     def get(self):
