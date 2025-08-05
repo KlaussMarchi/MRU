@@ -28,12 +28,12 @@ class Processing:
         
         self.startTime = millis()
         wx = self.fusion.wx(sensors.sensor1.w, sensors.sensor2.w)
-        wy = -self.fusion.wy(sensors.sensor1.w, sensors.sensor2.w)
-        wz = -self.fusion.wz(sensors.sensor1.w, sensors.sensor2.w)
+        wy = self.fusion.wy(sensors.sensor1.w, sensors.sensor2.w)
+        wz = self.fusion.wz(sensors.sensor1.w, sensors.sensor2.w)
 
         ax = self.fusion.ax(sensors.sensor1.a, sensors.sensor2.a)
-        ay = -self.fusion.ay(sensors.sensor1.a, sensors.sensor2.a)
-        az = -self.fusion.az(sensors.sensor1.a, sensors.sensor2.a)
+        ay = self.fusion.ay(sensors.sensor1.a, sensors.sensor2.a)
+        az = self.fusion.az(sensors.sensor1.a, sensors.sensor2.a)
 
         self.w.update(wx, wy, wz) # velocidade angular fundida
         self.a.update(ax, ay, az) # aceleração linear fundida

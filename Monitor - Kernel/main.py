@@ -32,7 +32,7 @@ class Monitor:
         self.device.stream()
         self.kernel.stream()
 
-        self.kernel.set('frequency', 50)
+        #self.kernel.set('frequency', 50)
         self.startTime = time()
 
         self.thread1 = AsyncThreading(self.device.stream)

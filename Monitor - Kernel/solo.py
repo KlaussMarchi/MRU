@@ -20,9 +20,9 @@ class Monitor:
         
     def setup(self):
         self.kernel = KernelSensor()
-        self.kernel.port = 'COM27'
-        self.kernel.connect()
-        self.kernel.set('frequency', 50)
+        self.kernel.port = 'COM6'
+        self.kernel.connect(9600)
+        #self.kernel.set('frequency', 50)
         self.startTime = time()
     
     def user(self):

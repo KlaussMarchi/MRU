@@ -14,8 +14,8 @@ class KernelSensor:
         self.last   = None
         self.port = 'COM5'
 
-    def connect(self):
-        self.device = serial.Serial(self.port, 115200, timeout=5.0)
+    def connect(self, baud=115200):
+        self.device = serial.Serial(self.port, baud, timeout=5.0)
         self.device.write(self.CONFIG_ORIENTATION)
         time.sleep(0.1)
 
