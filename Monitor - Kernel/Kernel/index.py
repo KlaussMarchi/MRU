@@ -1,7 +1,24 @@
 import serial, time, struct, math
-from Kernel.variables import BAUD_RATES
 from time import sleep
 
+BAUD_RATES = {
+    4800:  0x01, 
+    9600:  0x02, 
+    14400: 0x03,
+    19200: 0x04, 
+    38400: 0x05, 
+    57600: 0x06,
+    115200: 0x07, 
+    230400: 0x08, 
+    460800: 0x09,
+    921600: 0x0A, 
+    2000000: 0x0B, 
+    375000:  0x0C,
+    1843200: 0x0D, 
+    3686400: 0x0E, 
+    1000000: 0x0F,
+    4000000: 0x10
+}
 
 class KernelSensor:
     CONFIG_ORIENTATION = bytes.fromhex('AA 55 00 00 07 00 33 3A 00')

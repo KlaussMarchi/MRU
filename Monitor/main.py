@@ -46,7 +46,7 @@ class Monitor:
 
     def update(self, data):
         self.current = {
-            'ax_kern':  data['s3'].get('ax'),
+            'ax_kern':  data['s1'].get('ax'),
         }
 
     def get(self):

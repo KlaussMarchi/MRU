@@ -9,9 +9,10 @@ from globals.constants import DT_INTERVAL
 
 class Sensors:
     def __init__(self):
-        self.sensor1 = MPU6050(16, 17)
-        self.sensor2 = MPU9250(20, 21)
-        self.sensor3 = CRS0304S(28)
+        self.sensor1 = KernelSensor(8, 9)
+        #self.sensor1 = MPU6050(16, 17)
+        #self.sensor2 = MPU9250(20, 21)
+        #self.sensor3 = CRS0304S(28)
         #self.sensor3 = KernelSensor(4, 5)
         #self.sensor1 = BNO085(16, 17)
         self.startTime = millis()
@@ -30,7 +31,7 @@ class Sensors:
             s.update()
     
     def get(self):
-        return (self.sensor1, self.sensor2, self.sensor3)
+        return (self.sensor1, )
 
 
 sensors = Sensors()
