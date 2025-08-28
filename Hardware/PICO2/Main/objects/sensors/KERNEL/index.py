@@ -3,6 +3,7 @@ from machine import UART, Pin
 from time import sleep_ms as delay
 from utime import ticks_ms as millis
 
+
 class KernelSensor:
     CMD_ORIENTATION = bytes([0xAA, 0x55, 0x00, 0x00, 0x07, 0x00, 0x33, 0x3A, 0x00])
     PKT_LEN = 42

@@ -41,6 +41,10 @@ template<int SIZE> class Json{
         data[key] = value;
     }
 
+    void set(const char* key, double value){
+        data[key] = value;
+    }
+
     void set(const char* key, bool value){
         data[key] = value;
     }

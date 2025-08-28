@@ -27,7 +27,7 @@ class Acceleration:
         self.fy = ButterworthFilter(f_c=0.15)
         self.fz = ButterworthFilter(f_c=0.15)
         self.x = self.y = self.z = 0
-
+    
     def update(self, ax, ay, az):
         self.x = (self.fx.compute(ax) if not RAW_DEBUG else ax) / 16384.0 * 9.80665
         self.y = (self.fy.compute(ay) if not RAW_DEBUG else ay) / 16384.0 * 9.80665

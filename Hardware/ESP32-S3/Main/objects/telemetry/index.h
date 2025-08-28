@@ -1,6 +1,7 @@
 #ifndef TELEMETRY_H
 #define TELEMETRY_H
 #include <Arduino.h>
+#include <HardwareSerial.h>
 #include "../../globals/constants.h"
 #include "../../globals/functions.h"
 #include "../device/index.h"
@@ -45,7 +46,7 @@ class Telemetry{
         if(serial.command.length() > 100)
             return true;
 
-        if(serial.command.contains("$ETRS!"))
+        if(serial.command.contains("$MICRS!"))
             device.reset();
 
         if(serial.command.contains("D:")){
