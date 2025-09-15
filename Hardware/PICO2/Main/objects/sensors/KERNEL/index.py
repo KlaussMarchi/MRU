@@ -9,7 +9,7 @@ class KernelSensor:
     PKT_LEN = 42
     KG = 10.0   # Fator de escala para giroscópio
     KA = 500.0  # Fator de escala para acelerômetro
-
+    
     def __init__(self, tx_pin, rx_pin):
         print(f'Kernel Started at tx={tx_pin} and rx={rx_pin}')
         self.uart = UART(1, baudrate=9600, tx=Pin(tx_pin), rx=Pin(rx_pin))

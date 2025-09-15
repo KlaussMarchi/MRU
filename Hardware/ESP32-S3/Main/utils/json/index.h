@@ -79,6 +79,12 @@ template<int SIZE> class Json{
         serializeJson(data, output);
         return output;
     }
+    
+    const char* getBuffer() const {
+        static char buffer[SIZE]; 
+        serializeJson(data, buffer, sizeof(buffer));
+        return buffer;
+    }
 };
 
 

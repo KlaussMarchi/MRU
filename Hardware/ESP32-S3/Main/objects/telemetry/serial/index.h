@@ -5,7 +5,7 @@
 #include "../../../globals/functions.h"
 #include "../../../utils/text/index.h"
 #include "../../../utils/listener/index.h"
-#include "../../device/index.h"
+#include "../../../utils/time/index.h"
 #define CMD_MIN_SIZE 5
 
 
@@ -38,9 +38,9 @@ template<int CMD_SIZE> class NextSerial{
     }
 
     void await(const int ms){
-        const unsigned long startTime = device.time();
+        const unsigned long startTime = Time::get();
 
-        while(device.time() - startTime < ms)
+        while(Time::get() - startTime < ms)
             listen();
     }
 
@@ -54,15 +54,10 @@ template<int CMD_SIZE> class NextSerial{
             reset();
     }
     
-    void reset(){
-        command.reset();
-        available = false;
-    }
-
     void listen(){
-        static Listener listener = Listener(100);
+        static Listener timer = Listener(100);
         
-        if(!listener.ready())
+        if(!timer.ready())
             return;
 
         const int size  = uart.available();
@@ -74,8 +69,8 @@ template<int CMD_SIZE> class NextSerial{
         if(!junk)
             reset();
         
-        const unsigned long startTime = device.time();
-        while(uart.available() && device.time() - startTime < timeout){
+        const unsigned long startTime = Time::get();
+        while(uart.available() && Time::get() - startTime < timeout){
             const char letter = (char) uart.read();
             
             if(junk)
@@ -87,6 +82,12 @@ template<int CMD_SIZE> class NextSerial{
         
         available = (command.length() > 5 && !command.isEmpty());
     }
+
+    void reset(){
+        command.reset();
+        available = false;
+    }
+
 };
 
 #endif

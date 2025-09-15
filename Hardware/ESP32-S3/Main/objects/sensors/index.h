@@ -3,42 +3,54 @@
 #include <Arduino.h>
 #include "MPU6050/index.h"
 #include "MPU9250/index.h"
+#include "Kernel/index.h"
 #include "../../utils/listener/index.h"
 #include "../../utils/json/index.h"
-#include "../device/index.h"
+#include "../../utils/time/index.h"
 
 
-class Sensors{
-  public:
-    MPU6050 sensor1 = MPU6050(10, 12);
-    MPU9250 sensor2 = MPU9250(10, 12);
+template <typename Parent> class Sensors{
+  private:
+    Parent* device;
     
+  public:
+    KernelSensor sensor1 = KernelSensor(47, 48);
+    MPU9250 sensor2      = MPU9250(10, 12);
+
+    Sensors(Parent* dev):
+        device(dev){}
+
     void setup(){
         sensor1.setup();
-        sensor2.setup();
+        //sensor2.setup();
     }
 
     void handle(){
-        static Listener listener = Listener(20);
+        static Listener timer = Listener(10);
 
-        if(!listener.ready())
+        if(!timer.ready())
             return;
 
         sensor1.update();
-        sensor2.update();
+        //sensor2.update();
     }
 
-    Json<512> get(){
-        static unsigned long startTime = device.time();
+    void print(unsigned long startTime){
+        char buffer[512];
 
-        Json<512> data;
-        data.set("time", (device.time() - startTime)/1000.00);
-        data.set("s1", sensor1.get().toString());
-        data.set("s2", sensor2.get().toString());
-        return data;
+        snprintf(buffer, sizeof(buffer),
+            "{\"time\": %f, \"ax\": %f, \"ay\": %f, \"az\": %f, \"wx\": %f, \"wy\": %f, \"wz\": %f}",
+            (Time::get() - startTime)/1000.00,
+            sensor1.a.x,
+            sensor1.a.y, 
+            sensor1.a.z, 
+            sensor1.w.x, 
+            sensor1.w.y, 
+            sensor1.w.z
+        );
+        
+        Serial.println(buffer);
     }
 };
 
-
-inline Sensors sensors;
 #endif

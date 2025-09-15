@@ -3,6 +3,7 @@
 #include <Arduino.h>
 #include <Wire.h>
 #include <ArduinoJson.h>
+#include "../../processing/filters/index.h"
 
 
 class MPU6050{
@@ -10,31 +11,36 @@ class MPU6050{
     class Omega{
       public:
         const float confidence = 0.1;
+        ButterworthFilter fx = ButterworthFilter(0.5);
+        ButterworthFilter fy = ButterworthFilter(0.5);
+        ButterworthFilter fz = ButterworthFilter(0.5);
         float x, y, z;
-        float fx, fy, fz;
 
         void update(float wx, float wy, float wz){
-            x = 10;
-            y = 20;
-            z = 30;
+            x = fx.compute(wx);
+            y = fy.compute(wy);
+            z = fz.compute(wz);
         }
     };
 
     class Acceleration{
       public:
         const float confidence = 0.1;
+        ButterworthFilter fx = ButterworthFilter(0.5);
+        ButterworthFilter fy = ButterworthFilter(0.5);
+        ButterworthFilter fz = ButterworthFilter(0.5);
         float x, y, z;
-        float fx, fy, fz;
 
         void update(float ax, float ay, float az){
-            x = 10;
-            y = 20;
-            z = 30;
+            x = fx.compute(ax);
+            y = fy.compute(ay);
+            z = fz.compute(az);
         }
     };
 
   public:
-    static const uint8_t MPU_ADDR = (0x68);
+    static const uint8_t ADDRESS = (0x68);
+    const bool debug = true;
     int SDA_PIN, SCL_PIN;
     Acceleration a;
     Omega w;
@@ -44,41 +50,40 @@ class MPU6050{
         SCL_PIN(scl){}
 
     void setup(){
-        Wire.begin(SDA_PIN, SCL_PIN);
-        Wire.beginTransmission(MPU_ADDR);
-        Wire.write(0x6B); 
-        Wire.write(0); 
-        Wire.endTransmission(true);
+        if(!debug){
+            Wire.begin(SDA_PIN, SCL_PIN);
+            Wire.beginTransmission(ADDRESS);
+            Wire.write(0x6B); 
+            Wire.write(0); 
+            Wire.endTransmission(true);
+        }
+
+        Serial.println("MPU6050 Setup Complete");
     }
 
     void update(){
-        Wire.beginTransmission(MPU_ADDR);
+        if(debug){
+            a.update(2, 2, 2);
+            w.update(5, 5, 5);
+            return;
+        }
+
+        Wire.beginTransmission(ADDRESS);
         Wire.write(0x3B);              
         Wire.endTransmission(false);
 
-        if(Wire.requestFrom((uint8_t)MPU_ADDR, (size_t)14, true) != 14)
+        if(Wire.requestFrom((uint8_t)ADDRESS, (size_t)14, true) != 14)
             return;
 
-        float wx = (int16_t) (Wire.read() << 8 | Wire.read());
-        float wy = (int16_t) (Wire.read() << 8 | Wire.read());
-        float wz = (int16_t) (Wire.read() << 8 | Wire.read());
-        float tp = (int16_t) (Wire.read() << 8 | Wire.read());
-        float ax = (int16_t) (Wire.read() << 8 | Wire.read());
-        float ay = (int16_t) (Wire.read() << 8 | Wire.read());
-        float az = (int16_t) (Wire.read() << 8 | Wire.read());
+        const float wx = (int16_t) (Wire.read() << 8 | Wire.read());
+        const float wy = (int16_t) (Wire.read() << 8 | Wire.read());
+        const float wz = (int16_t) (Wire.read() << 8 | Wire.read());
+        const float tp = (int16_t) (Wire.read() << 8 | Wire.read());
+        const float ax = (int16_t) (Wire.read() << 8 | Wire.read());
+        const float ay = (int16_t) (Wire.read() << 8 | Wire.read());
+        const float az = (int16_t) (Wire.read() << 8 | Wire.read());
         a.update(ax, ay, az);
         w.update(wx, wy, wz);
-    }
-
-    Json<64> get(){
-        Json<64> data;
-        data.set("ax", a.x);
-        data.set("ay", a.y);
-        data.set("az", a.z);
-        data.set("wx", w.x);
-        data.set("wy", w.y);
-        data.set("wz", w.z);
-        return data;
     }
 };
 

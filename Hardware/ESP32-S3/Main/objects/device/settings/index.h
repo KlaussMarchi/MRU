@@ -19,6 +19,10 @@ class Settings{
         erase();
     }
 
+    template<typename T> T get(const char* key) const {
+        return params.template get<T>(key);
+    }
+
     void save(){
         params.save("settings");
     }

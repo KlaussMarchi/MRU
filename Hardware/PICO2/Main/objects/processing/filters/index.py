@@ -42,7 +42,7 @@ class ButterworthFilter:
         a1 = 2*(c2 - 1)/norm
         a2 = (1 - math.sqrt(2)*wc + c2)/norm
         return [b0, b1, b2], [1.0, -a1, -a2]
-
+    
     def compute(self, Xn):
         Yn = (
             self.b[0] * Xn +
