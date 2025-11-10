@@ -28,10 +28,7 @@ template <typename Parent> class Streamer{
         if(!active || !timer.ready())
             return;
 
-        if(device->debug)
-            return device->sensors.print(handler.startTime);
-
-        device->processing.print(handler.startTime);
+        print();
     }
 
     void set(const bool state){
@@ -42,6 +39,50 @@ template <typename Parent> class Streamer{
             handler.reset();
         
         active = state;
+    }
+
+    void print(){
+        static unsigned long startTime = Time::get();
+        char buffer[512];
+
+        snprintf(buffer, sizeof(buffer),
+            "{\"time\": %f, \"ax\": %f, \"ay\": %f, \"az\": %f, \"wx\": %f, \"wy\": %f, \"wz\": %f}",
+            (Time::get() - startTime)/1000.00,
+            device->sensors.sensor1.a.x,
+            device->sensors.sensor1.a.y, 
+            device->sensors.sensor1.a.z, 
+            device->sensors.sensor1.w.x, 
+            device->sensors.sensor1.w.y, 
+            device->sensors.sensor1.w.z
+        );
+        
+        Serial.println(buffer);
+    }
+
+    void print2(){
+        static char sentence[79 + 1]; // parte entre $ e * (sem checksum)
+        static char nmea[82 + 1];     // sentença completa com $...*XX\r\n
+        
+        const char* header = "GPPASHR";
+        const int wx = device->sensors.sensor1.w.x;
+        const int wy = device->sensors.sensor1.w.y;
+        const int wz = device->sensors.sensor1.w.z;
+        const int ax = device->sensors.sensor1.a.x;
+        const int ay = device->sensors.sensor1.a.y;
+        const int az = device->sensors.sensor1.a.z;
+
+        snprintf(
+            sentence, sizeof(sentence),
+            "%s,%d,%d,%d,%d,%d,%d",
+            header, wx, wy, wz, ax, ay, az
+        );
+
+        unsigned char checksum = 0;
+        for (int i=0; i<strlen(sentence); i++) 
+            checksum ^= (unsigned char) sentence[i];
+        
+        snprintf(nmea, sizeof(nmea), "$%s*%02X\r\n", sentence, checksum);
+        Serial.print(nmea);
     }
 };
 

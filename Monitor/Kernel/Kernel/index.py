@@ -130,7 +130,6 @@ class KernelSensor:
     CMD_ORIENTATION = bytes.fromhex('AA 55 00 00 07 00 33 3A 00')
     CMD_GA          = bytes.fromhex('AA 55 00 00 07 00 8F 96 00')
     CMD_GAM         = bytes.fromhex('AA 55 00 00 07 00 9B A2 00')
-
     MSG_HEADER = b'\xAA\x55'
 
     def __init__(self, port='COM5'):

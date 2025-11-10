@@ -3,38 +3,39 @@
 #include <Arduino.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
-#include "../device/index.h"
 
-
-class Tasks {
-  private:
+template <typename Parent> class Tasks {
+private:
     TaskHandle_t Task;
+    Parent* device;
+
+public:
+    Tasks(Parent* dev): device(dev) {}
     
-  public:
     void handle() {
         //(function, name, size, NULL, priority, taskPointer, core)
-        xTaskCreatePinnedToCore(setupTask, "Task", 5*1024, NULL, 1, &Task, 1);
+        xTaskCreatePinnedToCore(setupTask, "Task", 5*1024, this, 1, &Task, 1);
+        Serial.println("Thread 1 Started");
         
         while(true)
             thread0();
     }
     
-    static void setupTask(void* parameters){
-        Serial.println("Thread 1 Started");
-
+    static void setupTask(void* parameters) {
+        auto taskInstance = static_cast<Tasks<Parent>*>(parameters);
+        Serial.println("Thread 2 Started");
+        
         while(true)
-            thread1();
+            taskInstance->thread1();
     }
 
-    static void thread0(){
-        device.sensors.handle();
+    void thread0() {  
+        device->sensors.handle();
     }
 
-    static void thread1(){
-        device.telemetry.handle();
+    void thread1() { 
+        device->telemetry.handle();
     }
 };
 
-
-inline Tasks tasks;
 #endif

@@ -1,0 +1,3 @@
+ESP32 S3 Dev Module
+CDC on boot: enabled
+

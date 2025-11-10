@@ -43,23 +43,6 @@ template <typename Parent> class Processing{
     void setup(){
 
     }
-
-    void print(unsigned long startTime){
-        char buffer[512];
-
-        snprintf(buffer, sizeof(buffer),
-            "{\"time\": %f, \"ax\": %f, \"ay\": %f, \"az\": %f, \"wx\": %f, \"wy\": %f, \"wz\": %f}",
-            (Time::get() - startTime)/1000.00,
-            device->sensors.sensor1.a.x,
-            device->sensors.sensor1.a.y, 
-            device->sensors.sensor1.a.z, 
-            device->sensors.sensor1.w.x, 
-            device->sensors.sensor1.w.y, 
-            device->sensors.sensor1.w.z
-        );
-        
-        Serial.println(buffer); // Actually output the data
-    }
 };
 
 #endif

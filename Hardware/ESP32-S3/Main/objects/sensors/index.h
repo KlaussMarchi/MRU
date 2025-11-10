@@ -15,7 +15,7 @@ template <typename Parent> class Sensors{
     
   public:
     KernelSensor sensor1 = KernelSensor(47, 48);
-    MPU9250 sensor2      = MPU9250(10, 12);
+    //MPU9250 sensor2    = MPU9250(10, 12);
 
     Sensors(Parent* dev):
         device(dev){}
@@ -32,24 +32,6 @@ template <typename Parent> class Sensors{
             return;
 
         sensor1.update();
-        //sensor2.update();
-    }
-
-    void print(unsigned long startTime){
-        char buffer[512];
-
-        snprintf(buffer, sizeof(buffer),
-            "{\"time\": %f, \"ax\": %f, \"ay\": %f, \"az\": %f, \"wx\": %f, \"wy\": %f, \"wz\": %f}",
-            (Time::get() - startTime)/1000.00,
-            sensor1.a.x,
-            sensor1.a.y, 
-            sensor1.a.z, 
-            sensor1.w.x, 
-            sensor1.w.y, 
-            sensor1.w.z
-        );
-        
-        Serial.println(buffer);
     }
 };
 
