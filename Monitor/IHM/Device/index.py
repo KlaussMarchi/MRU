@@ -1,4 +1,4 @@
-import serial, ast
+import serial, ast, json
 import serial.tools.list_ports
 from time import sleep, time
 from Utils.functions import sendEvent
@@ -119,7 +119,7 @@ class Device:
 
     def getJson(self, timeout=5.0):
         startTime = time()
-        response  = str()
+        response  = bytearray()
         started   = False
 
         try:
@@ -127,22 +127,21 @@ class Device:
                 if self.device.in_waiting == 0:
                     continue
                 
-                newByte = self.device.read(1).decode('utf-8', errors='ignore')
+                newBytes = self.device.read(self.device.in_waiting)
 
-                if newByte == '{':
+                if b'{' in newBytes:
                     started = True
-
-                if newByte == ' ':
-                    continue
                 
                 if started:
-                    response += newByte
+                    response.extend(newBytes)
 
-                if newByte == '\n':
+                if b'\n' in newBytes:
                     break
             
-            return ast.literal_eval(response)
+            response = response.decode('utf-8', errors='ignore').split('\n')[0].strip()
+            return json.loads(response)
         except Exception as error:
+            print(response)
             sendEvent('error', error)
             return None
     

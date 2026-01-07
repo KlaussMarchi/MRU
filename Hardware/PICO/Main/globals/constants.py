@@ -1,4 +1,0 @@
-RAW_DEBUG    = True
-SERIAL_DEBUG = True
-DT_INTERVAL  = 20
-dt = (DT_INTERVAL/1000.0)

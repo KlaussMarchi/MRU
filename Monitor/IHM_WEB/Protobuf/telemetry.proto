@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+message ProtoData{
+  uint32 device_id = 1;
+  
+  float time = 2;
+  float ax = 3;
+  float ay = 4;
+  float az = 5;
+
+  float wx = 6;   // velocidade angular em X
+  float wy = 7;   // velocidade angular em Y
+  float wz = 8;   // velocidade angular em Z
+
+  float pitch = 9;
+  float roll  = 10;
+  float yaw   = 11;
+}

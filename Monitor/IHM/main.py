@@ -4,12 +4,14 @@ from Utils.classes import AsyncThreading
 from time import time, sleep
 import numpy as np
 import pandas as pd
-import os, keyboard
+import os
+
 
 script_path = os.path.abspath(__file__)
 base_dir = os.path.dirname(script_path)
 os.chdir(base_dir)
 
+TARGETS = ['ax']
 
 class Monitor:
     SAVE = True
@@ -20,15 +22,14 @@ class Monitor:
         
     def setup(self):
         self.device = Device(rate=115200)
-        self.device.port = '/dev/ttyACM0'
+        #self.device.port = '/dev/ttyACM0'
+        #self.device.port = '/dev/ttyUSB0'
+
         self.device.connect()
-        self.device.stream()
+        self.device.stream('$STOP!')
+        self.device.stream('$STREAM!')
         self.startTime = time()
         self.thread1   = AsyncThreading(self.device.handle)
-        
-    def user(self):
-        caracteres = list('abcdefghijklmnopqrstuvwxyz0123456789')
-        return any(keyboard.is_pressed(key) for key in list(keyboard.all_modifiers) + caracteres)
 
     def save(self):
         if not self.values:
@@ -46,7 +47,7 @@ class Monitor:
 
     def handle(self):
         data = self.device.last
-       
+
         if data is None:
             return
         
@@ -56,9 +57,7 @@ class Monitor:
     def update(self, data):
         print(data)
 
-        target = {
-            'ax': data.get('ax')
-        }
+        target = {key: data.get(key) for key in TARGETS}
 
         if None in target.values():
             return
@@ -84,7 +83,7 @@ if __name__ == '__main__':
         print('error: ', error)
     finally:
         print('\nsalvando database')
-
+        
         if monitor.SAVE:
             monitor.save()
 
