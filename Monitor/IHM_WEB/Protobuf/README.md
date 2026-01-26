@@ -24,4 +24,9 @@
     >> cp -r release/* ~/Arduino/libraries/protobuf
 ```
 
+3. Permitir Firewall
+```bash
+    >> sudo ufw allow 5005/udp
+    >> nc -ul 5005 (deubg, ver se esta chegando dados do esp ao PC)
+```
 

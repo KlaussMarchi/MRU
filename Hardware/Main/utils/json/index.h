@@ -25,7 +25,15 @@ template<int SIZE> class Json{
         return !deserializeJson(data, jsonString);
     }
 
+    void set(const String& key, const String &value){
+        data[key] = value;
+    }
+
     void set(const char* key, const String &value){
+        data[key] = value;
+    }
+    
+    void set(const char* key, String value){
         data[key] = value;
     }
 
@@ -41,10 +49,6 @@ template<int SIZE> class Json{
         data[key] = value;
     }
 
-    void set(const char* key, double value){
-        data[key] = value;
-    }
-
     void set(const char* key, bool value){
         data[key] = value;
     }
@@ -56,7 +60,7 @@ template<int SIZE> class Json{
     bool download(const char* key){
         Preferences prefs;
         prefs.begin(key, false);
-        String jsonString = prefs.getString("data", "{}");
+        String jsonString = prefs.getString("settings", "{}");
         prefs.end();
         return parse(jsonString);
     }
@@ -64,26 +68,24 @@ template<int SIZE> class Json{
     bool save(const char* key){
         Preferences prefs;
         prefs.begin(key, false);
-        bool ok = prefs.putString("data", toString());
+        bool ok = prefs.putString("settings", toString());
         prefs.end();
         return ok;
     }
     
-    template <typename T>
-    T get(const char* key) const{
+    template <typename T> T get(const char* key) const{
         return data[key].template as<T>();
+    }
+
+    void clear() {
+        data.clear();          // remove todo conteúdo
+        data.template to<JsonObject>(); // garante raiz "{}"
     }
 
     String toString() const{
         String output;
         serializeJson(data, output);
         return output;
-    }
-    
-    const char* getBuffer() const {
-        static char buffer[SIZE]; 
-        serializeJson(data, buffer, sizeof(buffer));
-        return buffer;
     }
 };
 

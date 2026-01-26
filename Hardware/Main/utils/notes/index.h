@@ -14,7 +14,7 @@ class Notes{
 
     void setup(){
         if(LittleFS.begin()){
-            Serial.println("LittleFS montado com sucesso!");
+            Serial.println("LittleFS montado com sucesso!\n");
             return;
         }
         
@@ -71,6 +71,10 @@ class Notes{
             Serial.println("ERRO AO SALVAR TEXTO NO SPIFFS");
 
         file.close();
+    }
+
+    void erase(){
+        write("");
     }
 
     void write(const String& message) {

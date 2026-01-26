@@ -83,17 +83,21 @@ class KernelSensor{
     Omega w;
     Orientation o;
     float temperature;
-
-    KernelSensor(int tx_pin, int rx_pin){
+    int tx_pin, rx_pin;
+    
+    KernelSensor(int tx, int rx){
         uart = new HardwareSerial(1);
+        tx_pin = tx;
+        rx_pin = rx;
+    }
+    
+    void setup(){
         uart->begin(115200, SERIAL_8N1, rx_pin, tx_pin);
         
         Serial.printf("Kernel Started at tx=%d and rx=%d\n", tx_pin, rx_pin);
         lastUpdate = Time::get();
         reset();
-    }
-    
-    void setup(){
+
         Serial.println("Activation CMD Sent");
         uart->write(CMD_ORIENTATION, 9);
         delay(200);

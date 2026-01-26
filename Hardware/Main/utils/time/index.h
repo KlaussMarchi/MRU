@@ -1,6 +1,7 @@
 #ifndef TIME_H
 #define TIME_H
 #include <Arduino.h>
+#include "../text/index.h"
 
 
 class Time{
@@ -25,6 +26,23 @@ class Time{
 
     float alive(){
         return (get() - startTime)/1000.0;
+    }
+
+    static const char* getLeft(unsigned long t0, int timeout){
+        static Text<30> response;
+
+        int timeLeft = timeout - (Time::get() - t0) + 2000;
+        const bool isMinutes = (timeLeft >= 60000);
+
+        if(timeLeft < 60000)
+            timeLeft = (timeLeft/1000.0) + 1;
+        else
+            timeLeft = (timeLeft/1000.0/60.0);
+
+        response = "Tempo Restante: ";
+        response += String(timeLeft);
+        response += (isMinutes ? " min" : " sec");
+        return response.get();
     }
 };
 

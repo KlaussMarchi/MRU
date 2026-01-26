@@ -8,12 +8,13 @@ from Protobuf.index import Protobuf
 
 script_path = os.path.abspath(__file__)
 base_dir = os.path.dirname(script_path)
-os.chdir(base_dir)
 
+os.chdir(base_dir)
 TARGETS = ['ax']
 
+
 class Monitor:
-    SAVE = True
+    SAVE = False
 
     def __init__(self):
         self.current = None
@@ -36,10 +37,9 @@ class Monitor:
         self.values.append(data)
 
     def update(self, data):
-        print(data)
-
         target = {key: data.get(key) for key in TARGETS}
-
+        print(data)
+        
         if None in target.values():
             return
 

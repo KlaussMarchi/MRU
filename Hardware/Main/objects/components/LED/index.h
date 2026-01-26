@@ -42,12 +42,16 @@ template <typename Parent> class LED{
     Parent* device;
 
   public:
+    bool enabled = true;
     Duty pin1, pin2;
 
     LED(Parent* dev):
         device(dev){}
 
     void setup(){
+        if(!enabled)
+            return;
+
         pin1.setup(LED01);
         pin2.setup(LED02);
 
@@ -56,11 +60,12 @@ template <typename Parent> class LED{
     }
 
     void handle(){
+        if(!enabled)
+            return;
+
         pin1.handle(1000, 2000);
         pin2.handle(500, 500);
     }
-
-    
 };
 
 

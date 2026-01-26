@@ -13,7 +13,6 @@
 const uint16_t SERVER_PORT = 5005;
 
 
-
 template <typename Parent> class Protobuf{
   private:
     Parent* device;
@@ -22,7 +21,7 @@ template <typename Parent> class Protobuf{
   public:
     unsigned long startTime;
     bool enabled = true;
-    bool active  = true;
+    bool active  = false;
     int dt;
     Text<30> ssid;
     Text<30> pass;
@@ -32,6 +31,9 @@ template <typename Parent> class Protobuf{
         device(dev){}
 
     void setup(){
+        if(!enabled)
+            return;
+
         ssid = device->settings.template get<String>("ssid");
         pass = device->settings.template get<String>("pass");
         server_ip = device->settings.template get<String>("server_ip");
@@ -42,17 +44,20 @@ template <typename Parent> class Protobuf{
         Serial.println("server_ip: " + server_ip.toString());
         Serial.println();
         
-        enabled = (pass.length() > 5 && ssid.length() > 5 && server_ip.length() > 5);
-        dt      = (1.00/device->frequency)*1000;
+        const bool valid = (pass.length() > 5 && ssid.length() > 5 && server_ip.length() > 5);
+        dt = (1.00/device->frequency)*1000;
 
-        if(pass.length() < 5 || ssid.length() < 5 || server_ip.length() < 5)
+        if(!valid){
+            Serial.println("Configurações Protobuf Inválidas");
             enabled = false;
-
-        if(enabled && !connect())
-            enabled = false;
-
-        if(!enabled)
             return;
+        }
+
+        if(!connect()){
+            Serial.println("Falha ao Conectar Protbuf com o Servidor");
+            enabled = false;
+            return;
+        }
         
         udp.begin(0);
         startTime = Time::get();
@@ -85,11 +90,15 @@ template <typename Parent> class Protobuf{
 
     void handle(){
         static Listener timer = Listener(dt);
+        static bool started   = false;
         static int fails = 0;
 
-        if(!timer.ready() || !enabled)
-            return;
+        if(!started)
+            {started = true; Serial.println("transmissão protbuf iniciada");}
 
+        if(!timer.ready())
+            return;
+        
         uint8_t buffer[256];
         pb_ostream_t stream = pb_ostream_from_buffer(buffer, sizeof(buffer));
 

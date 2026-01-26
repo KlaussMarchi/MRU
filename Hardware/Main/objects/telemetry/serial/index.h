@@ -14,9 +14,9 @@ template<int CMD_MAX_SIZE> class NextSerial{
     Text<CMD_MAX_SIZE> command;
     bool available = false;
     int timeout    = 5000;
-    Stream* uart = &Serial;
+    Stream* uart = &Serial2;
     unsigned long lastAckTime;
-    int port  = 1;
+    int port = 2;
     int RX, TX;
     
     NextSerial(int rx, int tx):
@@ -25,12 +25,6 @@ template<int CMD_MAX_SIZE> class NextSerial{
     void setup(){
         Serial2.begin(115200, SERIAL_8N1, RX, TX);
         Serial.printf("Serial2 Started at RX=%d e TX=%d\n", RX, TX);
-
-        Serial.write("$MICACK!");
-        delay(100);
-        
-        Serial2.write("$MICACK!");
-        delay(100);
     }
     
     void send(const char* msg, bool breakLine=true){
@@ -46,7 +40,7 @@ template<int CMD_MAX_SIZE> class NextSerial{
         if(breakLine)
             uart->write("\r\n");
     }
-
+    
     void print(){
         Serial.println(available ? "(serial) received: " + command.toString() : "nothing received");
     }
@@ -87,7 +81,6 @@ template<int CMD_MAX_SIZE> class NextSerial{
                 continue;
 
             command.concat(letter);
-            delay(1);
         }
         
         available   = (command.length() > 5 && !command.isEmpty());

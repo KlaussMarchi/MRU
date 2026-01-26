@@ -40,8 +40,34 @@ template<int SIZE> class Text{
         return buffer;
     }
 
+    String getFirst(int max) const {
+        const int n = (max < index) ? max : index;
+        String response; response.reserve(n + 1);
+        
+        for(int i = 0; i < n; ++i) 
+            response.concat(buffer[i]);
+        
+        return response;
+    }
+
     bool available() const {
         return index > 0;
+    }
+
+    int indexOf(char target, int start=0){
+        for(int x=start; x<index; x++)
+            if(charAt(x) == target)
+                return x;
+
+        return -1;
+    }
+    
+    int indexOf(const char* target, int start = 0){
+        if(start < 0 || start >= index || target == nullptr)
+            return -1;
+        
+        const char* p = strstr(buffer + start, target);
+        return p ? (int)(p - buffer) : -1;
     }
 
     void append(char c) {
@@ -53,6 +79,9 @@ template<int SIZE> class Text{
     }
 
     void concat(const char* str) {
+        if(str == nullptr)
+            return;
+        
         while(*str && index < limit)
             append(*str++);
     }
@@ -87,10 +116,6 @@ template<int SIZE> class Text{
         breakLine ? Serial.println(buffer) : Serial.print(buffer);
     }
 
-    String toString() const {
-        return String(buffer);
-    }
-
     bool contains(const char* key) const {
         return (find(key) != -1);
     }
@@ -105,6 +130,10 @@ template<int SIZE> class Text{
                 return false;
     
         return (len == index);
+    }
+
+    bool equals(const String& str) const {
+        return equals(str.c_str());
     }
 
     char charAt(int pos) const {
@@ -143,7 +172,7 @@ template<int SIZE> class Text{
         return true;
     }
 
-    Text<SIZE> substring(int start, int end) const {
+    Text<SIZE> substring(int start, int end) const{
         Text<SIZE> out;
         if(start < 0)   start = 0;
         if(end > index) end = index;
@@ -214,14 +243,18 @@ template<int SIZE> class Text{
         buffer[index] = '\0';
     }
 
-    void clean(){
-        remove(' ');
-        remove('\r');
-        remove('\n');
-        remove('\t');
-        
-        if(length() == 0)
-            reset();
+    String toString() const {
+        String response;
+        response.reserve(index+2);
+
+        for(int i=0; i<index; i++)
+            response.concat(charAt(i));
+
+        return response;
+    }
+
+    int toInt() const{
+        return toString().toInt();
     }
 };
 
