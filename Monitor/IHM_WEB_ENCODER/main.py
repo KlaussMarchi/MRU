@@ -11,7 +11,7 @@ script_path = os.path.abspath(__file__)
 base_dir = os.path.dirname(script_path)
 
 os.chdir(base_dir)
-TARGETS = ['e']
+TARGETS = ['e', 'wx']
 
 
 class Monitor:
@@ -36,6 +36,12 @@ class Monitor:
         data    = self.protobuf.data
         encoder = self.encoder.last
 
+        if data is None:
+            print('kernel error')
+
+        if encoder is None:
+            print('encoder error')
+
         if data is None or encoder is None:
             return
         
@@ -45,7 +51,7 @@ class Monitor:
 
     def update(self, data):
         target = {key: data.get(key) for key in TARGETS}
-        print(data)
+        #print(data)
         
         if None in target.values():
             return
