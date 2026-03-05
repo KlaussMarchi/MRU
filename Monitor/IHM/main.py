@@ -11,7 +11,7 @@ script_path = os.path.abspath(__file__)
 base_dir = os.path.dirname(script_path)
 os.chdir(base_dir)
 
-TARGETS = ['ax']
+TARGETS = ['wx']
 
 class Monitor:
     SAVE = True
