@@ -1,0 +1,67 @@
+/* Pointer style */
+
+QTextEdit {
+    font: 10pt "Courier New";
+}
+
+QLabel, QGroupBox,
+QCheckBox, QRadioButton {
+    font: bold 12pt "Arial";
+}
+
+/*this is for qcleanlooksstyle correct work in Qt5*/
+QComboBox:focus { 
+    padding: 1px 0px 1px 3px;  
+    color:black;
+}
+
+QSpinBox, QDoubleSpinBox, QComboBox,
+QLineEdit, QTimeEdit, QDateEdit {
+    font: 10pt "Arial";
+}
+
+QTreeWidget, QTableWidget {
+    font: 10pt "Arial";
+}
+
+QTreeWidget QHeaderView, QTableWidget QHeaderView {
+    font: bold 10pt "Arial";
+}
+
+QListWidget {
+    font: bold 10pt "Arial";
+}
+
+QComboBox#programType {
+    font: bold 12pt "Arial";
+}
+
+QDialogButtonBox QPushButton {
+    min-width: 90px;
+    min-height: 22px;
+    font: bold 12pt "Arial";
+}
+
+QPushButton {
+    font: bold 12pt "Arial";
+}
+
+OptionsUserDefinedData QToolButton, OptionsUserDefinedGRS QToolButton,OptionsDevices QToolButton {
+    font: bold 12pt "Arial";
+}
+
+QTabWidget::pane {
+	border: 1px solid palette(dark);
+}
+
+QLabel#statusLabel, QLabel#infoLabel{
+    font: 10pt "Arial";
+}
+
+QLabel#usw2Label, QLabel#aduStatusLabel{
+    font: 10pt "Arial";
+}
+
+QProgressBar {
+    max-height: 16px;
+}

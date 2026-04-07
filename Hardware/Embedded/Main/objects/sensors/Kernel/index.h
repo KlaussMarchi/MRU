@@ -1,89 +1,28 @@
 #ifndef KERNEL_H
 #define KERNEL_H
 #include <HardwareSerial.h>
-#include "../../processing/filters/index.h"
 #include "../../../utils/time/index.h"
 
 
 class KernelSensor{
   private:
-    const uint8_t CMD_ORIENTATION[9] = {0xAA, 0x55, 0x00, 0x00, 0x07, 0x00, 0x33, 0x3A, 0x00};
-    static const int PKT_LEN = 42;
+    // Comando alterado para Calibrated HR Data (0x81)
+    static const int PKT_LEN = 60; 
     unsigned long lastUpdate;
     uint8_t packet[PKT_LEN];
     HardwareSerial* uart;
     bool header = false;
     int index;
     
-    static const bool apply_filters = false;
-    static const bool apply_convert = false;
-
-    class Acceleration{
-      public:
-        ButterworthFilter fx = ButterworthFilter(0.10);
-        ButterworthFilter fy = ButterworthFilter(0.10);
-        ButterworthFilter fz = ButterworthFilter(0.10);
-        float x, y, z;
-        
-        void update(float ax, float ay, float az) {
-            x = apply_convert ? (ax / 500.00) : ax;
-            y = apply_convert ? (ay / 500.00) : ay;
-            z = apply_convert ? (az / 500.00) : az;
-
-            if(apply_filters){
-                x = fx.compute(x);
-                y = fy.compute(y);
-                z = fz.compute(z);
-            }
-        }
-    };
-
-    class Omega{
-      public:
-        ButterworthFilter fx = ButterworthFilter(0.15);
-        ButterworthFilter fy = ButterworthFilter(0.15);
-        ButterworthFilter fz = ButterworthFilter(0.15);
-        float x, y, z;
-        
-        void update(float wx, float wy, float wz) {
-            x = apply_convert ? (wx / 10.00) : wx;
-            y = apply_convert ? (wy / 10.00) : wy;
-            z = apply_convert ? (wz / 10.00) : wz;
-
-            if(apply_filters){
-                x = fx.compute(x);
-                y = fy.compute(y);
-                z = fz.compute(z);
-            }
-        }
-    };
-
-    class Orientation{
-      public:
-        ButterworthFilter fx = ButterworthFilter(0.1);
-        ButterworthFilter fy = ButterworthFilter(0.1);
-        ButterworthFilter fz = ButterworthFilter(0.1);
-        float pitch, roll, yaw;
-
-        void update(float _yaw, float _pitch, float _roll){
-            pitch = apply_convert ? (_pitch / 100.0) : _pitch;
-            roll  = apply_convert ? (_roll  / 100.0) : _roll;
-            yaw   = apply_convert ? (_yaw   / 100.0) : _yaw;
-
-            if(apply_filters){
-                pitch = fx.compute(pitch);
-                roll  = fy.compute(roll);
-                yaw   = fz.compute(yaw);
-            }
-        }
-    };
-    
   public:
+    int32_t ax, ay, az;
+    int32_t wx, wy, wz;
+    int32_t q1, q2, q3, q4;
+    int32_t pitch, roll, yaw;
+    byte mode = ORIENTATION_MODE;
+
     unsigned long lastAck = Time::get();
     bool working = false;
-    Acceleration a;
-    Omega w;
-    Orientation o;
     float temperature;
     int tx_pin, rx_pin;
     
@@ -99,13 +38,33 @@ class KernelSensor{
         Serial.printf("Kernel Started at tx=%d and rx=%d\n", tx_pin, rx_pin);
         lastUpdate = Time::get();
         reset();
-
-        Serial.println("Activation CMD Sent");
-        uart->write(CMD_ORIENTATION, 9);
-        delay(200);
     }
 
-    int16_t extract(int pos){
+    void setMode(){
+        const uint8_t CMD_MODE[9] = {
+            0xAA, 0x55, 0x00, 0x00, 0x07, 
+            0x00, 0x81, 0x88, 0x00
+        }; 
+
+        const uint8_t CMD_ALIGN[26] = {
+            0xAA, 0x55, 0x00, 0x00, 0x18, 0x00, // Header + Comprimento (24 bytes)
+            0xB2, 0xFF, 0x3A, 0x02, 0x0C, 0x00, // Cmd SaveFlash + ID Alignment_Angles
+            0x00, 0x00, 0x00, 0x00,             // Heading = 0.0
+            0x00, 0x00, 0xB4, 0xC2,             // Pitch = -90.0
+            0x00, 0x00, 0x00, 0x00,             // Roll = 0.0
+            0x87, 0x03                          // Checksum cravado
+        };
+        
+        Serial.println("Activation CMD Sent (Calibrated HR)");
+        uart->write(CMD_MODE, 9);
+        delay(1000);
+
+        Serial.println("Alignment CMD Sent (Align Custom)");
+        uart->write(CMD_ALIGN, 26);
+        delay(1000);
+    }
+
+    int16_t extract_i16(int pos){ // Leitura de 16 bits (2 bytes)
         return (int16_t) (packet[pos] | (packet[pos+1] << 8));
     }
 
@@ -113,15 +72,25 @@ class KernelSensor{
         return (uint16_t) (packet[pos] | (packet[pos+1] << 8));
     }
 
+    int32_t extract_i32(int pos){
+        return (int32_t) (
+            ((uint32_t)packet[pos]) | 
+            ((uint32_t)packet[pos+1] << 8) | 
+            ((uint32_t)packet[pos+2] << 16) | 
+            ((uint32_t)packet[pos+3] << 24)
+        );
+    }
+
     bool timeout(){
         return (header && Time::get() - lastUpdate > 100);
     }
 
     bool checksum(){
-        uint16_t recv_checksum = extract_u16(40);
+        // O Checksum no pacote HR de 60 bytes fica na posição 58
+        uint16_t recv_checksum = extract_u16(58);
         uint16_t calc_checksum = 0;
         
-        for(int i=2; i<40; i++) 
+        for(int i = 2; i < 58; i++) 
             calc_checksum += packet[i];
 
         if(calc_checksum == recv_checksum)
@@ -168,28 +137,32 @@ class KernelSensor{
         if(!checksum())
             {reset(); return false;}
         
-        // orientação
-        o.update(
-            (float) extract_u16(6),  // yaw  (bytes 6..7)
-            (float) extract(8),      // pitch(bytes 8..9)
-            (float) extract(10)      // roll (bytes 10..11)
-        );
+        // Byte 0: Header 0 (0xAA)
+        // Byte 1: Header 1 (0x55)
+        // Byte 2: Tipo da Mensagem
 
-        // giroscópio
-        w.update(
-            (float) extract(12),   // wx (bytes 12..13)
-            (float) extract(14),   // wy (bytes 14..15)
-            (float) extract(16)    // wz (bytes 16..17)
-        );
+        // Byte 3: Identificador de Dados
+        // Bytes 4 e 5: Tamanho da Mensagem
+        // Byte 6 em diante: Aqui começa o Payload (Byte 0 da Tabela 5.10)
+
+        // orientação (4 Bytes cada - posições 6 a 17)
+        yaw = extract_i32(6);     // yaw   (bytes 6..9)
+        pitch = extract_i32(10);  // pitch (bytes 10..13)
+        roll  = extract_i32(14);  // roll  (bytes 14..17)
+
+        // giroscópio (4 Bytes cada - posições 18 a 29)
+        wx = extract_i32(18);   // wx (bytes 18..21)
+        wy = extract_i32(22);   // wy (bytes 22..25)
+        wz = extract_i32(26);   // wz (bytes 26..29)
         
-        // aceleração
-        a.update(
-            (float) extract(18),   // ax (bytes 18..19)
-            (float) extract(20),   // ay (bytes 20..21)
-            (float) extract(22)    // az (bytes 22..23)
-        );
+        // aceleração (4 Bytes cada - posições 30 a 41)
+        ax = extract_i32(30);  // ax (bytes 30..33)
+        ay = extract_i32(34);  // ay (bytes 34..37)
+        az = extract_i32(38);   // az (bytes 38..41)
         
-        temperature = ((float) extract(38)) / 10.00;
+        // temperatura (2 Bytes - posições 56 a 57)
+        temperature = ((float) extract_i16(56)) / 10.00;
+        
         reset();
         return true;
     }

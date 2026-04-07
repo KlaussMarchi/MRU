@@ -34,23 +34,30 @@ template <typename Parent> class Protocol{
             return;
         }
 
+        if(device->telemetry.serial.command.contains("check_sensors")){
+            device->telemetry.response.set(device->sensors.working ? "OK" : "NOT WORKING");
+            return;
+        }
+
+        if(device->telemetry.serial.command.contains("kernel_config")){
+            device->sensors.kernel.setMode();
+            device->telemetry.response.set("OK");
+            return;
+        }
+
         if(device->telemetry.serial.command.contains("$STOP!")){
             device->telemetry.streamer.set(false);
             return;
         }
 
-        if(device->telemetry.serial.command.contains("$PROT_STREAM!")){
-            device->telemetry.protobuf.set(true);
-            return;
-        }
-
-        if(device->telemetry.serial.command.contains("$PROT_STOP!")){
-            device->telemetry.protobuf.set(false);
-            return;
-        }
-
         if(device->telemetry.serial.command.contains("$ETKA!")){
             device->telemetry.response.set("$ETACK!");
+            return;
+        }
+
+        if(device->telemetry.serial.command.contains("reset_encoder")){
+            device->telemetry.response.set("$ETACK!");
+            device->components.encoder.reset();
             return;
         }
             

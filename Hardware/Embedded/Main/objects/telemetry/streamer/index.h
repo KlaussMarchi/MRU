@@ -11,15 +11,18 @@ template <typename Parent> class Streamer{
 
   public:
     unsigned long startTime;
-    bool active;
+    bool active, autostart;
     int dt;
-
+    
     Streamer(Parent* dev):
         device(dev){}
 
     void setup(){
         dt = (1.00/device->frequency)*1000;
         Serial.println("Frequency Set To " + String(device->frequency) + " Hz (sample time " + String(dt) + "ms)");
+
+        if(autostart)
+            active = true;
     }
     
     void handle(){
@@ -28,7 +31,7 @@ template <typename Parent> class Streamer{
         if(!active || !timer.ready())
             return;
 
-        print();
+        device->sensors.kernel.print();
     }
 
     void set(const bool state){
@@ -41,47 +44,27 @@ template <typename Parent> class Streamer{
         startTime = Time::get();
         active    = state;
     }
-
+    
     void print(){
         static char buffer[256];
-        int n;
+        int n = snprintf(buffer, sizeof(buffer),
+            "{\"time\":%.3f,\"pitch\":%ld,\"roll\":%ld,\"yaw\":%ld,"
+            "\"ax\":%ld,\"ay\":%ld,\"az\":%ld,"
+            "\"wx\":%ld,\"wy\":%ld,\"wz\":%ld,\"e\":%.4f}",
+            (Time::get() - startTime) / 1000.00,
+            (long) device->sensors.kernel.pitch,
+            (long) device->sensors.kernel.roll,
+            (long) device->sensors.kernel.yaw,
+            (long) device->sensors.kernel.ax,
+            (long) device->sensors.kernel.ay,
+            (long) device->sensors.kernel.az,
+            (long) device->sensors.kernel.wx,
+            (long) device->sensors.kernel.wy,
+            (long) device->sensors.kernel.wz
+        );
         
-        if(device->components.encoder.enabled)
-            n = snprintf(buffer, sizeof(buffer),
-                "{\"time\":%.3f,\"pitch\":%.3f,\"roll\":%.3f,\"yaw\":%.3f,"
-                "\"ax\":%.3f,\"ay\":%.3f,\"az\":%.3f,"
-                "\"wx\":%.3f,\"wy\":%.3f,\"wz\":%.3f,\"encoder\":%.3f}",
-                (Time::get() - startTime) / 1000.00,
-                device->sensors.kernel.o.pitch,
-                device->sensors.kernel.o.roll,
-                device->sensors.kernel.o.yaw,
-                device->sensors.kernel.a.x,
-                device->sensors.kernel.a.y,
-                device->sensors.kernel.a.z,
-                device->sensors.kernel.w.x,
-                device->sensors.kernel.w.y,
-                device->sensors.kernel.w.z,
-                device->components.encoder.angle
-            );
-        else
-            n = snprintf(buffer, sizeof(buffer),
-                "{\"time\":%.3f,\"pitch\":%.3f,\"roll\":%.3f,\"yaw\":%.3f,"
-                "\"ax\":%.3f,\"ay\":%.3f,\"az\":%.3f,"
-                "\"wx\":%.3f,\"wy\":%.3f,\"wz\":%.3f}",
-                (Time::get() - startTime) / 1000.00,
-                device->sensors.kernel.o.pitch,
-                device->sensors.kernel.o.roll,
-                device->sensors.kernel.o.yaw,
-                device->sensors.kernel.a.x,
-                device->sensors.kernel.a.y,
-                device->sensors.kernel.a.z,
-                device->sensors.kernel.w.x,
-                device->sensors.kernel.w.y,
-                device->sensors.kernel.w.z
-            );
-        
-        Serial.write(buffer, n);
-        Serial.write('\n');
+        device->telemetry.serial.uart->write(buffer, n);
+        device->telemetry.serial.uart->write('\n');
     }
 
     void print2(){
@@ -107,7 +90,7 @@ template <typename Parent> class Streamer{
             checksum ^= (unsigned char) sentence[i];
         
         snprintf(nmea, sizeof(nmea), "$%s*%02X\r\n", sentence, checksum);
-        Serial.print(nmea);
+        device->telemetry.serial.uart->print(nmea);
     }
 };
 

@@ -12,13 +12,12 @@
 
 const uint16_t SERVER_PORT = 5005;
 
-
-template <typename Parent> class Protobuf{
-  private:
+template <typename Parent> class Protobuf {
+private:
     Parent* device;
     WiFiUDP udp;
 
-  public:
+public:
     unsigned long startTime;
     bool enabled = true;
     bool active  = false;
@@ -27,10 +26,10 @@ template <typename Parent> class Protobuf{
     Text<30> pass;
     Text<30> server_ip;
 
-    Protobuf(Parent* dev):
+    Protobuf(Parent* dev): 
         device(dev){}
-
-    void setup(){
+    
+    void setup() {
         if(!enabled)
             return;
 
@@ -45,15 +44,15 @@ template <typename Parent> class Protobuf{
         Serial.println();
         
         const bool valid = (pass.length() > 5 && ssid.length() > 5 && server_ip.length() > 5);
-        dt = (1.00/device->frequency)*1000;
+        dt = (1.00 / device->frequency) * 1000;
 
-        if(!valid){
+        if (!valid) {
             Serial.println("Configurações Protobuf Inválidas");
             enabled = false;
             return;
         }
 
-        if(!connect()){
+        if (!connect()) {
             Serial.println("Falha ao Conectar Protbuf com o Servidor");
             enabled = false;
             return;
@@ -65,17 +64,17 @@ template <typename Parent> class Protobuf{
         delay(50);
     }
 
-    bool connect(){
+    bool connect() {
         WiFi.mode(WIFI_STA);
         WiFi.begin(ssid.get(), pass.get());
         Serial.print("Conectando ao WiFi");
         int index = 0;
 
-        while(WiFi.status() != WL_CONNECTED){
+        while (WiFi.status() != WL_CONNECTED) {
             index = (index + 1);
             delay(500);
             
-            if(index < 12)
+            if (index < 12)
                 continue;
             
             Serial.println("WiFi não conectado....");
@@ -88,36 +87,23 @@ template <typename Parent> class Protobuf{
         return true;
     }
 
-    void handle(){
+    void handle() {
         static Listener timer = Listener(dt);
         static bool started   = false;
         static int fails = 0;
 
-        if(!started)
-            {started = true; Serial.println("transmissão protbuf iniciada");}
+        if (!started) {
+            started = true; 
+            Serial.println("transmissão protbuf iniciada");
+        }
 
-        if(!timer.ready())
+        if (!timer.ready())
             return;
         
         uint8_t buffer[256];
         pb_ostream_t stream = pb_ostream_from_buffer(buffer, sizeof(buffer));
-
-        ProtoData msg = ProtoData_init_zero;
-        msg.device_id = (uint32_t) 1;
-        msg.time = (float) ((Time::get() - startTime)/1000.00f);
-
-        msg.ax = (float) device->sensors.kernel.a.x;
-        msg.ay = (float) device->sensors.kernel.a.y;
-        msg.az = (float) device->sensors.kernel.a.z;
-
-        msg.wx = (float) device->sensors.kernel.w.x;
-        msg.wy = (float) device->sensors.kernel.w.y;
-        msg.wz = (float) device->sensors.kernel.w.z;
-
-        msg.pitch = (float) device->sensors.kernel.o.pitch;
-        msg.roll  = (float) device->sensors.kernel.o.roll;
-        msg.yaw   = (float) device->sensors.kernel.o.yaw;
-
+        auto msg = getMsg();
+        
         if(!pb_encode(&stream, ProtoData_fields, &msg)) {
             Serial.print("Erro Protobuf encode: ");
             Serial.println(PB_GET_ERROR(&stream));
@@ -126,24 +112,49 @@ template <typename Parent> class Protobuf{
 
         size_t len = stream.bytes_written;
 
-        if(!udp.beginPacket(server_ip.get(), SERVER_PORT)){
+        if (!udp.beginPacket(server_ip.get(), SERVER_PORT)) {
             Serial.println("Falha em beginPacket");
             return;
         }
 
         udp.write(buffer, len);
 
-        if(!udp.endPacket()){
+        if (!udp.endPacket()) {
             fails = (fails + 1);
             
-            if(fails > 100){
+            if (fails > 100) {
                 Serial.println("Falha ao enviar pacote UDP");
                 fails = 0;
             }
         }
     }
 
-    void set(bool value){
+    ProtoData getMsg(){
+        ProtoData msg = ProtoData_init_zero;
+        msg.device_id = (uint32_t) 1;
+        msg.time = (float) ((Time::get() - startTime) / 1000.00f);
+        msg.e = (float) device->components.encoder.angle;
+
+        msg.ax = device->sensors.kernel.ax;
+        msg.ay = device->sensors.kernel.ay;
+        msg.az = device->sensors.kernel.az;
+
+        msg.wx = device->sensors.kernel.wx;
+        msg.wy = device->sensors.kernel.wy;
+        msg.wz = device->sensors.kernel.wz;
+
+        msg.q1 = device->sensors.kernel.q1;
+        msg.q2 = device->sensors.kernel.q2;
+        msg.q3 = device->sensors.kernel.q3;
+        msg.q4 = device->sensors.kernel.q4;
+
+        msg.pitch = device->sensors.kernel.pitch;
+        msg.roll  = device->sensors.kernel.roll;
+        msg.yaw   = device->sensors.kernel.yaw;
+        return msg;
+    }
+
+    void set(bool value) {
         startTime = Time::get();
         active    = (value && enabled);
     }

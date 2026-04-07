@@ -20,9 +20,10 @@ class Monitor:
         
     def setup(self):
         self.kernel = KernelSensor()
-        self.kernel.port = 'COM6'
-        self.kernel.connect(9600)
-        #self.kernel.set('frequency', 50)
+        self.kernel.port = '/dev/ttyUSB0'
+        self.kernel.connect(115200)
+        #self.kernel.set('frequency', 100)
+        #self.kernel.set('baudRate', 115200)
         self.startTime = time()
     
     def user(self):

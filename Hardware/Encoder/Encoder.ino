@@ -31,7 +31,7 @@ class Encoder {
     }
 };
 
-Encoder encoder(8, 9);
+Encoder encoder(10, 11);
 
 void setup() {
     Serial.begin(115200);

@@ -66,6 +66,7 @@ class KernelSensor:
         if size == 0:
             return False
         
+        print(self.device.read(self.device.in_waiting))
         self.buffer += self.device.read(size)
 
         while True:

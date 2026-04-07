@@ -3,12 +3,13 @@
 #include "encoder/index.h"
 #include "leds/index.h"
 
+
 template <typename Parent> class Components{
   private:
     Parent* device;
 
   public:
-    Encoder encoder = Encoder(8, 9);
+    Encoder encoder = Encoder(10, 11);
     LEDs leds = LEDs(1, 2);
 
     Components(Parent* dev):

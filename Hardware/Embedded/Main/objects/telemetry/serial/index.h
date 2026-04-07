@@ -6,15 +6,18 @@
 #include "../../../utils/text/index.h"
 #include "../../../utils/listener/index.h"
 #include "../../../utils/time/index.h"
-#define CMD_MIN_SIZE 5
+#define CMD_MIN_SIZE 2
 
 
 template<int CMD_MAX_SIZE> class NextSerial{
+  private:
+    Listener checkTimer = Listener(100);
+
   public:
     Text<CMD_MAX_SIZE> command;
-    bool available = false;
-    int timeout    = 5000;
-    Stream* uart = &Serial2;
+    bool available    = false;
+    const int timeout = 1000;
+    Stream* uart      = &Serial2;
     unsigned long lastAckTime;
     int port = 2;
     int RX, TX;
@@ -23,7 +26,6 @@ template<int CMD_MAX_SIZE> class NextSerial{
         RX(rx), TX(tx){}
     
     void setup(){
-        Serial2.begin(115200, SERIAL_8N1, RX, TX);
         Serial.printf("Serial2 Started at RX=%d e TX=%d\n", RX, TX);
     }
     
@@ -53,38 +55,34 @@ template<int CMD_MAX_SIZE> class NextSerial{
     }
     
     void listen(){
-        static Listener timer = Listener(100);
-        
-        if(!timer.ready())
+        if(!checkTimer.ready())
             return;
         
-        if(Serial.available() >= CMD_MIN_SIZE  && port != 1)
-            {uart = &Serial;  port = 1; Serial.println("port changed to 1");}
+        if(Serial.available() && port != 1)
+            {uart = &Serial; port = 1; Serial.println("port changed to 1");}
 
-        if(Serial2.available() >= CMD_MIN_SIZE && port != 2)
+        if(Serial2.available() && port != 2)
             {uart = &Serial2; port = 2; Serial.println("port changed to 2");}
-
-        const int size  = uart->available();
-        const bool junk = (size < CMD_MIN_SIZE || size > CMD_MAX_SIZE);
-
-        if(size == 0)
-            return;
         
-        if(!junk)
-            reset();
+        if(!uart->available())
+            return;
         
         const unsigned long startTime = Time::get();
-        while(uart->available() && Time::get() - startTime < timeout){
-            const char letter = (char) uart->read();
-            
-            if(junk)
-                continue;
+        reset();
 
-            command.concat(letter);
+        while(uart->available() && Time::get() - startTime < timeout){
+            command.concat((char) uart->read());
+
+            if(!uart->available())
+                delayMicroseconds(2000);
         }
         
-        available   = (command.length() > 5 && !command.isEmpty());
+        clean();
+        available   = command.length() > 0;
         lastAckTime = available ? Time::get() : lastAckTime;
+
+        if(!available)
+            clear(true);
     }
 
     void clean(){
@@ -92,7 +90,7 @@ template<int CMD_MAX_SIZE> class NextSerial{
         command.remove('\n');
         command.remove('\t');
 
-        if(command.length() < 5 || command.length() > CMD_MAX_SIZE)
+        if(command.isEmpty() || command.length() < CMD_MIN_SIZE || command.length() > CMD_MAX_SIZE)
             reset();
     }
 

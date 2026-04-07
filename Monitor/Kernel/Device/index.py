@@ -196,3 +196,4 @@ class Device:
             return
         
         self.last = self.getJson()   
+

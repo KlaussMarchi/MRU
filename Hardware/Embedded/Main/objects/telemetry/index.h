@@ -8,10 +8,11 @@
 #include "modes/coppe/index.h"
 
 #define CMD_MAX_SIZE 256
-//#define TX_PIN 11
-//#define RX_PIN 10
-#define TX_PIN 26
-#define RX_PIN 33
+//#define TX_PIN 11 // padrao que funciona
+//#define RX_PIN 10 // padrao que funciona
+
+#define TX_PIN 12
+#define RX_PIN 13
 
 
 template <typename Parent> class Telemetry{
@@ -50,6 +51,10 @@ template <typename Parent> class Telemetry{
     
     void handle(){
         serial.listen();
+
+        if(serial.available)
+            Serial.println(serial.command.toString());
+
         handleProtocol();
         handleRequest();
 
