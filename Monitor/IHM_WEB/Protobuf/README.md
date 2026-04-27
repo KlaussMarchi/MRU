@@ -30,3 +30,13 @@
     >> nc -ul 5005 (deubg, ver se esta chegando dados do esp ao PC)
 ```
 
+4. (opcional) Tudo em um terminal
+(primeira vez)
+```bash
+protoc -I. --python_out=. telemetry.proto && protoc --plugin=protoc-gen-nanopb=plugin/generator-bin/protoc-gen-nanopb --nanopb_out=. telemetry.proto && mv *.h release/ && mv *.c release/ && cp plugin/pb.h release/ && cp plugin/pb_encode.* release/ && cp plugin/pb_common.* release/ && mkdir ~/Arduino/libraries/protobuf && cp -r release/* ~/Arduino/libraries/protobuf && sudo ufw allow 5005/udp
+```
+
+(se pasta ja existe)
+```bash
+protoc -I. --python_out=. telemetry.proto && protoc --plugin=protoc-gen-nanopb=plugin/generator-bin/protoc-gen-nanopb --nanopb_out=. telemetry.proto && mv *.h release/ && mv *.c release/ && cp plugin/pb.h release/ && cp plugin/pb_encode.* release/ && cp plugin/pb_common.* release/ && cp -r release/* ~/Arduino/libraries/protobuf && sudo ufw allow 5005/udp
+```

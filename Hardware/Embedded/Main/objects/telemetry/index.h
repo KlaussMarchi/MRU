@@ -1,25 +1,24 @@
 #ifndef TELEMETRY_H
 #define TELEMETRY_H
-#include <Arduino.h>
-#include "protocol/index.h"
-#include "streamer/index.h"
-#include "protobuf/index.h"
-#include "serial/index.h"
 #include "modes/coppe/index.h"
+#include "protobuf/index.h"
+#include "protocol/index.h"
+#include "serial/index.h"
+#include "streamer/index.h"
+#include <Arduino.h>
 
 #define CMD_MAX_SIZE 256
-//#define TX_PIN 11 // padrao que funciona
-//#define RX_PIN 10 // padrao que funciona
+// #define TX_PIN 11 // padrao que funciona
+// #define RX_PIN 10 // padrao que funciona
 
 #define TX_PIN 12
 #define RX_PIN 13
 
+template <typename Parent> class Telemetry {
+private:
+    Parent *device;
 
-template <typename Parent> class Telemetry{
-  private:
-    Parent* device;
-    
-  public:
+public:
     NextSerial<CMD_MAX_SIZE> serial = NextSerial<CMD_MAX_SIZE>(RX_PIN, TX_PIN);
     Text<CMD_MAX_SIZE> last_cmd;
     Protocol<Parent> protocol;
@@ -29,27 +28,27 @@ template <typename Parent> class Telemetry{
     Coppe<Parent> coppe;
     byte type = 0;
     bool working;
-    
-    Telemetry(Parent* dev):
-        device(dev),
-        streamer(dev),
-        protobuf(dev),
-        protocol(dev),
+
+    Telemetry(Parent *dev): 
+        device(dev), 
+        streamer(dev), 
+        protobuf(dev), 
+        protocol(dev), 
         coppe(dev){}
-    
-    void setup(){
+
+    void setup() {
         type = device->settings.template get<byte>("telemetry");
         serial.setup();
-        
-        if(type == COPPE_TEL)
+
+        if (type == COPPE_TEL)
             coppe.setup();
 
         streamer.setup();
         protobuf.setup();
         response.reset();
     }
-    
-    void handle(){
+
+    void handle() {
         serial.listen();
 
         if(serial.available)
@@ -60,59 +59,58 @@ template <typename Parent> class Telemetry{
 
         if(Time::get() - serial.lastAckTime > 60000)
             working = false;
-        
+
         if(response.length() > 0)
             event(response.get());
-        
-        if(serial.available)
-            last_cmd = serial.command.get();
+
+        if (serial.available)
+        last_cmd = serial.command.get();
 
         streamer.handle();
 
-        if(protobuf.enabled)
+        if (protobuf.enabled)
             protobuf.handle();
-        
-        handleOperation(); 
+
+        handleOperation();
         serial.reset();
     }
 
-    void handleProtocol(){
-        if(type == COPPE_TEL)
+    void handleProtocol() {
+        if (type == COPPE_TEL)
             coppe.check();
 
-        if(serial.available)
+        if (serial.available)
             protocol.check();
     }
 
-    void handleRequest(){
-        if(type == COPPE_TEL)
+    void handleRequest() {
+        if (type == COPPE_TEL)
             coppe.request();
     }
-    
-    void handleOperation(){
-        if(type == COPPE_TEL)
+
+    void handleOperation() {
+        if (type == COPPE_TEL)
             coppe.handle();
     }
-    
-    void event(const char* value){
-        //device->logs.add(value);
+
+    void event(const char *value) {
+        // device->logs.add(value);
         serial.send(value, true);
         response.reset();
     }
-    
-    void event(const String& value){
-        //device->logs.add(value.c_str());
+
+    void event(const String &value) {
+        // device->logs.add(value.c_str());
         serial.send(value.c_str(), true);
         response.reset();
     }
 
-    const char* toText(){
-        if(type == COPPE_TEL)
+    const char *toText() {
+        if (type == COPPE_TEL)
             return "Padrão";
 
         return "None";
     }
 };
 
-#endif 
-
+#endif

@@ -39,7 +39,9 @@ class Settings{
     
     void reset(){
         params.data["server"] = "http://192.168.249.12:8000/api/";
-        params.data["telemetry"] = 0;
+        params.data["telemetry"]   = 0;
+        params.data["kernel_mode"] = 0;
+        params.data["protobuf"]    = false;
         params.data["ssid"] = "123456789";
         params.data["pass"] = "123456789";
         params.data["server_ip"] = "192.168.1.0";

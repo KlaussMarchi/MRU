@@ -10,16 +10,36 @@ class TimeGraph:
     startTime = getTime()
 
     def __init__(self, xLim=[0, 5], interval=0.001, callback=None):
-        self.xLim = xLim
+        self.initialXLim = list(xLim)
+        self.xLim = list(xLim)
         self.interval = int(interval * 1000) 
         self.size = len(np.arange(xLim[0], xLim[1], interval))
         self.t = 0
-        self.newData = []   # [('y1', [1, 2, 3]), ('y2', [4, 5, 6])]...
+        self.newData = {}
         self.time  = []     # VETOR DE TEMPO
         self.data  = {}     # {'y1': [1, 2, 3], 'y2': [4, 5, 6], ...}
         self.lines = {}     # OBJETOS DE CADA LINHA
         self.callback = callback
         self.thread   = None
+
+    def reset(self):
+        self.t = 0
+        self.newData = {}
+        self.time = []
+        self.data = {}
+        self.xLim = list(self.initialXLim)
+        
+        if hasattr(self, 'ax'):
+            for lineObj in self.lines.values():
+                try:
+                    lineObj.remove()
+                except Exception:
+                    pass
+            self.ax.set_xlim(self.xLim[0], self.xLim[1])
+            if self.ax.get_legend():
+                self.ax.get_legend().remove()
+
+        self.lines = {}
 
     def start(self):
         self.thread = AsyncThreading(self.handleThread)
@@ -87,6 +107,11 @@ class TimeGraph:
         maxY = max(allValues)
         minY = minY * 0.95 if minY >= 0 else minY * 1.05
         maxY = maxY * 1.05 if maxY >= 0 else maxY * 0.95
+        
+        if minY == maxY:
+            minY -= 1
+            maxY += 1
+            
         self.ax.set_ylim(minY, maxY)
 
     def updateLines(self):

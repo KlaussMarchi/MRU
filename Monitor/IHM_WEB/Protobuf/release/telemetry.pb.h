@@ -12,16 +12,22 @@
 /* Struct definitions */
 typedef struct _ProtoData {
     uint32_t device_id;
-    float time;
-    float ax;
-    float ay;
-    float az;
-    float wx; /* velocidade angular em X */
-    float wy; /* velocidade angular em Y */
-    float wz; /* velocidade angular em Z */
-    float pitch;
-    float roll;
-    float yaw;
+    float t;
+    float e;
+    float tmp;
+    int32_t ax;
+    int32_t ay;
+    int32_t az;
+    int32_t wx;
+    int32_t wy;
+    int32_t wz;
+    int32_t pitch;
+    int32_t roll;
+    int32_t yaw;
+    int32_t q0;
+    int32_t q1;
+    int32_t q2;
+    int32_t q3;
 } ProtoData;
 
 
@@ -30,35 +36,47 @@ extern "C" {
 #endif
 
 /* Initializer values for message structs */
-#define ProtoData_init_default                   {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
-#define ProtoData_init_zero                      {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+#define ProtoData_init_default                   {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+#define ProtoData_init_zero                      {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 
 /* Field tags (for use in manual encoding/decoding) */
 #define ProtoData_device_id_tag                  1
-#define ProtoData_time_tag                       2
-#define ProtoData_ax_tag                         3
-#define ProtoData_ay_tag                         4
-#define ProtoData_az_tag                         5
-#define ProtoData_wx_tag                         6
-#define ProtoData_wy_tag                         7
-#define ProtoData_wz_tag                         8
-#define ProtoData_pitch_tag                      9
-#define ProtoData_roll_tag                       10
-#define ProtoData_yaw_tag                        11
+#define ProtoData_t_tag                          2
+#define ProtoData_e_tag                          3
+#define ProtoData_tmp_tag                        4
+#define ProtoData_ax_tag                         5
+#define ProtoData_ay_tag                         6
+#define ProtoData_az_tag                         7
+#define ProtoData_wx_tag                         8
+#define ProtoData_wy_tag                         9
+#define ProtoData_wz_tag                         10
+#define ProtoData_pitch_tag                      11
+#define ProtoData_roll_tag                       12
+#define ProtoData_yaw_tag                        13
+#define ProtoData_q0_tag                         14
+#define ProtoData_q1_tag                         15
+#define ProtoData_q2_tag                         16
+#define ProtoData_q3_tag                         17
 
 /* Struct field encoding specification for nanopb */
 #define ProtoData_FIELDLIST(X, a) \
 X(a, STATIC,   SINGULAR, UINT32,   device_id,         1) \
-X(a, STATIC,   SINGULAR, FLOAT,    time,              2) \
-X(a, STATIC,   SINGULAR, FLOAT,    ax,                3) \
-X(a, STATIC,   SINGULAR, FLOAT,    ay,                4) \
-X(a, STATIC,   SINGULAR, FLOAT,    az,                5) \
-X(a, STATIC,   SINGULAR, FLOAT,    wx,                6) \
-X(a, STATIC,   SINGULAR, FLOAT,    wy,                7) \
-X(a, STATIC,   SINGULAR, FLOAT,    wz,                8) \
-X(a, STATIC,   SINGULAR, FLOAT,    pitch,             9) \
-X(a, STATIC,   SINGULAR, FLOAT,    roll,             10) \
-X(a, STATIC,   SINGULAR, FLOAT,    yaw,              11)
+X(a, STATIC,   SINGULAR, FLOAT,    t,                 2) \
+X(a, STATIC,   SINGULAR, FLOAT,    e,                 3) \
+X(a, STATIC,   SINGULAR, FLOAT,    tmp,               4) \
+X(a, STATIC,   SINGULAR, SINT32,   ax,                5) \
+X(a, STATIC,   SINGULAR, SINT32,   ay,                6) \
+X(a, STATIC,   SINGULAR, SINT32,   az,                7) \
+X(a, STATIC,   SINGULAR, SINT32,   wx,                8) \
+X(a, STATIC,   SINGULAR, SINT32,   wy,                9) \
+X(a, STATIC,   SINGULAR, SINT32,   wz,               10) \
+X(a, STATIC,   SINGULAR, SINT32,   pitch,            11) \
+X(a, STATIC,   SINGULAR, SINT32,   roll,             12) \
+X(a, STATIC,   SINGULAR, SINT32,   yaw,              13) \
+X(a, STATIC,   SINGULAR, SINT32,   q0,               14) \
+X(a, STATIC,   SINGULAR, SINT32,   q1,               15) \
+X(a, STATIC,   SINGULAR, SINT32,   q2,               16) \
+X(a, STATIC,   SINGULAR, SINT32,   q3,               17)
 #define ProtoData_CALLBACK NULL
 #define ProtoData_DEFAULT NULL
 
@@ -68,7 +86,7 @@ extern const pb_msgdesc_t ProtoData_msg;
 #define ProtoData_fields &ProtoData_msg
 
 /* Maximum encoded size of messages (where known) */
-#define ProtoData_size                           56
+#define ProtoData_size                           101
 #define TELEMETRY_PB_H_MAX_SIZE                  ProtoData_size
 
 #ifdef __cplusplus

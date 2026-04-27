@@ -29,34 +29,53 @@ template <typename Parent> class Protocol{
             return;
         }
         
-        if(device->telemetry.serial.command.contains("$STREAM!")){
+        if(device->telemetry.serial.command.contains("stream_start")){
             device->telemetry.streamer.set(true);
             return;
         }
 
-        if(device->telemetry.serial.command.contains("check_sensors")){
-            device->telemetry.response.set(device->sensors.working ? "OK" : "NOT WORKING");
-            return;
-        }
-
-        if(device->telemetry.serial.command.contains("kernel_config")){
-            device->sensors.kernel.setMode();
-            device->telemetry.response.set("OK");
-            return;
-        }
-
-        if(device->telemetry.serial.command.contains("$STOP!")){
+        if(device->telemetry.serial.command.contains("stream_stop")){
             device->telemetry.streamer.set(false);
             return;
         }
 
-        if(device->telemetry.serial.command.contains("$ETKA!")){
-            device->telemetry.response.set("$ETACK!");
+        if(device->telemetry.serial.command.contains("parse_orient")){
+            const int start = device->telemetry.serial.command.find(':');
+            const int end   = device->telemetry.serial.command.find('!');
+
+            if(start == -1 || end == -1)
+                return device->telemetry.response.set("ERROR");
+            
+            auto value = device->telemetry.serial.command.substring(start+1, end);
+            device->processing.parse(value.buffer);
+            return;
+        }
+
+        if(device->telemetry.serial.command.contains("check_sensor")){
+            device->telemetry.response.set(device->sensors.working ? "OK" : "NOT WORKING");
+            return;
+        }
+
+        if(device->telemetry.serial.command.contains("align")){
+            const int start = device->telemetry.serial.command.find(':');
+            const int end   = device->telemetry.serial.command.find('!');
+
+            if(start == -1 || end == -1)
+                return device->telemetry.response.set("ERROR");
+            
+            auto value = device->telemetry.serial.command.substring(start+1, end);
+            device->sensors.kernel.align(value.toInt());
+            device->telemetry.response.set("OK");
+            return;
+        }
+        
+        if(device->telemetry.serial.command.contains("ackoneledge")){
+            device->telemetry.response.set("$MICACK!");
             return;
         }
 
         if(device->telemetry.serial.command.contains("reset_encoder")){
-            device->telemetry.response.set("$ETACK!");
+            device->telemetry.response.set("$MICACK!");
             device->components.encoder.reset();
             return;
         }

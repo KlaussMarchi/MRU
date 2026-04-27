@@ -2,17 +2,24 @@ syntax = "proto3";
 
 message ProtoData{
   uint32 device_id = 1;
-  
-  float time = 2;
-  float ax = 3;
-  float ay = 4;
-  float az = 5;
+  float t   = 2;
+  float e   = 3;
+  float tmp = 4;
 
-  float wx = 6;   // velocidade angular em X
-  float wy = 7;   // velocidade angular em Y
-  float wz = 8;   // velocidade angular em Z
+  sint32 ax = 5;
+  sint32 ay = 6;
+  sint32 az = 7;
 
-  float pitch = 9;
-  float roll  = 10;
-  float yaw   = 11;
+  sint32 wx = 8;
+  sint32 wy = 9;
+  sint32 wz = 10;
+
+  sint32 pitch = 11;
+  sint32 roll  = 12;
+  sint32 yaw   = 13;
+
+  sint32 q0 = 14;
+  sint32 q1 = 15;
+  sint32 q2 = 16;
+  sint32 q3 = 17;
 }

@@ -1,13 +1,10 @@
 from Protobuf.telemetry_pb2 import ProtoData
 import socket
 
-
 UDP_IP   = "0.0.0.0"
 UDP_PORT = 5005
 
-
 class Protobuf:
-
     def setup(self):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.bind((UDP_IP, UDP_PORT))
@@ -25,4 +22,10 @@ class Protobuf:
             print(f"[{addr}] Erro ao decodificar Protobuf: {e}")
             return
         
-        self.data = {'time': r.time, 'ax': r.ax, 'ay': r.ay, 'az': r.az, 'wx': r.wx, 'wy': r.wy, 'wz': r.wz, 'pitch': r.pitch, 'roll': r.roll, 'yaw': r.yaw}
+        self.data = {
+            'time': r.time, 'e': r.e, 
+            'ax': r.ax, 'ay': r.ay, 'az': r.az, 
+            'wx': r.wx, 'wy': r.wy, 'wz': r.wz, 
+            'pitch': r.pitch, 'roll': r.roll, 'yaw': r.yaw, 
+            'q0': r.q0, 'q1': r.q1, 'q2': r.q2, 'q3': r.q3
+        }

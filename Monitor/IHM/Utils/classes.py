@@ -99,7 +99,7 @@ class AsyncThreading:
 
             if self.kb.is_pressed('q'):
                 break
-
+            
             if time() - self.startTime < self.interval:
                 continue
             

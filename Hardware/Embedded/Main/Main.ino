@@ -3,9 +3,9 @@ Device device{"v1.0.0"};
 
 
 void setup(){
-    device.telemetry.protobuf.enabled   = true;
     device.components.encoder.enabled   = true;
     device.telemetry.streamer.autostart = false;
+    device.telemetry.streamer.use_protocol = false;
     device.components.leds.enabled = true;
     device.multitask     = false;
     device.sensors.debug = false;

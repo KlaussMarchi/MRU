@@ -23,6 +23,7 @@ template <typename Parent> class Sensors{
         if(debug)
             return;
 
+        kernel.mode = device->settings.template get<byte>("kernel_mode");
         kernel.setup();
     }
 

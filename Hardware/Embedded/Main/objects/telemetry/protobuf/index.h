@@ -28,8 +28,10 @@ public:
 
     Protobuf(Parent* dev): 
         device(dev){}
-    
-    void setup() {
+
+    void setup(){
+        enabled = device->settings.isEnabled("protobuf");
+
         if(!enabled)
             return;
 
@@ -132,9 +134,10 @@ public:
     ProtoData getMsg(){
         ProtoData msg = ProtoData_init_zero;
         msg.device_id = (uint32_t) 1;
-        msg.time = (float) ((Time::get() - startTime) / 1000.00f);
+        msg.t = (float) ((Time::get() - startTime) / 1000.00f);
         msg.e = (float) device->components.encoder.angle;
-
+        msg.tmp = (float) device->sensors.kernel.temperature;
+        
         msg.ax = device->sensors.kernel.ax;
         msg.ay = device->sensors.kernel.ay;
         msg.az = device->sensors.kernel.az;
@@ -143,14 +146,14 @@ public:
         msg.wy = device->sensors.kernel.wy;
         msg.wz = device->sensors.kernel.wz;
 
-        msg.q1 = device->sensors.kernel.q1;
-        msg.q2 = device->sensors.kernel.q2;
-        msg.q3 = device->sensors.kernel.q3;
-        msg.q4 = device->sensors.kernel.q4;
-
         msg.pitch = device->sensors.kernel.pitch;
         msg.roll  = device->sensors.kernel.roll;
         msg.yaw   = device->sensors.kernel.yaw;
+
+        msg.q0 = device->sensors.kernel.q0;
+        msg.q1 = device->sensors.kernel.q1;
+        msg.q2 = device->sensors.kernel.q2;
+        msg.q3 = device->sensors.kernel.q3;
         return msg;
     }
 

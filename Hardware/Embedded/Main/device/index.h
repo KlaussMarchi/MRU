@@ -12,10 +12,10 @@
 #include "settings/index.h"
 #include "tasks/index.h"
 
-#include "../objects/processing/index.h"
 #include "../objects/telemetry/index.h"
 #include "../objects/sensors/index.h"
 #include "../objects/components/index.h"
+#include "../objects/processing/index.h"
 
 
 class Device{
@@ -27,16 +27,16 @@ class Device{
     Settings settings;
     Text<12> id;
 
-    Processing<Device> processing;
     Telemetry<Device> telemetry;
     Sensors<Device> sensors;
+    Processing<Device> processing;
     Tasks<Device> tasks;
     Components<Device> components;
 
     Device(const char* version):
         firmware(version),
-        processing(this),
         telemetry(this),
+        processing(this),
         sensors(this),
         tasks(this),
         components(this){}
@@ -52,9 +52,9 @@ class Device{
         startTime = Time::get();
         settings.import();
         
-        processing.setup();
         telemetry.setup();
         sensors.setup();
+        processing.setup();
     }
 
     void reset(){
