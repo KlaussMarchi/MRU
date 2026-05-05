@@ -135,7 +135,7 @@ public:
         ProtoData msg = ProtoData_init_zero;
         msg.device_id = (uint32_t) 1;
         msg.t = (float) ((Time::get() - startTime) / 1000.00f);
-        msg.e = (float) device->components.encoder.angle;
+        msg.e = (float) device->components.encoder.get();
         msg.tmp = (float) device->sensors.kernel.temperature;
         
         msg.ax = device->sensors.kernel.ax;

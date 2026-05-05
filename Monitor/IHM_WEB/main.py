@@ -12,7 +12,7 @@ os.chdir(base_dir)
 
 
 class Monitor:
-    SAVE = True
+    SAVE = Truez
 
     def __init__(self, targets=['yaw']):
         self.current = None

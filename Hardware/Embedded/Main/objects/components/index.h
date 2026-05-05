@@ -1,6 +1,6 @@
 #ifndef COMPONENTS_H
 #define COMPONENTS_H
-#include "encoder/index.h"
+#include "encoder/index.cpp"
 #include "leds/index.h"
 
 
@@ -29,9 +29,6 @@ template <typename Parent> class Components{
             handleComm();
             leds.handle();   
         }
-
-        if(encoder.enabled)
-            encoder.handle();
     }
 
     void handleSensors(){

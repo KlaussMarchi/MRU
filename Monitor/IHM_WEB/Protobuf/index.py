@@ -23,7 +23,7 @@ class Protobuf:
             return
         
         self.data = {
-            'time': r.time, 'e': r.e, 
+            'time': r.t, 'e': r.e, 
             'ax': r.ax, 'ay': r.ay, 'az': r.az, 
             'wx': r.wx, 'wy': r.wy, 'wz': r.wz, 
             'pitch': r.pitch, 'roll': r.roll, 'yaw': r.yaw, 

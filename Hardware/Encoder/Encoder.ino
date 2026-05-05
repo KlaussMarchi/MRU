@@ -1,55 +1,20 @@
-class Encoder {
-  private:
-    const double ratio = 0.5000f;
-    int P1, P2;
-    bool previous;
+#include <Arduino.h>
+#include "encoder/index.cpp"
 
-  public:
-    int counter = 0;
-    double angle = 0;
-
-    Encoder(int pin1, int pin2): 
-        P1(pin1), 
-        P2(pin2){}
-
-    void setup() {
-        pinMode(P1, INPUT_PULLUP);
-        pinMode(P2, INPUT_PULLUP);
-        previous = digitalRead(P1);
-    }
-
-    void update() {
-        const bool state     = (bool) digitalRead(P1);
-        const bool decreased = (digitalRead(P2) == state);
-
-        if(state == previous)
-            return;
-        
-        previous = state;
-        counter  = decreased ? (counter - 1)   : (counter + 1);
-        angle    = decreased ? (angle - ratio) : (angle + ratio);
-    }
-};
-
-Encoder encoder(10, 11);
+Encoder encoder = Encoder(2, 3);
 
 void setup() {
     Serial.begin(115200);
-    encoder.setup();
-    Serial.println("Encoder initialized - No conflicts.");
+    encoder.setup(); 
 }
 
 void loop() {
-    static unsigned long startTime = micros();
-    static char buffer[16];
-    encoder.update();
+    static unsigned long startTime = millis();
 
-    if(micros() - startTime < 10000)
+    if (millis() - startTime < 10)
         return;
 
-    startTime = micros();
-    char floatStr[10];
-    dtostrf(encoder.angle, 6, 3, floatStr); 
-    int n = snprintf(buffer, sizeof(buffer), "{\"e\":%s}\n", floatStr);
-    Serial.write(buffer, n);
+    startTime = millis();
+    Serial.print("-90,90,");
+    Serial.println(encoder.get(), 4);
 }
