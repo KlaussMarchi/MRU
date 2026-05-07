@@ -21,7 +21,7 @@
 class Device{
   public:
     bool multitask = true;
-    const float frequency = 100.0;
+    float frequency = 100.0;
     unsigned long startTime;
     const char* firmware;
     Settings settings;

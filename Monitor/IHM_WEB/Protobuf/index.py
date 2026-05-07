@@ -9,6 +9,7 @@ class Protobuf:
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.bind((UDP_IP, UDP_PORT))
         self.data = None
+        self.isNew = False
         print(f"Servidor UDP aguardando em {UDP_IP}:{UDP_PORT}")
 
 
@@ -29,3 +30,4 @@ class Protobuf:
             'pitch': r.pitch, 'roll': r.roll, 'yaw': r.yaw, 
             'q0': r.q0, 'q1': r.q1, 'q2': r.q2, 'q3': r.q3
         }
+        self.isNew = True

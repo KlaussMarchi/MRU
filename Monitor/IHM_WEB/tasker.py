@@ -30,8 +30,6 @@ class Tasker:
                 writer.writeheader()
 
     def save(self, data):
-        # Abre e fecha o arquivo a cada escrita para garantir que os dados sejam gravados no disco
-        # Isso evita perda de dados se o programa travar
         with open(self.fileName, 'a', newline='') as f:
             writer = csv.DictWriter(f, fieldnames=self.fields)
             row = {

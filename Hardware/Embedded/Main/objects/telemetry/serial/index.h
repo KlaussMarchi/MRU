@@ -26,6 +26,7 @@ template<int CMD_MAX_SIZE> class NextSerial{
         RX(rx), TX(tx){}
     
     void setup(){
+        Serial2.begin(115200, SERIAL_8N1, RX, TX);
         Serial.printf("Serial2 Started at RX=%d e TX=%d\n", RX, TX);
     }
     

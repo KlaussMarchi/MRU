@@ -47,7 +47,7 @@ template <typename Parent> class Streamer{
     }
 
     void print(){
-        static char buffer[128];
+        static char buffer[256];
         const byte mode = device->sensors.kernel.mode;
         int n;
 

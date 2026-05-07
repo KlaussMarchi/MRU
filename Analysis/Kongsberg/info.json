@@ -1,0 +1,5 @@
+{
+    "variable": "wz",
+    "test": 1,
+    "limits": [15, 999]
+}
