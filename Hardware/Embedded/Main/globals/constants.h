@@ -5,5 +5,6 @@
 
 #define HR_MODE 0
 #define QT_MODE 1
+#define OR_MODE 2
 
 #endif

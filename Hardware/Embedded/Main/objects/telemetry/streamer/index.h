@@ -51,7 +51,7 @@ template <typename Parent> class Streamer{
         const byte mode = device->sensors.kernel.mode;
         int n;
 
-        if(mode == HR_MODE)
+        if(mode == HR_MODE || mode == OR_MODE)
             n = snprintf(buffer, sizeof(buffer),
                 "{\"time\":%.3f,\"tmp\":%.2f,\"pitch\":%ld,\"roll\":%ld,\"yaw\":%ld,"
                 "\"ax\":%ld,\"ay\":%ld,\"az\":%ld,"

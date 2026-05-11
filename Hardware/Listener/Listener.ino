@@ -17,5 +17,5 @@ void setup() {
 
 void loop() {
     while (mru.available())
-      Serial.write(mru.read());
+      Serial.write((char) mru.read());
 }

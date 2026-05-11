@@ -145,6 +145,74 @@ class KernelModelQuaternion{
     }
 };
 
+class KernelModelOrientation {
+  private:
+    HardwareSerial* uart;
+
+    int16_t extract_i16(int pos) {
+        return (int16_t) (packet[pos] | (packet[pos+1] << 8));
+    }
+
+    uint16_t extract_u16(int pos) {
+        return (uint16_t) (packet[pos] | (packet[pos+1] << 8));
+    }
+
+  public:
+    static const int PKT_LEN = 42;
+    uint8_t packet[PKT_LEN];
+    
+    uint16_t yaw;
+    int16_t pitch, roll;
+    int16_t wx, wy, wz;
+    int16_t ax, ay, az;
+    float temperature;
+
+    KernelModelOrientation(HardwareSerial* uart){
+        this->uart = uart;
+    }
+
+    void setup(){
+        const uint8_t CMD_MODE[9] = { 0xAA, 0x55, 0x00, 0x00, 0x07, 0x00, 0x33, 0x3A, 0x00 }; 
+        
+        Serial.println("Kernel Started in Orientation Mode");
+        Serial.println("Activation CMD Sent");
+        uart->write(CMD_MODE, 9);
+        delay(1000);
+    }
+
+    bool update() {
+        if(!checksumValid()) {
+            Serial.println("Checksum inválido no Orientation Data!");
+            return false;
+        }
+        
+        yaw   = extract_u16(6);  // Heading
+        pitch = extract_i16(8);  // Pitch
+        roll  = extract_i16(10); // Roll
+
+        wx = extract_i16(12); // Angular Rates
+        wy = extract_i16(14); 
+        wz = extract_i16(16); 
+
+        ax = extract_i16(18); // Accelerations
+        ay = extract_i16(20); 
+        az = extract_i16(22); 
+
+        temperature = ((float) extract_i16(38)) / 10.0f; // Temperatura
+        return true;
+    }
+
+    bool checksumValid() {
+        uint16_t recv_checksum = extract_u16(40);
+        uint16_t calc_checksum = 0;
+        
+        for(int i = 2; i < 40; i++) 
+            calc_checksum += packet[i];
+
+        return (calc_checksum == recv_checksum);
+    }
+};
+
 class KernelSensor {
   private:
     unsigned long lastUpdate;
@@ -158,6 +226,7 @@ class KernelSensor {
     int32_t pitch, roll, yaw;
     float temperature;
 
+    KernelModelOrientation ort;
     KernelModelQuaternion qt;
     KernelModelHR hr;
     
@@ -170,7 +239,7 @@ class KernelSensor {
     int tx_pin, rx_pin;
     
     KernelSensor(int tx, int rx): 
-        uart(new HardwareSerial(1)), qt(uart), hr(uart){
+        uart(new HardwareSerial(1)), qt(uart), hr(uart), ort(uart){
             tx_pin = tx;
             rx_pin = rx;
         }
@@ -185,6 +254,9 @@ class KernelSensor {
         
         if(mode == QT_MODE)
             qt.setup();
+
+        if(mode == OR_MODE)
+            ort.setup();
         
         reset();
     }
@@ -270,6 +342,9 @@ class KernelSensor {
         if(mode == QT_MODE)
             return qt.PKT_LEN;
 
+        if(mode == OR_MODE) 
+            return ort.PKT_LEN;
+
         return 0;
     }
 
@@ -305,6 +380,24 @@ class KernelSensor {
             roll  = qt.roll;
             yaw   = qt.yaw;
             temperature = qt.temperature;
+        }
+
+        if(mode == OR_MODE){
+            memcpy(ort.packet, rx_buffer, ort.PKT_LEN);
+            working = ort.update();
+
+            ax = ort.ax;
+            ay = ort.ay;
+            az = ort.az;
+
+            wx = ort.wx;
+            wy = ort.wy;
+            wz = ort.wz;
+
+            pitch = ort.pitch;
+            roll  = ort.roll;
+            yaw   = ort.yaw;
+            temperature = ort.temperature;
         }
 
         if(working)
