@@ -1,0 +1,4 @@
+{
+    "variable": "wx",
+    "limits": [15, 1e9]
+}
