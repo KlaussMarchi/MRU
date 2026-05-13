@@ -1,17 +1,23 @@
 from Device.index import Device
 from Plotter.index import TimeGraph
 from Utils.classes import AsyncThreading
+from Utils.functions import sendEvent
 from time import time, sleep
 import numpy as np
 import pandas as pd
-import os
+import os, shutil
 
 script_path = os.path.abspath(__file__)
 base_dir = os.path.dirname(script_path)
 os.chdir(base_dir)
 
+def setFolder(folder):
+    if os.path.exists(folder):
+        shutil.rmtree(folder)
+    os.makedirs(folder)
+
 class Monitor:
-    def __init__(self, targets=['pitch', 'roll', 'yaw']):
+    def __init__(self, targets=['pitch']):
         self.current = None
         self.valuesK = []
         self.valuesM = []
@@ -22,6 +28,8 @@ class Monitor:
     def setup(self):
         self.deviceK = Device(rate=19200)
         self.deviceM = Device(rate=9600)
+        self.deviceK.port = '/dev/ttyUSB0'
+        self.deviceM.port = '/dev/ttyACM0'
 
         self.deviceK.connect()
         self.deviceM.connect()
@@ -58,6 +66,11 @@ class Monitor:
             self.current[f'{key}_K'] = self.deviceK.last.get(key)
             self.current[f'{key}_M'] = self.deviceM.last.get(key)
 
+        sendEvent('time:', passed, 'blue')
+        sendEvent('kongsberg:', self.deviceK.last, 'green')
+        sendEvent('measure:', self.deviceM.last, 'green')
+        print()
+
         self.valuesK.append(self.deviceK.last)
         self.valuesM.append(self.deviceM.last)
         self.deviceK.last = None
@@ -77,16 +90,16 @@ class Monitor:
             self.targets = ['yaw']; self.reset()
 
         if self.threadK.kb.is_pressed('k'):
-            self.targets = ['pitch', 'roll', 'yaw']; self.reset()
+            self.targets = ['pitch']; self.reset()
 
         if self.threadK.kb.is_pressed('w'):
-            self.targets = ['wx', 'wy', 'wz']; self.reset()
+            self.targets = ['wx']; self.reset()
 
         if self.threadK.kb.is_pressed('a'):
-            self.targets = ['ax', 'ay', 'az']; self.reset()
+            self.targets = ['ax']; self.reset()
 
         if self.threadK.kb.is_pressed('o'):
-            self.targets = ['q0', 'q1', 'q2', 'q3']; self.reset()
+            self.targets = ['q0']; self.reset()
                     
         return (time() - self.startTime, self.current)
 
@@ -94,25 +107,23 @@ class Monitor:
         self.graph.need_reset = True
         self.startTime = time()
 
-    def save(self):
-        if getattr(self, 'SAVE', False) is False:
-            return
+    def save(self, folder='output'):
+        setFolder(os.path.join(folder, 'kongsberg'))
+        setFolder(os.path.join(folder, 'measure'))
 
-        if self.valuesK:
-            keysK = set()
-            for record in self.valuesK:
-                keysK.update(record.keys())
-            dataK = [{key: record.get(key, 0) for key in keysK} for record in self.valuesK]
-            dfK = pd.DataFrame(dataK)
-            dfK.to_csv('kongsberg.csv', index=False)
-            
-        if self.valuesM:
-            keysM = set()
-            for record in self.valuesM:
-                keysM.update(record.keys())
-            dataM = [{key: record.get(key, 0) for key in keysM} for record in self.valuesM]
-            dfM = pd.DataFrame(dataM)
-            dfM.to_csv('measure.csv', index=False)
+        keysK = set()
+        for record in self.valuesK:
+            keysK.update(record.keys())
+        dataK = [{key: record.get(key, 0) for key in keysK} for record in self.valuesK]
+        dfK = pd.DataFrame(dataK)
+        dfK.to_csv(os.path.join(folder, 'kongsberg', 'data.csv'), index=False)
+        
+        keysM = set()
+        for record in self.valuesM:
+            keysM.update(record.keys())
+        dataM = [{key: record.get(key, 0) for key in keysM} for record in self.valuesM]
+        dfM = pd.DataFrame(dataM)
+        dfM.to_csv(os.path.join(folder, 'measure', 'data.csv'), index=False)
 
 
 if __name__ == '__main__':
@@ -126,8 +137,7 @@ if __name__ == '__main__':
         graph.start()
     except Exception as error:
         print('error: ', error)
-    finally:
-        print('\nsalvando database')
-        
+    finally:      
         if monitor.SAVE:
+            print('\nsalvando database')
             monitor.save()

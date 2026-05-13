@@ -1,4 +1,4 @@
 {
     "variable": "roll",
-    "limits": [15, 60]
+    "limits": [5, 60]
 }

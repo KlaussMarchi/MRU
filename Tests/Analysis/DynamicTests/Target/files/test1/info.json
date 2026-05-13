@@ -1,4 +1,4 @@
 {
-    "variable": "wx",
-    "limits": [15, 1e9]
+    "variable": "roll",
+    "limits": [15, 60]
 }

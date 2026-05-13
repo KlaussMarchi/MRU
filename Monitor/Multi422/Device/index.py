@@ -115,7 +115,7 @@ class Device:
 
             return cleaned
         except Exception as error:
-            sendEvent('error', error)
+            sendEvent('error (string)', error)
             return None
 
     def getNMEA(self, timeout=5.0):
@@ -144,35 +144,28 @@ class Device:
             return None
         
         except Exception as error:
-            sendEvent('error', error)
+            sendEvent('error (mmea)', error)
             return None
 
     def getJson(self, timeout=5.0):
         startTime = time()
-        response  = bytearray()
-        started   = False
-
+        
         try:
             while time() - startTime < timeout:
                 if self.device.in_waiting == 0:
                     continue
                 
-                newBytes = self.device.read(self.device.in_waiting)
-
-                if b'{' in newBytes:
-                    started = True
+                raw_line = self.device.readline()
+                cleaned  = raw_line.decode('utf-8', errors='ignore').strip()
                 
-                if started:
-                    response.extend(newBytes)
-
-                if b'\n' in newBytes:
-                    break
-            
-            response = response.decode('utf-8', errors='ignore').split('\n')[0].strip()
-            return json.loads(response)
+                if cleaned.startswith('{') and cleaned.endswith('}'):
+                    try:
+                        return json.loads(cleaned)
+                    except json.JSONDecodeError:
+                        sendEvent('json decode error', cleaned)
+            return None
         except Exception as error:
-            print(response)
-            sendEvent('error', error)
+            sendEvent('error (json)', error)
             return None
 
     def available(self):
