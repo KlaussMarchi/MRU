@@ -15,9 +15,10 @@ template<int CMD_MAX_SIZE> class NextSerial{
 
   public:
     Text<CMD_MAX_SIZE> command;
-    bool available    = false;
-    const int timeout = 1000;
-    Stream* uart      = &Serial2;
+    const int timeout  = 1000;
+    const int baudrate = 9600;
+    Stream* uart = &Serial2;
+    bool available = false;
     unsigned long lastAckTime;
     int port = 2;
     int RX, TX;
@@ -26,7 +27,7 @@ template<int CMD_MAX_SIZE> class NextSerial{
         RX(rx), TX(tx){}
     
     void setup(){
-        Serial2.begin(9600, SERIAL_8N1, RX, TX);
+        Serial2.begin(baudrate, SERIAL_8N1, RX, TX);
         Serial.printf("Serial2 Started at RX=%d e TX=%d\n", RX, TX);
     }
     

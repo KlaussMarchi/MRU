@@ -26,10 +26,11 @@ class Monitor:
         self.SAVE = True
         
     def setup(self):
-        self.deviceK = Device(rate=19200)
         self.deviceM = Device(rate=9600)
-        self.deviceK.port = '/dev/ttyUSB0'
+        self.deviceK = Device(rate=19200)
+        
         self.deviceM.port = '/dev/ttyACM0'
+        self.deviceK.port = '/dev/ttyUSB0'
 
         self.deviceK.connect()
         self.deviceM.connect()
@@ -48,7 +49,7 @@ class Monitor:
         if not self.deviceM.available():
             return
         
-        self.deviceM.last = self.deviceM.getJson()
+        self.deviceM.last = self.deviceM.getList()
 
     def handle(self):
         if self.deviceK.last is None or self.deviceM.last is None:

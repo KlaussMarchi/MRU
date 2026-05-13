@@ -94,12 +94,15 @@ public:
         static bool started   = false;
         static int fails = 0;
 
-        if (!started) {
+        if(!enabled)
+            return;
+
+        if(!started){
             started = true; 
             Serial.println("transmissão protbuf iniciada");
         }
 
-        if (!timer.ready())
+        if(!timer.ready())
             return;
         
         uint8_t buffer[256];

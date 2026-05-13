@@ -45,6 +45,7 @@ class Settings{
         params.data["ssid"] = "123456789";
         params.data["pass"] = "123456789";
         params.data["server_ip"] = "192.168.1.0";
+        params.data["protocol"] = LIST_PROTOCOL;
     }
 };
 

@@ -12,7 +12,7 @@ template <typename Parent> class Streamer{
   public:
     unsigned long startTime;
     bool active, autostart;
-    bool use_protocol = false;
+    byte protocol = LIST_PROTOCOL;
     int dt;
     
     Streamer(Parent* dev):
@@ -24,6 +24,8 @@ template <typename Parent> class Streamer{
 
         if(autostart)
             active = true;
+
+        protocol = (byte) device->settings.template get<byte>("protocol");
     }
     
     void handle(){
@@ -32,7 +34,11 @@ template <typename Parent> class Streamer{
         if(!active || !timer.ready())
             return;
 
-        use_protocol ? printNMEA() : print();
+        switch(protocol){
+            case JSON_PROTOCOL: printJSON(); break;
+            case LIST_PROTOCOL: printList(); break;
+            case NMEA_PROTOCOL: printNMEA(); break;
+        }
     }
 
     void set(const bool state){
@@ -46,7 +52,7 @@ template <typename Parent> class Streamer{
         active    = state;
     }
 
-    void print(){
+    void printJSON(){
         static char buffer[256];
         const byte mode = device->sensors.kernel.mode;
         int n;
@@ -66,6 +72,31 @@ template <typename Parent> class Streamer{
             n = snprintf(buffer, sizeof(buffer),
                 "{\"time\":%.3f,\"tmp\":%.2f,\"pitch\":%ld,\"roll\":%ld,\"yaw\":%ld,\"q0\":%ld,\"q1\":%ld,\"q2\":%ld,\"q3\":%ld}",
                 (Time::get() - startTime) / 1000.00,
+                device->sensors.kernel.temperature,
+                (long) device->sensors.kernel.pitch, (long) device->sensors.kernel.roll, (long) device->sensors.kernel.yaw,
+                (long) device->sensors.kernel.q0,    (long) device->sensors.kernel.q1,   (long) device->sensors.kernel.q2, (long) device->sensors.kernel.q3
+            );
+
+        device->telemetry.serial.uart->write(buffer, n);
+        device->telemetry.serial.uart->write('\n');
+    }
+
+    void printList(){
+        static char buffer[256];
+        const byte mode = device->sensors.kernel.mode;
+        int n;
+
+        if(mode == HR_MODE || mode == OR_MODE)
+            n = snprintf(buffer, sizeof(buffer),
+                "[%.2f,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld]",
+                device->sensors.kernel.temperature,
+                (long) device->sensors.kernel.pitch, (long) device->sensors.kernel.roll, (long) device->sensors.kernel.yaw,
+                (long) device->sensors.kernel.ax,    (long) device->sensors.kernel.ay,   (long) device->sensors.kernel.az,
+                (long) device->sensors.kernel.wx,    (long) device->sensors.kernel.wy,   (long) device->sensors.kernel.wz
+            );
+        else
+            n = snprintf(buffer, sizeof(buffer),
+                "[%.2f,%ld,%ld,%ld,%ld,%ld,%ld,%ld]",
                 device->sensors.kernel.temperature,
                 (long) device->sensors.kernel.pitch, (long) device->sensors.kernel.roll, (long) device->sensors.kernel.yaw,
                 (long) device->sensors.kernel.q0,    (long) device->sensors.kernel.q1,   (long) device->sensors.kernel.q2, (long) device->sensors.kernel.q3

@@ -126,6 +126,7 @@ class Device:
                 waiting = self.device.in_waiting
 
                 if waiting == 0:
+                    sleep(0.001)
                     continue
 
                 chunk = self.device.read(waiting)
@@ -153,6 +154,7 @@ class Device:
         try:
             while time() - startTime < timeout:
                 if self.device.in_waiting == 0:
+                    sleep(0.001)
                     continue
                 
                 raw_line = self.device.readline()
@@ -166,6 +168,33 @@ class Device:
             return None
         except Exception as error:
             sendEvent('error (json)', error)
+            return None
+
+    def getList(self, timeout=5.0):
+        startTime = time()
+        keys = ["tmp", "pitch", "roll", "yaw", "ax", "ay", "az", "wx", "wy", "wz"]
+        
+        try:
+            while time() - startTime < timeout:
+                if self.device.in_waiting == 0:
+                    sleep(0.001)
+                    continue
+                
+                raw_line = self.device.readline()
+                cleaned  = raw_line.decode('utf-8', errors='ignore').strip()
+                
+                if cleaned.startswith('[') and cleaned.endswith(']'):
+                    try:
+                        data_list = json.loads(cleaned)
+                        if len(data_list) == len(keys):
+                            return dict(zip(keys, data_list))
+                        else:
+                            sendEvent('list length mismatch', cleaned)
+                    except json.JSONDecodeError:
+                        sendEvent('json decode error', cleaned)
+            return None
+        except Exception as error:
+            sendEvent('error (list)', error)
             return None
 
     def available(self):
