@@ -5,7 +5,7 @@ from Utils.functions import sendEvent
 from time import time, sleep
 import numpy as np
 import pandas as pd
-import os, shutil
+import os, shutil, json
 
 script_path = os.path.abspath(__file__)
 base_dir = os.path.dirname(script_path)
@@ -17,13 +17,14 @@ def setFolder(folder):
     os.makedirs(folder)
 
 class Monitor:
-    def __init__(self, targets=['pitch']):
+    def __init__(self, targets=['pitchM', 'pitchK']):
         self.current = None
         self.valuesK = []
         self.valuesM = []
         self.targets = targets
         self.startProg = None
         self.SAVE = True
+        self.stats = {}
         
     def setup(self):
         self.deviceM = Device(rate=9600)
@@ -32,8 +33,8 @@ class Monitor:
         self.deviceM.port = '/dev/ttyACM0'
         self.deviceK.port = '/dev/ttyUSB0'
 
-        self.deviceK.connect()
         self.deviceM.connect()
+        self.deviceK.connect()
 
         self.startTime = time()
         self.threadK = AsyncThreading(self.handleKongsberg)
@@ -63,9 +64,30 @@ class Monitor:
         self.deviceM.last['time'] = passed
         
         self.current = {}
-        for key in self.targets:
-            self.current[f'{key}_K'] = self.deviceK.last.get(key)
-            self.current[f'{key}_M'] = self.deviceM.last.get(key)
+        for target in self.targets:
+            if target.endswith('K'):
+                val = self.deviceK.last.get(target[:-1])
+            elif target.endswith('M'):
+                val = self.deviceM.last.get(target[:-1])
+            else:
+                val = None
+                
+            if val is not None:
+                if target not in self.stats:
+                    self.stats[target] = {'min': val, 'max': val}
+                
+                self.stats[target]['min'] = min(self.stats[target]['min'], val)
+                self.stats[target]['max'] = max(self.stats[target]['max'], val)
+                
+                vmin = self.stats[target]['min']
+                vmax = self.stats[target]['max']
+                
+                if vmax - vmin == 0:
+                    norm_val = 0.5
+                else:
+                    norm_val = (val - vmin) / (vmax - vmin)
+                    
+                self.current[target] = norm_val
 
         sendEvent('time:', passed, 'blue')
         sendEvent('kongsberg:', self.deviceK.last, 'green')
@@ -82,49 +104,53 @@ class Monitor:
             return
 
         if self.threadK.kb.is_pressed('p'):
-            self.targets = ['pitch']; self.reset()
+            self.targets = ['pitchM', 'pitchK']; self.reset()
 
         if self.threadK.kb.is_pressed('r'):
-            self.targets = ['roll']; self.reset()
+            self.targets = ['rollM', 'rollK']; self.reset()
 
         if self.threadK.kb.is_pressed('y'):
-            self.targets = ['yaw']; self.reset()
+            self.targets = ['yawM', 'yawK']; self.reset()
 
         if self.threadK.kb.is_pressed('k'):
-            self.targets = ['pitch']; self.reset()
+            self.targets = ['pitchM', 'pitchK']; self.reset()
 
         if self.threadK.kb.is_pressed('w'):
-            self.targets = ['wx']; self.reset()
+            self.targets = ['wxM', 'wxK']; self.reset()
 
         if self.threadK.kb.is_pressed('a'):
-            self.targets = ['ax']; self.reset()
+            self.targets = ['axM', 'axK']; self.reset()
 
         if self.threadK.kb.is_pressed('o'):
-            self.targets = ['q0']; self.reset()
+            self.targets = ['q0M', 'q0K']; self.reset()
                     
         return (time() - self.startTime, self.current)
 
     def reset(self):
+        self.stats = {} # Limpa os stats para re-normalizar com a nova variavel
         self.graph.need_reset = True
         self.startTime = time()
 
     def save(self, folder='output'):
-        setFolder(os.path.join(folder, 'kongsberg'))
-        setFolder(os.path.join(folder, 'measure'))
+        setFolder(os.path.join(folder, 'reference'))
+        setFolder(os.path.join(folder, 'target'))
+        
+        with open(os.path.join(folder, 'info.json'), 'w'    ) as file:
+            file.write(json.dumps({'limits': [0, 1e9]}, indent=4))
 
         keysK = set()
         for record in self.valuesK:
             keysK.update(record.keys())
         dataK = [{key: record.get(key, 0) for key in keysK} for record in self.valuesK]
         dfK = pd.DataFrame(dataK)
-        dfK.to_csv(os.path.join(folder, 'kongsberg', 'data.csv'), index=False)
+        dfK.to_csv(os.path.join(folder, 'reference', 'data.csv'), index=False)
         
         keysM = set()
         for record in self.valuesM:
             keysM.update(record.keys())
         dataM = [{key: record.get(key, 0) for key in keysM} for record in self.valuesM]
         dfM = pd.DataFrame(dataM)
-        dfM.to_csv(os.path.join(folder, 'measure', 'data.csv'), index=False)
+        dfM.to_csv(os.path.join(folder, 'target', 'data.csv'), index=False)
 
 
 if __name__ == '__main__':

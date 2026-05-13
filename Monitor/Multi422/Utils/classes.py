@@ -81,7 +81,7 @@ class KeyboardListener:
 
 
 class AsyncThreading:
-    def __init__(self, callback, interval=0.01, maxTime=24*60*60):
+    def __init__(self, callback, interval=0.01, maxTime=12*60*60):
         self.kb = KeyboardListener()
         self.kb.start()
 
@@ -106,7 +106,7 @@ class AsyncThreading:
             if time() - self.startProg > self.maxTime:
                 pyautogui.PAUSE = 0.5
 
-                for i in range(10):
+                for i in range(5):
                     pyautogui.press('q')
             
             if time() - self.startTime < self.interval:

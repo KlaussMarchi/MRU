@@ -1,10 +1,4 @@
 {
-    "static_tests": {
-        "target":    1,
-        "reference": 1
-    },
-    "dynamic_tests": {
-        "target":    1,
-        "reference": 1
-    }
+    "dynamic_tests": 1,
+    "static_tests": 1
 }
