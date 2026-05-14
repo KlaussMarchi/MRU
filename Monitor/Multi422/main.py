@@ -136,7 +136,13 @@ class Monitor:
         setFolder(os.path.join(folder, 'target'))
         
         with open(os.path.join(folder, 'info.json'), 'w'    ) as file:
-            file.write(json.dumps({'limits': [0, 1e9]}, indent=4))
+            file.write(json.dumps({
+                "description": "Reference is MRU and target is Kongsberg",
+                "limits": {
+                    "dynamic": [15, 600],
+                    "static":  [700, 999999999]
+                }
+            }, indent=4))
 
         keysK = set()
         for record in self.valuesK:
