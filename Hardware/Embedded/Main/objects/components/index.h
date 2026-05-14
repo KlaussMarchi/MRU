@@ -9,7 +9,7 @@ template <typename Parent> class Components{
     Parent* device;
 
   public:
-    Encoder encoder = Encoder(10, 11);
+    Encoder encoder = Encoder(11, 10);
     LEDs leds = LEDs(1, 2);
 
     Components(Parent* dev):

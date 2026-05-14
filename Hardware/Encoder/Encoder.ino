@@ -1,7 +1,7 @@
 #include <Arduino.h>
 #include "encoder/index.cpp"
 
-Encoder encoder = Encoder(2, 3);
+Encoder encoder = Encoder(10, 11);
 
 void setup() {
     Serial.begin(115200);

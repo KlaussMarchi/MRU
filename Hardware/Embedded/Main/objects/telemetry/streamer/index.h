@@ -61,20 +61,20 @@ template <typename Parent> class Streamer{
             n = snprintf(buffer, sizeof(buffer),
                 "{\"time\":%.3f,\"tmp\":%.2f,\"pitch\":%ld,\"roll\":%ld,\"yaw\":%ld,"
                 "\"ax\":%ld,\"ay\":%ld,\"az\":%ld,"
-                "\"wx\":%ld,\"wy\":%ld,\"wz\":%ld}",
+                "\"wx\":%ld,\"wy\":%ld,\"wz\":%ld,\"e\":%.3f}",
                 (Time::get() - startTime) / 1000.00,
                 device->sensors.kernel.temperature,
                 (long) device->sensors.kernel.pitch, (long) device->sensors.kernel.roll, (long) device->sensors.kernel.yaw,
                 (long) device->sensors.kernel.ax,    (long) device->sensors.kernel.ay,   (long) device->sensors.kernel.az,
-                (long) device->sensors.kernel.wx,    (long) device->sensors.kernel.wy,   (long) device->sensors.kernel.wz
+                (long) device->sensors.kernel.wx,    (long) device->sensors.kernel.wy,   (long) device->sensors.kernel.wz, (float) device->components.encoder.get()
             );
         else
             n = snprintf(buffer, sizeof(buffer),
-                "{\"time\":%.3f,\"tmp\":%.2f,\"pitch\":%ld,\"roll\":%ld,\"yaw\":%ld,\"q0\":%ld,\"q1\":%ld,\"q2\":%ld,\"q3\":%ld}",
+                "{\"time\":%.3f,\"tmp\":%.2f,\"pitch\":%ld,\"roll\":%ld,\"yaw\":%ld,\"q0\":%ld,\"q1\":%ld,\"q2\":%ld,\"q3\":%ld,\"e\":%.3f}",
                 (Time::get() - startTime) / 1000.00,
                 device->sensors.kernel.temperature,
                 (long) device->sensors.kernel.pitch, (long) device->sensors.kernel.roll, (long) device->sensors.kernel.yaw,
-                (long) device->sensors.kernel.q0,    (long) device->sensors.kernel.q1,   (long) device->sensors.kernel.q2, (long) device->sensors.kernel.q3
+                (long) device->sensors.kernel.q0,    (long) device->sensors.kernel.q1,   (long) device->sensors.kernel.q2, (long) device->sensors.kernel.q3, (float) device->components.encoder.get()
             );
 
         device->telemetry.serial.uart->write(buffer, n);
@@ -88,18 +88,20 @@ template <typename Parent> class Streamer{
 
         if(mode == HR_MODE || mode == OR_MODE)
             n = snprintf(buffer, sizeof(buffer),
-                "[%.2f,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld]",
+                "[%.2f,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%.3f]",
                 device->sensors.kernel.temperature,
                 (long) device->sensors.kernel.pitch, (long) device->sensors.kernel.roll, (long) device->sensors.kernel.yaw,
                 (long) device->sensors.kernel.ax,    (long) device->sensors.kernel.ay,   (long) device->sensors.kernel.az,
-                (long) device->sensors.kernel.wx,    (long) device->sensors.kernel.wy,   (long) device->sensors.kernel.wz
+                (long) device->sensors.kernel.wx,    (long) device->sensors.kernel.wy,   (long) device->sensors.kernel.wz, 
+                (float) device->components.encoder.get()
             );
         else
             n = snprintf(buffer, sizeof(buffer),
-                "[%.2f,%ld,%ld,%ld,%ld,%ld,%ld,%ld]",
+                "[%.2f,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%.3f]",
                 device->sensors.kernel.temperature,
                 (long) device->sensors.kernel.pitch, (long) device->sensors.kernel.roll, (long) device->sensors.kernel.yaw,
-                (long) device->sensors.kernel.q0,    (long) device->sensors.kernel.q1,   (long) device->sensors.kernel.q2, (long) device->sensors.kernel.q3
+                (long) device->sensors.kernel.q0,    (long) device->sensors.kernel.q1,   (long) device->sensors.kernel.q2, (long) device->sensors.kernel.q3, 
+                (float) device->components.encoder.get()
             );
 
         device->telemetry.serial.uart->write(buffer, n);

@@ -172,7 +172,7 @@ class Device:
 
     def getList(self, timeout=5.0):
         startTime = time()
-        keys = ["tmp", "pitch", "roll", "yaw", "ax", "ay", "az", "wx", "wy", "wz"]
+        keys = ["tmp", "pitch", "roll", "yaw", "ax", "ay", "az", "wx", "wy", "wz", "e"]
         
         try:
             while time() - startTime < timeout:

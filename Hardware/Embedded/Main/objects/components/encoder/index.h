@@ -24,7 +24,7 @@ class Encoder {
     Encoder(int pA, int pB);
     void setup();
     void reset();
-    double get();
+    float get();
 };
 
 #endif

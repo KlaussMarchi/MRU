@@ -37,8 +37,8 @@ void Encoder::reset() {
     interrupts();
 }
 
-double Encoder::get() {
-    if (!enabled)
+float Encoder::get() {
+    if(!enabled)
         return 0;
 
     noInterrupts();
