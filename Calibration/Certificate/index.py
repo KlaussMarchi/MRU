@@ -48,65 +48,70 @@ class ReportData:
                 self.plots[f'{axis}Ref'] = refPlot
                 self.plots[f'{axis}Err'] = errPlot
 
+    def _safe_max(self, axes_list, metric_key):
+        """Busca o valor máximo apenas entre os eixos que possuem dados válidos."""
+        vals = [self.metrics.get(axis, {}).get(metric_key) for axis in axes_list]
+        valid_vals = [v for v in vals if v is not None]
+        return max(valid_vals) if valid_vals else None
+
     def get_roll_pitch_data(self):
-        roll, pitch = self.metrics['roll'], self.metrics['pitch']
-        return [
-            {
-                'label': 'RMS estático (deg)',
-                'val_roll': roll.get('rms_stat', 0),
-                'val_pitch': pitch.get('rms_stat', 0),
-                'required': 0.5
-            },
-            {
-                'label': 'RMS dinâmico (deg)',
-                'val_roll': roll.get('rms_dyn', 0),
-                'val_pitch': pitch.get('rms_dyn', 0),
-                'required': 0.6
-            },
-            {
-                'label': 'Ruído estático STD (deg)',
-                'val_roll': roll.get('stdNoise', 0),
-                'val_pitch': pitch.get('stdNoise', 0),
-                'required': 0.02
-            }
+        roll = self.metrics.get('roll', {})
+        pitch = self.metrics.get('pitch', {})
+
+        metrics = [
+            ('RMS estático (deg)', 'rms_stat', 0.5),
+            ('RMS dinâmico (deg)', 'rms_dyn', 0.6),
+            ('Ruído estático STD (deg)', 'std_stat', 0.1)
         ]
+        
+        results = []
+        for label, key, req in metrics:
+            v_roll = roll.get(key)
+            v_pitch = pitch.get(key)
+            
+            valid_vals = [v for v in (v_roll, v_pitch) if v is not None]
+            max_val    = max(valid_vals) if valid_vals else None
+            
+            if max_val is not None:
+                results.append({
+                    'label': label,
+                    'val_roll': v_roll,
+                    'val_pitch': v_pitch,
+                    'max_val': max_val, # Passamos o máximo já calculado para facilitar
+                    'required': req
+                })
+        
+        return results
 
     def get_gyro_data(self):
-        wx, wy, wz = self.metrics['wx'], self.metrics['wy'], self.metrics['wz']
-        return [
-            {
-                'label': 'Ruído giroscópio (deg/s)',
-                'value': max(s.get('std_stat', 0) for s in [wx, wy, wz]),
-                'required': 0.025,
-                'is_percentage': False
-            },
-            {
-                'label': 'Erro fator escala (%)',
-                'value': max(abs(s.get('scaleFactor', 1.0) - 1.0) for s in [wx, wy, wz]) * 100,
-                'required': 0.08,
-                'is_percentage': True
-            }
+        metrics = [
+            ('Erro Médio Estático (deg/s)', 'mean_error_stat', 0.025, False),
+            ('Erro Médio Dinâmico (deg/s)', 'mean_error_dyn', 0.5, False),
+            ('Ruído Estático STD (deg/s)', 'std_stat', 0.025, False)
         ]
+        
+        results = []
+        for label, key, req, is_perc in metrics:
+            val = self._safe_max(['wx', 'wy', 'wz'], key)
+            if val is not None:
+                results.append({'label': label, 'value': val, 'required': req, 'is_percentage': is_perc})
+        
+        return results
 
     def get_accel_data(self):
-        ax, ay, az = self.metrics['ax'], self.metrics['ay'], self.metrics['az']
-        return [
-            {
-                'label': 'Acurácia Estática Max (g)',
-                'value': max(s.get('accuracy_stat', 0) for s in [ax, ay, az]),
-                'required': 0.05
-            },
-            {
-                'label': 'Ruído Estático Max (g)',
-                'value': max(s.get('std_stat', 0) for s in [ax, ay, az]),
-                'required': 0.02
-            },
-            {
-                'label': 'RMSE Estático Max (g)',
-                'value': max(s.get('rms_stat', 0) for s in [ax, ay, az]),
-                'required': 0.02
-            }
+        metrics = [
+            ('Erro Médio Estático (deg/s)', 'mean_error_stat', 0.5, False),
+            ('Erro Médio Dinâmico (deg/s)', 'mean_error_dyn', 0.5, False),
+            ('Ruído Estático STD (deg/s)', 'std_stat', 0.030, False)
         ]
+        
+        results = []
+        for label, key, req, is_perc in metrics:
+            val = self._safe_max(['ax', 'ay', 'az'], key)
+            if val is not None:
+                results.append({'label': label, 'value': val, 'required': req, 'is_percentage': is_perc})
+                
+        return results
 
 
 class PDFReport:
@@ -141,29 +146,29 @@ class PDFReport:
             max_val = max(d['val_roll'], d['val_pitch'])
             rp_rows.append([
                 d['label'],
-                f"≤ {d['required']:.2f}",
+                f"≤ {d['required']:.4f}",
                 f"{d['val_roll']:.4f}",
                 f"{d['val_pitch']:.4f}",
                 self._eval_status(max_val, d['required'])
             ])
             
         colW = [self._content_width() * p for p in [0.30, 0.18, 0.16, 0.16, 0.20]]
-        y = self._draw_table(y - 3, ['Parâmetro', 'Requisito', 'Roll', 'Pitch', 'Resultado'], rp_rows, colW)
+        y = self._draw_table(y - 3, ['Parâmetro', 'Requisito', 'Roll', 'Pitch', 'Status'], rp_rows, colW)
         y = self._draw_plots(y - 3)
 
         # --- 2. GIROSCÓPIO ---
-        y = self._draw_section(y - 5, 2, 'TESTE DE FATOR DE ESCALA (GIROSCÓPIO)', 
+        y = self._draw_section(y - 5, 2, 'TESTES DE GIROSCÓPIO', 
             'Verificação através de rotações contínuas em velocidades conhecidas.')
         
         gyro_rows = []
         for d in self.data.get_gyro_data():
             if d.get('is_percentage'):
-                gyro_rows.append([d['label'], f"≤ {d['required']:.2f} %", f"{d['value']:.2f} %", self._eval_status(d['value'], d['required'])])
+                gyro_rows.append([d['label'], f"≤ {d['required']:.4f} %", f"{d['value']:.4f} %", self._eval_status(d['value'], d['required'])])
             else:
-                gyro_rows.append([d['label'], f"≤ {d['required']:.3f}", f"{d['value']:.4f}", self._eval_status(d['value'], d['required'])])
+                gyro_rows.append([d['label'], f"≤ {d['required']:.4f}", f"{d['value']:.4f}", self._eval_status(d['value'], d['required'])])
 
         colW = [self._content_width() * p for p in [0.40, 0.20, 0.20, 0.20]]
-        y = self._draw_table(y - 3, ['Parâmetro', 'Requisito', 'Valor Máximo', 'Resultado'], gyro_rows, colW)
+        y = self._draw_table(y - 3, ['Parâmetro', 'Requisito', 'Medido', 'Status'], gyro_rows, colW)
 
         # --- 3. ACELERÔMETRO ---
         y = self._draw_section(y - 15, 3, 'TESTE DE ACELERÔMETRO', 
@@ -173,13 +178,13 @@ class PDFReport:
         for d in self.data.get_accel_data():
             accel_rows.append([
                 d['label'],
-                f"≤ {d['required']:.2f}",
+                f"≤ {d['required']:.4f}",
                 f"{d['value']:.4f}",
                 self._eval_status(d['value'], d['required'])
             ])
 
         colW = [self._content_width() * p for p in [0.35, 0.22, 0.22, 0.21]]
-        y = self._draw_table(y - 3, ['Parâmetro', 'Requisito de Teste', 'Valor Máximo', 'Resultado'], accel_rows, colW)
+        y = self._draw_table(y - 3, ['Parâmetro', 'Requisito', 'Medido', 'Status'], accel_rows, colW)
 
         self._draw_footer()
         self.canvas.save()

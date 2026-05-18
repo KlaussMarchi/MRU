@@ -1,18 +1,20 @@
 {
-  "r2": 0.781059,
-  "mae": 1.435132,
-  "rmse": 3.258188,
-  "precision": 0.414271,
-  "max_error_stat": 2.000808,
-  "max_error_dyn": 45.883245,
-  "rms_dyn": 3.258188,
-  "rms_stat": 0.207699,
-  "std_stat": 0.207135,
-  "std_dyn": 0.207135,
-  "time_drift": -0.001344,
+  "r2": 0.995707,
+  "mae": 0.100996,
+  "rmse": 0.16918,
+  "precision": 0.066042,
+  "max_error_stat": 0.211696,
+  "max_error_dyn": 1.277107,
+  "mean_error_stat": 0.211696,
+  "mean_error_dyn": 1.277107,
+  "rms_stat": 0.033779,
+  "rms_dyn": 0.16918,
+  "std_stat": 0.033021,
+  "std_dyn": 0.16918,
+  "time_drift": 0.000773,
   "correctionMatrixRow": [
-    0.8851880831551759,
-    -0.17396924547029635,
-    0.03276172440331662
+    0.1157335541629475,
+    0.0,
+    0.0
   ]
 }

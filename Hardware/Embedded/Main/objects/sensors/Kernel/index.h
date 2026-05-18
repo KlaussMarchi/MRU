@@ -305,7 +305,7 @@ class KernelSensor {
             return reset();
 
         while(uart->available()){
-            uint8_t newByte = uart->read();
+            uint8_t newByte /home/klauss/Projects/MRU/Monitor/Multi422/output= uart->read();
             lastUpdate = Time::get();
 
             if(!header){
