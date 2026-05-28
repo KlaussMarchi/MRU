@@ -63,6 +63,9 @@ class Monitor:
         if self.thread1.kb.is_pressed('p'):
             self.targets = ['pitch']; self.reset()
 
+        if self.thread1.kb.is_pressed('e'):
+            self.targets = ['e']; self.reset()
+
         if self.thread1.kb.is_pressed('r'):
             self.targets = ['roll']; self.reset()
 

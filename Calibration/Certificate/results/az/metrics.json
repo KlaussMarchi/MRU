@@ -1,0 +1,20 @@
+{
+  "r2": 0.462994,
+  "mae": 0.089256,
+  "rmse": 0.116685,
+  "precision": 0.115614,
+  "max_error_stat": 0.190517,
+  "max_error_dyn": 0.449199,
+  "mean_error_stat": 0.190517,
+  "mean_error_dyn": 0.449199,
+  "rms_stat": 0.057904,
+  "rms_dyn": 0.116685,
+  "std_stat": 0.057807,
+  "std_dyn": 0.116685,
+  "time_drift": 2.128929,
+  "correctionMatrixRow": [
+    0.0,
+    0.0,
+    -0.6000150046498997
+  ]
+}

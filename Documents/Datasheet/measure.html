@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Datasheet Técnico IFF-MRU</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@400;700&family=Roboto:wght@300;400;500;700;900&display=swap');
+
+        :root {
+            --m-blue: #002d5b;
+            --m-teal: #007c7c;
+            --m-grey: #f4f7f9;
+            --m-dark: #1a1a1a;
+            --m-border: #ccd6dd;
+            --m-accent: #00a8a8;
+        }
+
+        @page {
+            size: A4;
+            margin: 0;
+        }
+
+        body {
+            font-family: 'Roboto', sans-serif;
+            color: var(--m-dark);
+            margin: 0;
+            padding: 0;
+            background-color: #f0f2f5;
+            line-height: 1.25;
+        }
+
+        .container {
+            width: 210mm;
+            min-height: 297mm;
+            margin: 20px auto;
+            background: white;
+            padding: 0;
+            box-shadow: 0 0 30px rgba(0,0,0,0.15);
+            position: relative;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+
+        @media print {
+            body { background: none; margin: 0; }
+            .container { margin: 0; box-shadow: none; }
+        }
+
+        header {
+            background-color: #fff;
+            padding: 30px 50px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 5px solid var(--m-blue);
+        }
+
+        .logo-area img {
+            height: 70px;
+            display: block;
+        }
+
+        .header-info {
+            text-align: right;
+        }
+
+        .header-info h1 {
+            margin: 0;
+            font-size: 38px;
+            font-weight: 900;
+            color: var(--m-blue);
+            letter-spacing: -1px;
+        }
+
+        .header-info p {
+            margin: 0;
+            font-size: 15px;
+            color: var(--m-teal);
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .hero {
+            display: flex;
+            padding: 30px 50px;
+            background: #fff;
+            gap: 50px;
+            border-bottom: 1px solid var(--m-border);
+        }
+
+        .hero-image {
+            flex: 1;
+            text-align: center;
+            border-radius: 12px;
+            padding: 25px 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .hero-image img {
+            width: 100%;
+            max-width: 260px;
+            border-radius: 8px;
+            filter: drop-shadow(0 15px 20px rgba(0,0,0,0.2));
+        }
+
+        .hero-text {
+            flex: 1.5;
+        }
+
+        .hero-text h2 {
+            font-family: 'Roboto Condensed', sans-serif;
+            font-size: 24px;
+            color: var(--m-blue);
+            margin-top: 0;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+        }
+
+        .hero-text p {
+            font-size: 14px;
+            text-align: justify;
+            margin-bottom: 20px;
+            color: #444;
+        }
+
+        .key-specs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .spec-pill {
+            background: var(--m-grey);
+            padding: 10px 15px;
+            border-radius: 6px;
+            border-left: 4px solid var(--m-accent);
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--m-blue);
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            padding: 20px 50px;
+            gap: 35px;
+        }
+
+        h3 {
+            font-family: 'Roboto Condensed', sans-serif;
+            font-size: 17px;
+            color: #fff;
+            background-color: var(--m-blue);
+            padding: 6px 15px;
+            margin: 15px 0 10px 0;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 11px;
+            margin-bottom: 15px;
+        }
+
+        th, td {
+            padding: 6px 10px;
+            border-bottom: 1px solid var(--m-border);
+            text-align: left;
+        }
+
+        th {
+            font-weight: 700;
+            width: 60%;
+            color: #333;
+            background-color: #fcfcfc;
+        }
+
+        .section-tag {
+            background-color: #eef2f5;
+            font-weight: 800;
+            color: var(--m-teal);
+            font-size: 10px;
+            text-transform: uppercase;
+        }
+
+        .pinout-section {
+            padding: 0 50px 40px 50px;
+        }
+
+        .pinout-container {
+            display: grid;
+            grid-template-columns: 1.2fr 1fr;
+            gap: 30px;
+            align-items: center;
+        }
+
+        .wiring-table th { width: 30%; }
+        .wire-color {
+            width: 12px;
+            height: 12px;
+            display: inline-block;
+            border: 1px solid #ddd;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+
+        footer {
+            background-color: var(--m-blue);
+            color: white;
+            padding: 20px 50px;
+            font-size: 11px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .footer-logo {
+            font-weight: 900;
+            font-size: 18px;
+            letter-spacing: -0.5px;
+        }
+
+        .highlight-bold {
+            color: var(--m-blue);
+            font-weight: 800;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo-area">
+                <img src="./assets/IFF.png" alt="IFF Engineering">
+            </div>
+            <div class="header-info">
+                <h1>IFF-MRU</h1>
+                <p>Unidade de Referência de Movimento & Monitoramento</p>
+            </div>
+        </header>
+
+        <div class="hero">
+            <div class="hero-image">
+                <img src="./assets/mru.png" alt="IFF-MRU Device">
+            </div>
+            <div class="hero-text">
+                <h2>Monitoramento de Movimento de Precisão</h2>
+                <p>
+                    O <strong>IFF-MRU</strong> é uma Unidade de Referência de Movimento de grau tático projetada para ambientes offshore de alta dinâmica. Ele fornece dados de orientação absoluta (Arfagem e Balanço / Pitch & Roll) e aceleração linear com latência inferior a um milissegundo. Projetado para helipontos, estabilização de guindastes e monitoramento de helidecks, integra um processador dual-core de alta velocidade com filtragem adaptativa para máxima integridade dos dados.
+                </p>
+                <div class="key-specs">
+                    <div class="spec-pill">Faixa Dinâmica de ±90g</div>
+                    <div class="spec-pill">Precisão Estática de 0.05°</div>
+                    <div class="spec-pill">Processador Dual-Core 240MHz</div>
+                    <div class="spec-pill">Proteção IP66</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="left-col">
+                <h3>Performance de Movimento</h3>
+                <table>
+                    <tr class="section-tag"><td colspan="2">Pitch & Roll (Orientação)</td></tr>
+                    <tr><th>Precisão Estática (RMS)</th><td><span class="highlight-bold">0.05°</span></td></tr>
+                    <tr><th>Precisão Dinâmica (RMS)</th><td><span class="highlight-bold">0.08°</span></td></tr>
+                    <tr><th>Resolução Angular</th><td>0.01°</td></tr>
+                    <tr><th>Faixa de Medição</th><td>±90° (Pitch) / ±180° (Roll)</td></tr>
+
+                    <tr class="section-tag"><td colspan="2">Sensores Inerciais</td></tr>
+                    <tr><th>Estabilidade de Bias do Giroscópio</th><td>2 °/hr</td></tr>
+                    <tr><th>Ruído do Giroscópio (ARW)</th><td>0.3 °/√hr</td></tr>
+                    <tr><th>Estabilidade de Bias do Acelerômetro</th><td>0.05 mg / 1.0 mg</td></tr>
+                    <tr><th>Faixa do Acelerômetro</th><td><span class="highlight-bold">±40 g</span> e <span class="highlight-bold">±90 g</span></td></tr>
+                    <tr><th>Largura de Banda Interna</th><td>260 Hz</td></tr>
+                </table>
+
+                <h3>Especificações Ambientais</h3>
+                <table>
+                    <tr><th>Temperatura de Operação</th><td>-40°C a +85°C</td></tr>
+                    <tr><th>Temperatura de Armazenamento</th><td>-50°C a +90°C</td></tr>
+                    <tr><th>Choque Mecânico</th><td>400 g, 0.1 ms</td></tr>
+                    <tr><th>Tolerância à Vibração</th><td>8 g RMS (10-2000 Hz)</td></tr>
+                    <tr><th>Grau de Proteção</th><td>IP68 (Submersível Certificado)</td></tr>
+                </table>
+            </div>
+
+            <div class="right-col">
+                <h3>Elétrica e Sistema</h3>
+                <table>
+                    <tr class="section-tag"><td colspan="2">Gerenciamento de Energia</td></tr>
+                    <tr><th>Tensão de Entrada</th><td><span class="highlight-bold">16.0 V a 24.0 V DC</span></td></tr>
+                    <tr><th>Consumo de Energia (Total)</th><td>&lt; 2.3 Watt</td></tr>
+                    <tr><th>Corrente de Operação</th><td>~120 mA</td></tr>
+                    
+                    <tr class="section-tag"><td colspan="2">Processamento e Comunicação</td></tr>
+                    <tr><th>Processador Central</th><td>Dual-Core 240MHz Alta Velocidade</td></tr>
+                    <tr><th>Interface de Comunicação</th><td>RS-422 / RS-232</td></tr>
+                    <tr><th>Taxa de Saída de Dados</th><td>Até 100 Hz (Configurável)</td></tr>
+                    <tr><th>Protocolo de Dados</th><td>ASCII/NMEA</td></tr>
+                </table>
+
+                <h3>Especificações Físicas</h3>
+                <table>
+                    <tr><th>Acabamento</th><td>Preto Tático (Resistente à Corrosão)</td></tr>
+                    <tr><th>Dimensões</th><td>101.6 mm diâmetro x 126mm de altura</td></tr>
+                </table>
+            </div>
+        </div>
+
+        <div class="pinout-section">
+            <h3>Interface Elétrica e Cabeamento (Código de Cores)</h3>
+            <div class="pinout-container">
+                <table class="wiring-table">
+                    <tr><th>Função</th><th>Cor do Fio</th><th>Descrição</th></tr>
+                    <tr><td>RS422 (PINO Y)</td><td><span class="wire-color" style="background: yellow;"></span>Amarelo</td><td>Saída Não Inversora RS-422</td></tr>
+                    <tr><td>RS422 (PINO Z)</td><td><span class="wire-color" style="background: green;"></span>Verde</td><td>Saída Inversora RS-422</td></tr>
+                    <tr><td>RS422 (PINO B)</td><td><span class="wire-color" style="background: black;"></span>Preto</td><td>Entrada Inversora RS-422</td></tr>
+                    <tr><td>RS422 (PINO A)</td><td><span class="wire-color" style="background: blue;"></span>Azul</td><td>Entrada Não Inversora RS-422</td></tr>
+                    <tr><td>16A-24V (VCC)</td><td><span class="wire-color" style="background: white;"></span>Branco</td><td>Entrada de Alimentação Principal</td></tr>
+                    <tr><td>GND</td><td><span class="wire-color" style="background: red;"></span>Vermelho</td><td>Terra do Sistema</td></tr>
+                    <tr><td>RS232 (RX)</td><td><span class="wire-color" style="background: grey;"></span>Cinza</td><td>Recepção RS-232</td></tr>
+                    <tr><td>RS232 (TX)</td><td><span class="wire-color" style="background: brown;"></span>Marrom</td><td>Transmissão RS-232</td></tr>
+                </table>
+            </div>
+        </div>
+
+        <footer>
+            <div class="footer-logo">INSTITUTO FEDERAL FLUMINENSE</div>
+            <div>Rio de Janeiro | Brasil</div>
+            <div>Documento: IFF-MRU-V1-2026</div>
+        </footer>
+    </div>
+</body>
+</html>

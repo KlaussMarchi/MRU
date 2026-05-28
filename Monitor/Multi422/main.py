@@ -112,6 +112,9 @@ class Monitor:
         if self.threadK.kb.is_pressed('y'):
             self.targets = ['yawM', 'yawK']; self.reset()
 
+        if self.threadK.kb.is_pressed('e'):
+            self.targets = ['wxK', 'eM']; self.reset()
+
         if self.threadK.kb.is_pressed('k'):
             self.targets = ['pitchM', 'pitchK']; self.reset()
 

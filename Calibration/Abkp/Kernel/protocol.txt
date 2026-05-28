@@ -1,0 +1,27 @@
+// MODO HR CALIBRATED DATA
+
+// Byte 0: Header 0 (0xAA)
+// Byte 1: Header 1 (0x55)
+// Byte 2: Tipo da Mensagem
+
+// Byte 3: Identificador de Dados
+// Bytes 4 e 5: Tamanho da Mensagem
+// Byte 6 em diante: Aqui começa o Payload (Byte 0 da Tabela 5.10)
+
+// orientação (4 Bytes cada - posições 6 a 17)
+yaw = extract_i32(6);     // yaw   (bytes 6..9)
+pitch = extract_i32(10);  // pitch (bytes 10..13)
+roll  = extract_i32(14);  // roll  (bytes 14..17)
+
+// giroscópio (4 Bytes cada - posições 18 a 29)
+wx = extract_i32(18);   // wx (bytes 18..21)
+wy = extract_i32(22);   // wy (bytes 22..25)
+wz = extract_i32(26);   // wz (bytes 26..29)
+
+// aceleração (4 Bytes cada - posições 30 a 41)
+ax = extract_i32(30);  // ax (bytes 30..33)
+ay = extract_i32(34);  // ay (bytes 34..37)
+az = extract_i32(38);   // az (bytes 38..41)
+
+// temperatura (2 Bytes - posições 56 a 57)
+temperature = ((float) extract_i16(56)) / 10.00;

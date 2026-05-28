@@ -1,0 +1,3 @@
+google-chrome --headless --disable-gpu --no-sandbox --print-to-pdf=release/measure.pdf measure.html
+
+google-chrome --headless --disable-gpu --no-sandbox --print-to-pdf=release/kernel.pdf kernel.html
