@@ -149,7 +149,7 @@ class Device:
         self.device.reset_input_buffer()
         sleep(0.5 + delay)
 
-    def expect(self, target='OK', command=None, fail=None, timeout=10):
+    def expect(self, target='OK', command=None, fail=None, timeout=10, show=False):
         startTime  = time()
         buffer     = str()
         timePassed = 0
@@ -168,11 +168,14 @@ class Device:
             buffer += self.device.read(size).decode('utf-8', errors='ignore').strip()
 
             if target in buffer:
+                if show: sendEvent('success', buffer)
                 return True
             
             if fail and fail in buffer:
+                if show: sendEvent('error', buffer)
                 return False
-
+        
+        if show: sendEvent('error', f'nothing received {buffer}')
         return None
     
     def request(self, value, timeout=5.0):

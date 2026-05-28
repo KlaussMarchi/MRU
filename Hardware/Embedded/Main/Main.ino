@@ -1,11 +1,10 @@
 #include "device/index.h"
-Device device{"v1.0.1"};
+Device device{"v1.0.2"};
 
 
 void setup(){
-    device.components.encoder.enabled   = true;
-    device.telemetry.streamer.autostart = false;
-    device.components.leds.enabled    = true;
+    device.components.encoder.enabled = true;
+    device.components.leds.enabled = true;
     device.multitask     = true;
     device.sensors.debug = false;
     

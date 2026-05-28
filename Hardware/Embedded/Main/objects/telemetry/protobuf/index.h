@@ -141,22 +141,22 @@ public:
         msg.e = (float) device->components.encoder.get();
         msg.tmp = (float) device->sensors.kernel.temperature;
         
-        msg.ax = device->sensors.kernel.ax;
-        msg.ay = device->sensors.kernel.ay;
-        msg.az = device->sensors.kernel.az;
+        msg.ax = device->sensors.kernel.ax_raw;
+        msg.ay = device->sensors.kernel.ay_raw;
+        msg.az = device->sensors.kernel.az_raw;
 
-        msg.wx = device->sensors.kernel.wx;
-        msg.wy = device->sensors.kernel.wy;
-        msg.wz = device->sensors.kernel.wz;
+        msg.wx = device->sensors.kernel.wx_raw;
+        msg.wy = device->sensors.kernel.wy_raw;
+        msg.wz = device->sensors.kernel.wz_raw;
 
-        msg.pitch = device->sensors.kernel.pitch;
-        msg.roll  = device->sensors.kernel.roll;
-        msg.yaw   = device->sensors.kernel.yaw;
+        msg.pitch = device->sensors.kernel.pitch_raw;
+        msg.roll  = device->sensors.kernel.roll_raw;
+        msg.yaw   = device->sensors.kernel.yaw_raw;
 
-        msg.q0 = device->sensors.kernel.q0;
-        msg.q1 = device->sensors.kernel.q1;
-        msg.q2 = device->sensors.kernel.q2;
-        msg.q3 = device->sensors.kernel.q3;
+        msg.q0 = device->sensors.kernel.q0_raw;
+        msg.q1 = device->sensors.kernel.q1_raw;
+        msg.q2 = device->sensors.kernel.q2_raw;
+        msg.q3 = device->sensors.kernel.q3_raw;
         return msg;
     }
 

@@ -51,39 +51,41 @@ template <typename Parent> class Updater{
     int percent;
 
   public:
-    bool needed;
     
     Updater(Parent* dev): 
         device(dev){}
 
     void start(){
         const unsigned long startTime = Time::get();
-        static const int CHUNK_SIZE   = (1.4)*2048;
+        static const int CHUNK_SIZE   = (1.4)*2048; 
         
-        Serial.println("Iniciando Update Local");
-        device->telemetry.serial.send("_STARTING_UPDATE_", true);
+        device->telemetry.serial.send("__STARTING_UPDATE__", true); 
         finished(true);
 
         if(!Update.begin(UPDATE_SIZE_UNKNOWN)){
-            Serial.println("deu ruim update size");
+            device->telemetry.serial.send("error to begin", true);
             return;
         }
 
         while(!device->telemetry.serial.uart->available()){
             if(Time::get() - startTime < 35000)
-                continue;
+                {delay(1); continue;}
 
-            Serial.println("Erro ao atualizar");
+            device->telemetry.serial.send("error to wait", true);
             return;
         }
+        
+        char* chunk      = new char[CHUNK_SIZE];
+        uint8_t* decoded = new uint8_t[CHUNK_SIZE];
 
-        char chunk[CHUNK_SIZE];
         bool start = false;
         int index  = 0;
 
         while(!finished(false)){
-            if(!device->telemetry.serial.uart->available())
+            if(!device->telemetry.serial.uart->available()){
+                delay(1);
                 continue;
+            }
             
             char newChar = device->telemetry.serial.uart->read();
             
@@ -97,26 +99,32 @@ template <typename Parent> class Updater{
             }
 
             if(newChar != '!'){ // PREENCHE O VETOR COM UPDATE
-                chunk[index] = newChar;
-                index++;
+                if(index < CHUNK_SIZE - 1){ 
+                    chunk[index] = newChar;
+                    index++;
+                }
+
                 continue;
             }
 
             const int length = index;
-            uint8_t decoded[CHUNK_SIZE];
-            size_t size = base64Decode(chunk, decoded, length);
-
+            size_t size    = base64Decode(chunk, decoded, length);
             size_t written = Update.write(decoded, size);
-            device->telemetry.serial.send("written", true);
+            device->telemetry.serial.send("__WRITTEN__", true);
 
             if(size == 0 || written != size){
-                Serial.println("Erro ao escrever | size: " + String(size));
+                device->telemetry.serial.send("error to write size", true);
+                delete[] chunk;
+                delete[] decoded;
                 return;
             }
 
             start = false;
             index = 0;
         }
+
+        delete[] chunk;
+        delete[] decoded;
 
         if(Update.end(true)){
             Serial.println("concluido! reiniciando");

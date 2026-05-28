@@ -1,28 +1,29 @@
-from objects.Device.index import device
+from Device.index import Device
 from utils.functions import sendEvent
 from time import sleep, time
 import base64, io
 
 
 class SerialUpdater:
-    CHUNK_SIZE = 2048
+    CHUNK_SIZE = 2048 
     device = None
     percentage = -1
 
     def __init__(self, device, filePath):
-        self.file = open(filePath, 'rb')
+        self.file   = open(filePath, 'rb')
         self.device = device
+
+        sendEvent('event', f'file downloaded {self.file.read(10)}')
+        print()
     
     def start(self):
         sendEvent('event', 'aguardando sincronização')
         
-        while True:
-            self.device.send('$ETKA!')
-            
-            if self.device.expect('$ETKAACK!', timeout=5.0):
+        for i in range(5):
+            if self.device.expect('$MICACK!', '$ackoneledge!', timeout=5.0, show=True):
                 break
         
-        sendEvent('success', 'Etilômetro Sincronizado', end='\n\n')
+        sendEvent('success', 'Dispositivo Sincronizado', end='\n\n')
         sleep(1.5)
         self.device.expect('STARTING_UPDATE', command='__updt__')
         sendEvent('event', 'update iniciado')
@@ -42,11 +43,14 @@ class SerialUpdater:
 
         while self.percentage < 100:
             chunk = firmware.read(self.CHUNK_SIZE)
+
             if not chunk:
                 break
                 
             self.write(chunk, self.percentage)
-            self.device.expect('written')
+            
+            if not self.device.expect('WRITTEN', show=True, timeout=30.0):
+                return sendEvent('error', 'erro ao atualizar')
             
             sum_bytes += len(chunk)
             self.percentage = (sum_bytes/total)*100
@@ -63,7 +67,10 @@ class SerialUpdater:
 
         message = f'${chunkString}!'
         sample  = (message[:25] + ' ... ' + message[-25:])
-        self.device.send(message, breakLine=False)
+        
+        for i in range(0, len(message), 64):
+            self.device.device.write(message[i:i+64].encode())
+            sleep(0.002)
         
         timePassed = int((time() - startTime) * 1000)
         logText    = f'{timePassed}ms - {len(chunkString)} bytes - {percentage:.2f}% - chunk: {sample}'
@@ -71,9 +78,9 @@ class SerialUpdater:
 
 
 if __name__ == '__main__':
-    device = Device(rate=9600)
-    device.port = '/dev/ttyUSB0'
+    device = Device(rate=115200)
+    device.port = '/dev/ttyACM0'
     device.connect()
 
-    updater = SerialUpdater(device, '../Hardware/Embedded/Main/build/esp32.esp32.esp32s3/Main.ino.bin')
+    updater = SerialUpdater(device, '../Hardware/Embedded_NEW/Main/build/esp32.esp32.esp32s3/Main.ino.bin')
     updater.start()

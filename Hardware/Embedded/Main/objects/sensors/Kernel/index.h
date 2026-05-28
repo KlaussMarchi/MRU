@@ -5,11 +5,9 @@
 #include <cstdint>
 #include "../../../utils/time/index.h"
 
-#define ALIGN_FORWARD     0  
-#define ALIGN_DOWN        1 // cabeça pra cima (measure em pé) - com barriguinha 
-#define ALIGN_UP          2 // cabeça pra baixo (cabo pra baixo) 
-#define ALIGN_RESET       3 
-#define ALIGN_UPSIDE_DOWN 4
+#define ALIGN_FORWARD 0 // Posição Padrão (Pitch = 0°)
+#define ALIGN_DOWN    1 // Conector pro chão (Pitch = -90°)
+#define ALIGN_UP      2 // Conector pro teto (Pitch = +90°)
 
 
 class KernelModelHR{
@@ -222,10 +220,16 @@ class KernelSensor {
     HardwareSerial* uart;
     
   public:
-    int32_t ax, ay, az;
-    int32_t wx, wy, wz;
-    int32_t q0, q1, q2, q3; 
-    int32_t pitch, roll, yaw;
+    int32_t ax_raw, ay_raw, az_raw;
+    int32_t wx_raw, wy_raw, wz_raw;
+    int32_t q0_raw, q1_raw, q2_raw, q3_raw; 
+    int32_t pitch_raw, roll_raw, yaw_raw;
+
+    float ax, ay, az;
+    float wx, wy, wz;
+    float q0, q1, q2, q3; 
+    float pitch, roll, yaw;
+
     float temperature;
 
     KernelModelOrientation ort;
@@ -263,43 +267,36 @@ class KernelSensor {
         reset();
     }
 
-    void align(byte position = ALIGN_DOWN) {
+    void align(byte position=ALIGN_DOWN){
         uint8_t cmd[26] = {
             0xAA, 0x55, 0x00, 0x00, 0x18, 0x00, 
             0xB2, 0xFF, 0x3A, 0x02, 0x0C, 0x00, 
-            0x00, 0x00, 0x00, 0x00,             
-            0x00, 0x00, 0x00, 0x00,             
-            0x00, 0x00, 0x00, 0x00,             
-            0x00, 0x00                          
+            0x00, 0x00, 0x00, 0x00,             // Heading
+            0x00, 0x00, 0x00, 0x00,             // Pitch (Será alterado)
+            0x00, 0x00, 0x00, 0x00,             // Roll
+            0x00, 0x00                          // Checksum (Será calculado)
         };
 
-        if(position == ALIGN_RESET) {
-            Serial.println("Alignment Applied: Reset (0.0 on all axes)"); 
+        if(position == ALIGN_FORWARD){
+            Serial.println("Alinhamento Aplicado: Para Frente (Pitch 0)"); // Pitch 0.0 float = 0x00, 0x00, 0x00, 0x00 (n precisa)
         } 
-        else if (position == ALIGN_FORWARD) {
-            Serial.println("Alignment Applied: Forward (Pitch 0)"); 
-        } 
-        else if (position == ALIGN_UPSIDE_DOWN) {
-            Serial.println("Alignment Applied: Upside Down (Heading 180, Roll 180)"); 
-            cmd[12] = 0x00; cmd[13] = 0x00; cmd[14] = 0x34; cmd[15] = 0x43;
-            cmd[20] = 0x00; cmd[21] = 0x00; cmd[22] = 0x34; cmd[23] = 0x43;
-        }
-        else if (position == ALIGN_DOWN) {
-            Serial.println("Alignment Applied: Down (Pitch -90)"); 
+        
+        if(position == ALIGN_DOWN){
+            Serial.println("Alinhamento Aplicado: Para Baixo (Pitch -90)"); // Pitch -90.0 float IEEE 754 Little-Endian
             cmd[16] = 0x00; cmd[17] = 0x00; cmd[18] = 0xB4; cmd[19] = 0xC2; 
-        } 
-        else if (position == ALIGN_UP) {
-            Serial.println("Alignment Applied: Up (Pitch +90)"); 
+        }
+        
+        if(position == ALIGN_UP){
+            Serial.println("Alinhamento Aplicado: Para Cima (Pitch +90)"); // Pitch +90.0 float IEEE 754 Little-Endian
             cmd[16] = 0x00; cmd[17] = 0x00; cmd[18] = 0xB4; cmd[19] = 0x42;
         }
 
         uint16_t checksum = 0;
-        for (int i = 2; i < 24; i++) {
+        for (int i = 2; i < 24; i++)
             checksum += cmd[i];
-        }
         
-        cmd[24] = checksum & 0xFF;        
-        cmd[25] = (checksum >> 8) & 0xFF; 
+        cmd[24] = checksum & 0xFF;        // Low Byte
+        cmd[25] = (checksum >> 8) & 0xFF; // High Byte
 
         uart->write(cmd, 26);
         delay(1000);
@@ -362,17 +359,17 @@ class KernelSensor {
             memcpy(hr.packet, rx_buffer, hr.PKT_LEN);
             working = hr.update();
 
-            ax = hr.ax;
-            ay = hr.ay;
-            az = hr.az;
+            ax_raw = hr.ax;
+            ay_raw = hr.ay;
+            az_raw = hr.az;
 
-            wx = hr.wx;
-            wy = hr.wy;
-            wz = hr.wz;
+            wx_raw = hr.wx;
+            wy_raw = hr.wy;
+            wz_raw = hr.wz;
 
-            pitch = hr.pitch;
-            roll  = hr.roll;
-            yaw   = hr.yaw;
+            pitch_raw = hr.pitch;
+            roll_raw  = hr.roll;
+            yaw_raw   = hr.yaw;
             temperature = hr.temperature;
         } 
         
@@ -380,14 +377,14 @@ class KernelSensor {
             memcpy(qt.packet, rx_buffer, qt.PKT_LEN);
             working = qt.update();
 
-            q0 = qt.q0;
-            q1 = qt.q1;
-            q2 = qt.q2;
-            q3 = qt.q3;
+            q0_raw = qt.q0;
+            q1_raw = qt.q1;
+            q2_raw = qt.q2;
+            q3_raw = qt.q3;
             
-            pitch = qt.pitch;
-            roll  = qt.roll;
-            yaw   = qt.yaw;
+            pitch_raw = qt.pitch;
+            roll_raw  = qt.roll;
+            yaw_raw   = qt.yaw;
             temperature = qt.temperature;
         }
 
@@ -395,17 +392,17 @@ class KernelSensor {
             memcpy(ort.packet, rx_buffer, ort.PKT_LEN);
             working = ort.update();
 
-            ax = ort.ax;
-            ay = ort.ay;
-            az = ort.az;
+            ax_raw = ort.ax;
+            ay_raw = ort.ay;
+            az_raw = ort.az;
 
-            wx = ort.wx;
-            wy = ort.wy;
-            wz = ort.wz;
+            wx_raw = ort.wx;
+            wy_raw = ort.wy;
+            wz_raw = ort.wz;
 
-            pitch = ort.pitch;
-            roll  = ort.roll;
-            yaw   = ort.yaw;
+            pitch_raw = ort.pitch;
+            roll_raw  = ort.roll;
+            yaw_raw   = ort.yaw;
             temperature = ort.temperature;
         }
 
