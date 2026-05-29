@@ -1,12 +1,12 @@
 {
-    "description": "Reference is MRU and target is Kongsberg",
+    "description": "Align 2 com mru de cabeiça pra baixo measure e kongsberg",
     "limits": {
         "dynamic": [
             15,
-            600
+            60
         ],
         "static": [
-            700,
+            65,
             999999999
         ]
     }

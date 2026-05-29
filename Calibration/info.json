@@ -1,6 +1,6 @@
 {
     "target": {
-        "test": 8,
-        "axis": "z"
+        "test": 5,
+        "axis": "x"
     }
 }

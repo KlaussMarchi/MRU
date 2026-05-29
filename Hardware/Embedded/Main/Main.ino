@@ -1,5 +1,5 @@
 #include "device/index.h"
-Device device{"v1.0.2"};
+Device device{"v1.0.4"};
 
 
 void setup(){

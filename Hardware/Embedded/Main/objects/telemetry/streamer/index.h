@@ -5,7 +5,6 @@
 
 template <typename Parent> class Streamer {
 private:
-    Listener handler = Listener(0);
     Parent* device;
 
 public:
@@ -42,14 +41,11 @@ public:
     }
 
     void set(const bool state) {
-        if (active == state)
+        if(active == state)
             return;
 
-        if (state)
-            handler.reset();
-
         startTime = Time::get();
-        active = state;
+        active    = state;
     }
 
     void printJSON() {
@@ -149,9 +145,9 @@ public:
 
         unsigned char checksum = 0;
         size_t len = strlen(sentence);
-        for (size_t i = 0; i < len; i++) {
+
+        for(size_t i = 0; i < len; i++)
             checksum ^= (unsigned char) sentence[i];
-        }
 
         snprintf(nmea, sizeof(nmea), "$%s*%02X\r\n", sentence, checksum);
         device->telemetry.serial.uart->print(nmea);

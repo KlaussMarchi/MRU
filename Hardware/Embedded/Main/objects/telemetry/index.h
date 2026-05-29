@@ -59,12 +59,12 @@ public:
         if(response.length() > 0)
             event(response.get());
 
-        if (serial.available)
-        last_cmd = serial.command.get();
+        if(serial.available)
+            last_cmd = serial.command.get();
 
         streamer.handle();
 
-        if (protobuf.enabled)
+        if(protobuf.enabled)
             protobuf.handle();
 
         handleOperation();

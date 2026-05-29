@@ -4,6 +4,8 @@
 #include <cmath>
 #include <cstdint>
 #include "../../../utils/time/index.h"
+#include "heave/index.h"
+#include "orientation/index.h"
 
 #define ALIGN_FORWARD 0 // Posição Padrão (Pitch = 0°)
 #define ALIGN_DOWN    1 // Conector pro chão (Pitch = -90°)
@@ -231,6 +233,10 @@ class KernelSensor {
     float pitch, roll, yaw;
 
     float temperature;
+    float heave;
+
+    Heave heaveFilter;
+    OrientationParser parser;
 
     KernelModelOrientation ort;
     KernelModelQuaternion qt;
@@ -355,6 +361,9 @@ class KernelSensor {
     }
 
     void update(){
+        unsigned long current_time = Time::get();
+        float dt = (current_time - lastAck) / 1000.0f;
+
         if(mode == HR_MODE){
             memcpy(hr.packet, rx_buffer, hr.PKT_LEN);
             working = hr.update();
@@ -371,7 +380,56 @@ class KernelSensor {
             roll_raw  = hr.roll;
             yaw_raw   = hr.yaw;
             temperature = hr.temperature;
-        } 
+
+            ax = ax_raw / 1000000.0f;
+            ay = ay_raw / 1000000.0f;
+            az = az_raw / 1000000.0f;
+
+            wx = wx_raw / 100000.0f;
+            wy = wy_raw / 100000.0f;
+            wz = wz_raw / 100000.0f;
+
+            pitch = pitch_raw / 1000.0f;
+            roll  = roll_raw / 1000.0f;
+            yaw   = yaw_raw / 1000.0f;
+            
+            heaveFilter.update(ax, ay, az, pitch, roll, dt);
+            heave = heaveFilter.getHeave();
+        }
+
+        if(mode == HR_MODE_ADJ){
+            memcpy(hr.packet, rx_buffer, hr.PKT_LEN);
+            working = hr.update();
+
+            ax_raw = hr.ax;
+            ay_raw = hr.ay;
+            az_raw = hr.az;
+
+            wx_raw = hr.wx;
+            wy_raw = hr.wy;
+            wz_raw = hr.wz;
+
+            pitch_raw = hr.pitch;
+            roll_raw  = hr.roll;
+            yaw_raw   = hr.yaw;
+            temperature = hr.temperature;
+
+            ax = ax_raw / 1000000.0f;
+            ay = ay_raw / 1000000.0f;
+            az = az_raw / 1000000.0f;
+
+            wx = wx_raw / 100000.0f;
+            wy = wy_raw / 100000.0f;
+            wz = wz_raw / 100000.0f;
+
+            parser.update(wx * (M_PI / 180.0f), wy * (M_PI / 180.0f), wz * (M_PI / 180.0f), ax, ay, az, dt);
+            pitch = parser.getPitch();
+            roll  = parser.getRoll();
+            yaw   = parser.getYaw();
+            
+            heaveFilter.update(ax, ay, az, pitch, roll, dt);
+            heave = heaveFilter.getHeave();
+        }
         
         if(mode == QT_MODE){
             memcpy(qt.packet, rx_buffer, qt.PKT_LEN);
@@ -386,6 +444,15 @@ class KernelSensor {
             roll_raw  = qt.roll;
             yaw_raw   = qt.yaw;
             temperature = qt.temperature;
+
+            q0 = q0_raw / 10000.0f;
+            q1 = q1_raw / 10000.0f;
+            q2 = q2_raw / 10000.0f;
+            q3 = q3_raw / 10000.0f;
+            
+            pitch = pitch_raw / 100.0f;
+            roll  = roll_raw / 100.0f;
+            yaw   = yaw_raw / 100.0f;
         }
 
         if(mode == OR_MODE){
@@ -404,10 +471,23 @@ class KernelSensor {
             roll_raw  = ort.roll;
             yaw_raw   = ort.yaw;
             temperature = ort.temperature;
+
+            // Assumindo KG = 50 e KA = 4000
+            ax = ax_raw / 4000.0f;
+            ay = ay_raw / 4000.0f;
+            az = az_raw / 4000.0f;
+
+            wx = wx_raw / 50.0f;
+            wy = wy_raw / 50.0f;
+            wz = wz_raw / 50.0f;
+
+            pitch = pitch_raw / 100.0f;
+            roll  = roll_raw / 100.0f;
+            yaw   = yaw_raw / 100.0f;
         }
 
         if(working)
-            lastAck = Time::get();
+            lastAck = current_time;
         
         reset();
     }

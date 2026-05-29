@@ -78,9 +78,9 @@ class SerialUpdater:
 
 
 if __name__ == '__main__':
-    device = Device(rate=115200)
+    device = Device(rate=9600)
     device.port = '/dev/ttyACM0'
     device.connect()
 
-    updater = SerialUpdater(device, '../Hardware/Embedded_NEW/Main/build/esp32.esp32.esp32s3/Main.ino.bin')
+    updater = SerialUpdater(device, '../Hardware/Embedded/Main/build/esp32.esp32.esp32s3/Main.ino.bin')
     updater.start()

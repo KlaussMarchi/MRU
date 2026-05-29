@@ -33,6 +33,11 @@ template <typename Parent> class Protocol{
             device->updater.start();
             return;
         }
+
+        if(device->telemetry.serial.command.contains("firmware")){
+            device->telemetry.response.set(device->firmware);
+            return;
+        }
         
         if(device->telemetry.serial.command.contains("stream_start")){
             device->telemetry.streamer.set(true);

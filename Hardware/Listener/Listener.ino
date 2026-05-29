@@ -1,7 +1,7 @@
 #include <SoftwareSerial.h>
 SoftwareSerial mru(3, 2);
 
-const bool autostart = true;
+const bool autostart = false;
 
 void setup() {
     Serial.begin(9600);
@@ -16,8 +16,8 @@ void setup() {
 }
 
 void loop(){
-    if(Serial.available())
-        mru.write(Serial.readString().c_str());
+    while(Serial.available())
+        mru.write(Serial.read());
 
     while(mru.available())
         Serial.write(mru.read());
