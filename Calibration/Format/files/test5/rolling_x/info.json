@@ -2,12 +2,13 @@
     "description": "Reference is MRU and target is Kongsberg",
     "limits": {
         "dynamic": [
-            120,
-            150
+            5,
+            120
         ],
         "static": [
-            200,
-            300
+            150,
+            999999999
         ]
-    }
+    },
+    "belly": [45, 80]
 }

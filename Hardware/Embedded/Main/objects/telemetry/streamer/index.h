@@ -90,12 +90,12 @@ public:
         device->telemetry.serial.uart->write('\n');
     }
 
-    void printList() {
+    void printList(){
         static char buffer[256];
         const byte mode = device->sensors.kernel.mode;
-        int n;
+        int n = 0;
 
-        if (mode == HR_MODE) {
+        if(mode == HR_MODE){
             n = snprintf(buffer, sizeof(buffer),
                 "[%.3f,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%.3f]",
                 device->sensors.kernel.temperature,
@@ -105,7 +105,7 @@ public:
                 (float) device->components.encoder.get()
             );
         } 
-        else if (mode == HR_MODE_ADJ || mode == OR_MODE) {
+        else if(mode == HR_MODE_ADJ || mode == OR_MODE){
             n = snprintf(buffer, sizeof(buffer),
                 "[%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f]",
                 device->sensors.kernel.temperature,
@@ -114,8 +114,8 @@ public:
                 (float) device->sensors.kernel.wx, (float) device->sensors.kernel.wy, (float) device->sensors.kernel.wz,
                 (float) device->components.encoder.get()
             );
-        } 
-        else if (mode == QT_MODE) {
+        }
+        else if(mode == QT_MODE){
             n = snprintf(buffer, sizeof(buffer),
                 "[%.3f,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%.3f]",
                 device->sensors.kernel.temperature,

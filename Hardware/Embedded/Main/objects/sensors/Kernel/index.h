@@ -7,9 +7,13 @@
 #include "heave/index.h"
 #include "orientation/index.h"
 
-#define ALIGN_FORWARD 0 // Posição Padrão (Pitch = 0°)
-#define ALIGN_DOWN    1 // Conector pro chão (Pitch = -90°)
-#define ALIGN_UP      2 // Conector pro teto (Pitch = +90°)
+
+#define ALIGN_FORWARD     0 
+#define ALIGN_DOWN        1 // cabeça pra cima (measure em pé) - com barriguinha 
+#define ALIGN_UP          2 // cabeça pra baixo (cabo pra baixo) 
+#define ALIGN_RESET       3 
+#define ALIGN_UPSIDE_DOWN 4
+
 
 
 class KernelModelHR{
@@ -76,10 +80,14 @@ class KernelModelHR{
     void setup(){
         const uint8_t CMD_MODE[9] = { 0xAA, 0x55, 0x00, 0x00, 0x07, 0x00, 0x81, 0x88, 0x00 }; 
         
-        Serial.println("Kernel Started in HR Mode");
+        Serial.print("\nKernel Started "); Serial.println(toString());
         Serial.println("Activation CMD Sent");
         uart->write(CMD_MODE, 9);
         delay(1000);
+    }
+
+    String toString(){
+        return "HR Standard Mode"
     }
 };
 
@@ -144,6 +152,10 @@ class KernelModelQuaternion{
             calc_checksum += packet[i];
 
         return (calc_checksum == recv_checksum);
+    }
+
+    String toString(){
+        return "Quaternion Mode";
     }
 };
 
@@ -273,41 +285,31 @@ class KernelSensor {
         reset();
     }
 
-    void align(byte position=ALIGN_DOWN){
-        uint8_t cmd[26] = {
-            0xAA, 0x55, 0x00, 0x00, 0x18, 0x00, 
-            0xB2, 0xFF, 0x3A, 0x02, 0x0C, 0x00, 
-            0x00, 0x00, 0x00, 0x00,             // Heading
-            0x00, 0x00, 0x00, 0x00,             // Pitch (Será alterado)
-            0x00, 0x00, 0x00, 0x00,             // Roll
-            0x00, 0x00                          // Checksum (Será calculado)
-        };
-
-        if(position == ALIGN_FORWARD){
-            Serial.println("Alinhamento Aplicado: Para Frente (Pitch 0)"); // Pitch 0.0 float = 0x00, 0x00, 0x00, 0x00 (n precisa)
+    void align(byte position = ALIGN_DOWN){
+        uint8_t cmd[26] = { 0xAA, 0x55, 0x00, 0x00, 0x18, 0x00, 0xB2, 0xFF, 0x3A, 0x02, 0x0C, 0x00, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0 };
+        
+        if(position == ALIGN_UPSIDE_DOWN){
+            cmd[12] = 0x00; cmd[13] = 0x00; cmd[14] = 0x34; cmd[15] = 0x43; // H=180
+            cmd[20] = 0x00; cmd[21] = 0x00; cmd[22] = 0x34; cmd[23] = 0x43; // R=180
         } 
         
-        if(position == ALIGN_DOWN){
-            Serial.println("Alinhamento Aplicado: Para Baixo (Pitch -90)"); // Pitch -90.0 float IEEE 754 Little-Endian
-            cmd[16] = 0x00; cmd[17] = 0x00; cmd[18] = 0xB4; cmd[19] = 0xC2; 
+        else if (position == ALIGN_DOWN) {
+            cmd[16] = 0x00; cmd[17] = 0x00; cmd[18] = 0xB4; cmd[19] = 0xC2; // P=-90
+        } 
+        
+        else if (position == ALIGN_UP) {
+            cmd[16] = 0x00; cmd[17] = 0x00; cmd[18] = 0xB4; cmd[19] = 0x42; // P=90
         }
         
-        if(position == ALIGN_UP){
-            Serial.println("Alinhamento Aplicado: Para Cima (Pitch +90)"); // Pitch +90.0 float IEEE 754 Little-Endian
-            cmd[16] = 0x00; cmd[17] = 0x00; cmd[18] = 0xB4; cmd[19] = 0x42;
-        }
-
         uint16_t checksum = 0;
-        for (int i = 2; i < 24; i++)
+        for (int i = 2; i < 24; i++) 
             checksum += cmd[i];
         
-        cmd[24] = checksum & 0xFF;        // Low Byte
-        cmd[25] = (checksum >> 8) & 0xFF; // High Byte
-
+        cmd[24] = checksum & 0xFF; cmd[25] = (checksum >> 8) & 0xFF; 
         uart->write(cmd, 26);
         delay(1000);
     }
-    
+
     bool timeout() {
         return (header && (Time::get() - lastUpdate > 100));
     }
@@ -345,16 +347,16 @@ class KernelSensor {
             if(index >= targetLen)
                 update();
         }
-    }   
+    }
 
-    int getLength(){
-        if(mode == HR_MODE)
+    int getLength() {
+        if (mode == HR_MODE || mode == HR_MODE_ADJ) 
             return hr.PKT_LEN;
         
-        if(mode == QT_MODE)
+        if (mode == QT_MODE)
             return qt.PKT_LEN;
 
-        if(mode == OR_MODE) 
+        if (mode == OR_MODE) 
             return ort.PKT_LEN;
 
         return 0;
@@ -422,10 +424,13 @@ class KernelSensor {
             wy = wy_raw / 100000.0f;
             wz = wz_raw / 100000.0f;
 
+            if(!parser.initialized)
+                parser.start(ax, ay, az)
+
             parser.update(wx * (M_PI / 180.0f), wy * (M_PI / 180.0f), wz * (M_PI / 180.0f), ax, ay, az, dt);
-            pitch = parser.getPitch();
-            roll  = parser.getRoll();
-            yaw   = parser.getYaw();
+            pitch = parser.pitch;
+            roll  = parser.roll;
+            yaw   = parser.yaw;
             
             heaveFilter.update(ax, ay, az, pitch, roll, dt);
             heave = heaveFilter.getHeave();

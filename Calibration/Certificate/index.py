@@ -61,7 +61,7 @@ class ReportData:
         metrics = [
             ('RMS estático (deg)', 'rms_stat', 0.5),
             ('RMS dinâmico (deg)', 'rms_dyn', 0.6),
-            ('Ruído estático STD (deg)', 'std_stat', 0.1)
+            ('Scale Factor (deg)', 'rms_scale_factor', 0.1)
         ]
         
         results = []
@@ -85,9 +85,7 @@ class ReportData:
 
     def get_gyro_data(self):
         metrics = [
-            ('Erro Médio Estático (deg/s)', 'mean_error_stat', 0.025, False),
-            ('Erro Médio Dinâmico (deg/s)', 'mean_error_dyn', 0.5, False),
-            ('Ruído Estático STD (deg/s)', 'std_stat', 0.025, False)
+            ('Ruído Estático STD (deg/s)', 'std_stat', 0.3, False),
         ]
         
         results = []
@@ -100,9 +98,7 @@ class ReportData:
 
     def get_accel_data(self):
         metrics = [
-            ('Erro Médio Estático (deg/s)', 'mean_error_stat', 0.5, False),
-            ('Erro Médio Dinâmico (deg/s)', 'mean_error_dyn', 0.5, False),
-            ('Ruído Estático STD (deg/s)', 'std_stat', 0.030, False)
+            ('Ruído Estático STD (m/s²)', 'std_stat', 0.05, False),
         ]
         
         results = []
