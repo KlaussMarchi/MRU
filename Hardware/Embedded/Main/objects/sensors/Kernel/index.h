@@ -6,11 +6,12 @@
 #include "../../../utils/time/index.h"
 #include "heave/index.h"
 #include "orientation/index.h"
+#include "gyrocal/index.h"
 
 
-#define ALIGN_FORWARD     0 
-#define ALIGN_DOWN        1 // cabeça pra cima (measure em pé) - com barriguinha 
-#define ALIGN_UP          2 // cabeça pra baixo (cabo pra baixo) 
+#define ALIGN_FORWARD     0   
+#define ALIGN_DOWN        1  // cabeça pra cima (measure em pé) - com barriguinha 
+#define ALIGN_UP          2  // cabeça pra baixo (cabo pra baixo) 
 #define ALIGN_RESET       3 
 #define ALIGN_UPSIDE_DOWN 4
 
@@ -80,14 +81,10 @@ class KernelModelHR{
     void setup(){
         const uint8_t CMD_MODE[9] = { 0xAA, 0x55, 0x00, 0x00, 0x07, 0x00, 0x81, 0x88, 0x00 }; 
         
-        Serial.print("\nKernel Started "); Serial.println(toString());
+        Serial.print("\nKernel Started "); 
         Serial.println("Activation CMD Sent");
         uart->write(CMD_MODE, 9);
         delay(1000);
-    }
-
-    String toString(){
-        return "HR Standard Mode"
     }
 };
 
@@ -152,10 +149,6 @@ class KernelModelQuaternion{
             calc_checksum += packet[i];
 
         return (calc_checksum == recv_checksum);
-    }
-
-    String toString(){
-        return "Quaternion Mode";
     }
 };
 
@@ -249,6 +242,7 @@ class KernelSensor {
 
     Heave heaveFilter;
     OrientationParser parser;
+    GyroCalibrator gyrocal;
 
     KernelModelOrientation ort;
     KernelModelQuaternion qt;
@@ -258,7 +252,9 @@ class KernelSensor {
     bool header;
     int index;
 
-    unsigned long lastAck = Time::get();
+    int64_t packetStartTime = esp_timer_get_time();
+    int64_t lastAckTime      = esp_timer_get_time();
+
     bool working = false;
     int tx_pin, rx_pin;
     
@@ -326,6 +322,7 @@ class KernelSensor {
                 if(index == 0 && newByte == 0xAA) {
                     rx_buffer[0] = 0xAA;
                     index = 1;
+                    packetStartTime = esp_timer_get_time();
                 } 
                 else if(index == 1 && newByte == 0x55) {
                     rx_buffer[1] = 0x55;
@@ -363,8 +360,8 @@ class KernelSensor {
     }
 
     void update(){
-        unsigned long current_time = Time::get();
-        float dt = (current_time - lastAck) / 1000.0f;
+        int64_t now_us = esp_timer_get_time();
+        float dt = (packetStartTime - lastAckTime) * 1e-6f;
 
         if(mode == HR_MODE){
             memcpy(hr.packet, rx_buffer, hr.PKT_LEN);
@@ -424,10 +421,22 @@ class KernelSensor {
             wy = wy_raw / 100000.0f;
             wz = wz_raw / 100000.0f;
 
-            if(!parser.initialized)
-                parser.start(ax, ay, az)
+            if(!gyrocal.calibrated){
+                gyrocal.update(wx, wy, wz);
+                
+                if(working) 
+                    lastAckTime = esp_timer_get_time();
+                
+                reset();
+                return;
+            }
 
-            parser.update(wx * (M_PI / 180.0f), wy * (M_PI / 180.0f), wz * (M_PI / 180.0f), ax, ay, az, dt);
+            gyrocal.apply(wx, wy, wz);
+
+            if(!parser.initialized)
+                parser.start(ax, ay, az);
+
+            parser.update(wx * (M_PI/180.f), wy * (M_PI/180.f), wz * (M_PI/180.f), ax, ay, az);        
             pitch = parser.pitch;
             roll  = parser.roll;
             yaw   = parser.yaw;
@@ -491,8 +500,8 @@ class KernelSensor {
             yaw   = yaw_raw / 100.0f;
         }
 
-        if(working)
-            lastAck = current_time;
+        if(working) 
+            lastAckTime = packetStartTime;
         
         reset();
     }

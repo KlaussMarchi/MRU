@@ -1,0 +1,16 @@
+{
+  "r2": 1.0,
+  "mae": 0.0,
+  "rmse": 0.0,
+  "precision": 0.0,
+  "rms_stat": 0.0,
+  "rms_dyn": 0.0,
+  "rms_scale_factor": NaN,
+  "std_stat": 0.0,
+  "time_drift": 0.0,
+  "correctionMatrixRow": [
+    0.0,
+    0.0,
+    0.0
+  ]
+}

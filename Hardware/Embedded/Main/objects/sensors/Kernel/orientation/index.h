@@ -171,10 +171,10 @@ private:
     }
 
     void _compute_euler() {
-        // Yaw — denominador usa q1²+q2²  (igual ao Python)
+        // Yaw — denominador usa q2²+q3² 
         yaw = atan2f(
             2.0f*(q1*q2 - q0*q3),
-            1.0f - 2.0f*(q1*q1 + q2*q2)
+            1.0f - 2.0f*(q2*q2 + q3*q3)
         ) * (180.0f / M_PI);
 
         // Pitch — clamp antes do asin (evita NaN por ruído de float)
@@ -183,7 +183,7 @@ private:
         if (sinp < -1.0f) sinp = -1.0f;
         pitch = asinf(sinp) * (180.0f / M_PI);
 
-        // Roll — negado para convenção NED  (igual ao Python)
+        // Roll — negado para convenção NED 
         roll = -atan2f(
             2.0f*(q1*q3 - q0*q2),
             1.0f - 2.0f*(q1*q1 + q2*q2)

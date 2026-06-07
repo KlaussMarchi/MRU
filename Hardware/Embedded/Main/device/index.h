@@ -1,5 +1,6 @@
 #ifndef PROG_DEVICE_H
 #define PROG_DEVICE_H
+#include "esp_timer.h"
 #include "../globals/functions.h"
 #include "../globals/constants.h"
 
