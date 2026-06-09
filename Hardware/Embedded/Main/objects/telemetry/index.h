@@ -1,7 +1,6 @@
 #ifndef TELEMETRY_H
 #define TELEMETRY_H
 #include "modes/coppe/index.h"
-#include "protobuf/index.h"
 #include "protocol/index.h"
 #include "serial/index.h"
 #include "streamer/index.h"
@@ -19,28 +18,25 @@ public:
     Text<CMD_MAX_SIZE> last_cmd;
     Protocol<Parent> protocol;
     Streamer<Parent> streamer;
-    Protobuf<Parent> protobuf;
     Text<64> response;
     Coppe<Parent> coppe;
     byte type = 0;
     bool working;
 
     Telemetry(Parent *dev): 
-        device(dev), 
-        streamer(dev), 
-        protobuf(dev), 
-        protocol(dev), 
+        device(dev),
+        streamer(dev),
+        protocol(dev),
         coppe(dev){}
 
-    void setup() {
+    void setup(){
         type = device->settings.template get<byte>("telemetry");
         serial.setup(device->settings.template get<int>("baudrate", 9600));
 
-        if (type == COPPE_TEL)
+        if(type == COPPE_TEL)
             coppe.setup();
 
         streamer.setup();
-        protobuf.setup();
         response.reset();
     }
 
@@ -64,18 +60,15 @@ public:
 
         streamer.handle();
 
-        if(protobuf.enabled)
-            protobuf.handle();
-
         handleOperation();
         serial.reset();
     }
 
     void handleProtocol() {
-        if (type == COPPE_TEL)
+        if(type == COPPE_TEL)
             coppe.check();
 
-        if (serial.available)
+        if(serial.available)
             protocol.check();
     }
 

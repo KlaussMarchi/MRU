@@ -33,6 +33,7 @@ template<int CMD_MAX_SIZE> class NextSerial {
 
     void setup(int baud=9600){
         baudrate = baud;
+
         //rs232.begin(baudrate, SERIAL_8N1, RX_RS232, TX_RS232); delay(200);
         rs422.begin(baudrate, SERIAL_8N1, RX_RS422, TX_RS422); delay(200);
         
@@ -41,14 +42,14 @@ template<int CMD_MAX_SIZE> class NextSerial {
         Serial.println("Baudrate: " + String(baudrate) + "\n");
     }
     
-    void send(const char* msg, bool breakLine = true) {
+    void send(const char* msg, bool breakLine = true){
         uart->write(msg);
 
         if(breakLine)
             uart->write("\r\n");
     }
 
-    void send(const String& msg, bool breakLine = true) {
+    void send(const String& msg, bool breakLine = true){
         uart->write(msg.c_str());
 
         if(breakLine)

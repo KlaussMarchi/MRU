@@ -55,34 +55,34 @@ public:
 
         if(mode == HR_MODE) {
             n = snprintf(buffer, sizeof(buffer),
-                "{\"time\":%.3f,\"tmp\":%.3f,\"pitch\":%ld,\"roll\":%ld,\"yaw\":%ld,\"ax\":%ld,\"ay\":%ld,\"az\":%ld,\"wx\":%ld,\"wy\":%ld,\"wz\":%ld,\"e\":%.3f}",
+                "{\"time\":%.3f,\"tmp\":%.3f,\"pitch\":%ld,\"roll\":%ld,\"yaw\":%ld,\"ax\":%ld,\"ay\":%ld,\"az\":%ld,\"wx\":%ld,\"wy\":%ld,\"wz\":%ld,\"h\":%.3f}",
                 (Time::get() - startTime) / 1000.00,
                 device->sensors.kernel.temperature,
                 (long) device->sensors.kernel.pitch_raw, (long) device->sensors.kernel.roll_raw, (long) device->sensors.kernel.yaw_raw,
                 (long) device->sensors.kernel.ax_raw, (long) device->sensors.kernel.ay_raw, (long) device->sensors.kernel.az_raw,
                 (long) device->sensors.kernel.wx_raw, (long) device->sensors.kernel.wy_raw, (long) device->sensors.kernel.wz_raw,
-                (float) device->components.encoder.get()
+                (float) device->sensors.kernel.heave
             );
         }
         else if (mode == HR_MODE_ADJ || mode == OR_MODE) {
             n = snprintf(buffer, sizeof(buffer),
-                "{\"time\":%.3f,\"tmp\":%.3f,\"pitch\":%.3f,\"roll\":%.3f,\"yaw\":%.3f,\"ax\":%.3f,\"ay\":%.3f,\"az\":%.3f,\"wx\":%.3f,\"wy\":%.3f,\"wz\":%.3f,\"e\":%.3f}",
+                "{\"time\":%.3f,\"tmp\":%.3f,\"pitch\":%.3f,\"roll\":%.3f,\"yaw\":%.3f,\"ax\":%.3f,\"ay\":%.3f,\"az\":%.3f,\"wx\":%.3f,\"wy\":%.3f,\"wz\":%.3f,\"h\":%.3f}",
                 (Time::get() - startTime) / 1000.00,
                 device->sensors.kernel.temperature,
                 (float) device->sensors.kernel.pitch, (float) device->sensors.kernel.roll, (float) device->sensors.kernel.yaw,
                 (float) device->sensors.kernel.ax, (float) device->sensors.kernel.ay, (float) device->sensors.kernel.az,
                 (float) device->sensors.kernel.wx, (float) device->sensors.kernel.wy, (float) device->sensors.kernel.wz,
-                (float) device->components.encoder.get()
+                (float) device->sensors.kernel.heave
             );
         } 
         else if (mode == QT_MODE) {
             n = snprintf(buffer, sizeof(buffer),
-                "{\"time\":%.3f,\"tmp\":%.3f,\"pitch\":%ld,\"roll\":%ld,\"yaw\":%ld,\"q0\":%ld,\"q1\":%ld,\"q2\":%ld,\"q3\":%ld,\"e\":%.3f}",
+                "{\"time\":%.3f,\"tmp\":%.3f,\"pitch\":%ld,\"roll\":%ld,\"yaw\":%ld,\"q0\":%ld,\"q1\":%ld,\"q2\":%ld,\"q3\":%ld,\"h\":%.3f}",
                 (Time::get() - startTime) / 1000.00,
                 device->sensors.kernel.temperature,
                 (long) device->sensors.kernel.pitch_raw, (long) device->sensors.kernel.roll_raw, (long) device->sensors.kernel.yaw_raw,
                 (long) device->sensors.kernel.q0_raw, (long) device->sensors.kernel.q1_raw, (long) device->sensors.kernel.q2_raw, (long) device->sensors.kernel.q3_raw,
-                (float) device->components.encoder.get()
+                (float) device->sensors.kernel.heave
             );
         }
 
@@ -102,7 +102,7 @@ public:
                 (long) device->sensors.kernel.pitch_raw, (long) device->sensors.kernel.roll_raw, (long) device->sensors.kernel.yaw_raw,
                 (long) device->sensors.kernel.ax_raw, (long) device->sensors.kernel.ay_raw, (long) device->sensors.kernel.az_raw,
                 (long) device->sensors.kernel.wx_raw, (long) device->sensors.kernel.wy_raw, (long) device->sensors.kernel.wz_raw,
-                (float) device->components.encoder.get()
+                (float) device->sensors.kernel.heave
             );
         } 
         else if(mode == HR_MODE_ADJ || mode == OR_MODE){
@@ -112,7 +112,7 @@ public:
                 (float) device->sensors.kernel.pitch, (float) device->sensors.kernel.roll, (float) device->sensors.kernel.yaw,
                 (float) device->sensors.kernel.ax, (float) device->sensors.kernel.ay, (float) device->sensors.kernel.az,
                 (float) device->sensors.kernel.wx, (float) device->sensors.kernel.wy, (float) device->sensors.kernel.wz,
-                (float) device->components.encoder.get()
+                (float) device->sensors.kernel.heave
             );
         }
         else if(mode == QT_MODE){
@@ -121,7 +121,7 @@ public:
                 device->sensors.kernel.temperature,
                 (long) device->sensors.kernel.pitch_raw, (long) device->sensors.kernel.roll_raw, (long) device->sensors.kernel.yaw_raw,
                 (long) device->sensors.kernel.q0_raw, (long) device->sensors.kernel.q1_raw, (long) device->sensors.kernel.q2_raw, (long) device->sensors.kernel.q3_raw,
-                (float) device->components.encoder.get()
+                (float) device->sensors.kernel.heave
             );
         }
 

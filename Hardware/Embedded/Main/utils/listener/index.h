@@ -2,51 +2,58 @@
 #define LISTENER_H
 #include <Arduino.h>
 
+class Listener {
+  private:
+    uint64_t startTime;
+    uint64_t timeout_us; 
 
-class Listener{
   public:
-    unsigned long startTime;
-    int timeout = 1000;
-
-    Listener(int _timeout){
-        startTime = time();
-        timeout   = _timeout;
+    Listener(uint32_t _timeout_ms = 1000) {
+        timeout_us = (uint64_t)_timeout_ms * 1000ULL;
+        reset();
     }
     
-    unsigned long time(){
-        return esp_timer_get_time()/1000;
+    uint64_t time_us() {
+        return esp_timer_get_time();
     }
 
-    unsigned long get(){
-        return (time() - startTime);
+    unsigned long get() {
+        return (unsigned long)((time_us() - startTime) / 1000ULL);
     }
 
-    float getSec(){
-        return get() / 1000.00;
+    float getSec() {
+        return get() / 1000.0f;
     }
 
-    float getMin(){
-        return getSec() / 60.00;
+    float getMin() {
+        return getSec() / 60.0f;
     }
 
-    void set(int _timeout){
-        timeout = _timeout;
+    void set(uint32_t _timeout_ms) {
+        timeout_us = (uint64_t)_timeout_ms * 1000ULL;
     }
 
-    int passed(const unsigned long t0){
-        return (time() - t0);
+    uint64_t passed(const uint64_t t0) {
+        return (time_us() - t0);
     }
 
     void reset(){
-        startTime = time();
+        startTime = time_us();
     }
     
-    bool ready(const bool auto_reset=true){
-        if(get() < timeout)
+    bool ready(const bool auto_reset = true) {
+        uint64_t current_time = time_us();
+
+        if(current_time - startTime < timeout_us) 
             return false;
 
-        if(auto_reset)
-            reset();
+        if(!auto_reset) 
+            return true;
+
+        startTime = (startTime + timeout_us); 
+        
+        if(current_time - startTime > timeout_us)
+            startTime = current_time;
         
         return true;
     }

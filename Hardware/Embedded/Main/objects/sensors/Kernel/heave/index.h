@@ -2,6 +2,7 @@
 #define HEAVE_H
 
 #include <cmath>
+#include "esp_timer.h"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846f
@@ -18,6 +19,7 @@ private:
     float zeta;
     float tauHP;
     bool initialized;
+    int64_t lastUpdateTime;
 
 public:
     Heave(float cutoffPeriod = 30.0f, float hpCutoffFreq = 0.01f) {
@@ -31,10 +33,15 @@ public:
         omegaN = 2.0f * M_PI * fcIntegrator;
         zeta = 0.70710678f; 
         tauHP = 1.0f / (2.0f * M_PI * hpCutoffFreq);
+        lastUpdateTime = esp_timer_get_time();
     }
 
-    void update(float ax, float ay, float az, float pitch, float roll, float dt) {
-        if (dt <= 0.0f) return;
+    void update(float ax, float ay, float az, float pitch, float roll) {
+        int64_t now = esp_timer_get_time();
+        float dt = (float)(now - lastUpdateTime) * 1e-6f;
+        lastUpdateTime = now;
+        
+        if (dt <= 0.0f || dt > 1.0f) return;
 
         float pitchRad = pitch * (M_PI / 180.0f);
         float rollRad  = roll  * (M_PI / 180.0f);
@@ -60,6 +67,12 @@ public:
         
         velocity += accelDamped * dt;
         position += velocity * dt;
+        
+        if (std::isnan(position) || std::isnan(velocity)) {
+            position = 0.0f;
+            velocity = 0.0f;
+            hpAccel = 0.0f;
+        }
     }
 
     float getHeave() const {

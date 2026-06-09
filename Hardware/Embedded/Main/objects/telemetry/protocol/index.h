@@ -137,6 +137,9 @@ template <typename Parent> class Protocol{
         device->settings.params.set(key.get(), value.get());
         device->telemetry.response.set(key.toString() + " set to " + value.toString());
         device->settings.save();
+
+        delay(500);
+        device->reset();
     }
 };
 

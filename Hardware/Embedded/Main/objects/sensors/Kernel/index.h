@@ -253,7 +253,7 @@ class KernelSensor {
     int index;
 
     int64_t packetStartTime = esp_timer_get_time();
-    int64_t lastAckTime      = esp_timer_get_time();
+    int64_t lastAckTime     = esp_timer_get_time();
 
     bool working = false;
     int tx_pin, rx_pin;
@@ -392,7 +392,7 @@ class KernelSensor {
             roll  = roll_raw / 1000.0f;
             yaw   = yaw_raw / 1000.0f;
             
-            heaveFilter.update(ax, ay, az, pitch, roll, dt);
+            heaveFilter.update(ax, ay, az, pitch, roll);
             heave = heaveFilter.getHeave();
         }
 
@@ -441,7 +441,7 @@ class KernelSensor {
             roll  = parser.roll;
             yaw   = parser.yaw;
             
-            heaveFilter.update(ax, ay, az, pitch, roll, dt);
+            heaveFilter.update(ax, ay, az, pitch, roll);
             heave = heaveFilter.getHeave();
         }
         

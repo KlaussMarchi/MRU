@@ -1,6 +1,6 @@
 from Device.index import Device
 from Plotter.index import TimeGraph
-from Utils.classes import AsyncThreading
+from Utils.classes import AsyncThreading, KeyboardListener
 from Utils.functions import sendEvent
 from time import time, sleep
 import numpy as np
@@ -17,7 +17,12 @@ def setFolder(folder):
     os.makedirs(folder)
 
 class Monitor:
-    def __init__(self, targets=['pitchM', 'rollK']):
+    INDEPENDENT = False
+    NORMALIZE   = False
+
+    def __init__(self, targets=['pitchM']):
+        self.kb = KeyboardListener()
+        self.kb.start()
         self.current = None
         self.valuesK = []
         self.valuesM = []
@@ -30,29 +35,24 @@ class Monitor:
     def setup(self):
         self.deviceM = Device(rate=9600)
         self.deviceK = Device(rate=19200)
-        self.deviceP = Device(rate=115200)
+        self.deviceP = Device(rate=9600)
         
         self.deviceM.port = '/dev/ttyACM0'
-        self.deviceK.port = '/dev/ttyUSB0'
-        self.deviceP.port = '/dev/ttyUSB1'
+        self.deviceP.port = '/dev/ttyUSB0'
+        self.deviceK.port = '/dev/ttyUSB1'
 
         self.deviceM.connect()
-        self.deviceK.connect()
         self.deviceP.connect()
+        #self.deviceK.connect()
 
         self.startTime = time()
 
         sleep(2.00)
         self.deviceM.send('$stream_start!')
-        self.threadK = AsyncThreading(self.handleKongsberg)
+        self.deviceP.send('$stream_start!')
         self.threadM = AsyncThreading(self.handleMeasure)
         self.threadP = AsyncThreading(self.handlePlate)
-
-    def handleKongsberg(self):
-        if not self.deviceK.available():
-            return
-        
-        self.deviceK.last = self.deviceK.getNMEA()
+        #self.threadK = AsyncThreading(self.handleKongsberg)
 
     def handleMeasure(self):
         if not self.deviceM.available():
@@ -64,14 +64,23 @@ class Monitor:
         if not self.deviceP.available():
             return
         
-        self.deviceP.last = self.deviceP.getJson()
+        self.deviceP.last = self.deviceP.getList()
+
+    def handleKongsberg(self):
+        if not self.deviceK.available():
+            return
+        
+        self.deviceK.last = self.deviceK.getNMEA()
 
     def handle(self):
         kongsberg_working = self.deviceK.last is not None
         measure_working   = self.deviceM.last is not None
         plate_working     = self.deviceP.last is not None
 
-        if not kongsberg_working and not measure_working and not plate_working:
+        if self.INDEPENDENT and (not measure_working and not plate_working):
+            return
+
+        if not self.INDEPENDENT and (not measure_working or not plate_working):
             return
         
         if self.startProg is None:
@@ -115,12 +124,15 @@ class Monitor:
                 vmin = self.stats[target]['min']
                 vmax = self.stats[target]['max']
                 
-                if vmax - vmin == 0:
-                    norm_val = 0.5
+                if self.NORMALIZE:
+                    if vmax - vmin == 0:
+                        norm_val = 0.5
+                    else:
+                        norm_val = (val - vmin) / (vmax - vmin)
+                        
+                    self.current[target] = norm_val
                 else:
-                    norm_val = (val - vmin) / (vmax - vmin)
-                    
-                self.current[target] = norm_val
+                    self.current[target] = val
 
         if kongsberg_working:
             self.valuesK.append(self.deviceK.last)
@@ -138,29 +150,34 @@ class Monitor:
         if self.current is None:
             return
 
-        if self.threadK.kb.is_pressed('p'):
-            self.targets = ['pitchM', 'rollK']; self.reset()
+        if self.kb.is_pressed('n'):
+            self.NORMALIZE = not self.NORMALIZE
+            self.reset()
+            print(f"\n[INFO] Normalization: {'ON' if self.NORMALIZE else 'OFF'}")
 
-        if self.threadK.kb.is_pressed('r'):
-            self.targets = ['eM', 'rollK']; self.reset()
+        if self.kb.is_pressed('p'):
+            self.targets = ['pitchM']; self.reset()
 
-        if self.threadK.kb.is_pressed('y'):
-            self.targets = ['yawM', 'yawK']; self.reset()
+        if self.kb.is_pressed('r'):
+            self.targets = ['rollM']; self.reset()
 
-        if self.threadK.kb.is_pressed('e'):
-            self.targets = ['wxK', 'eM']; self.reset()
+        if self.kb.is_pressed('y'):
+            self.targets = ['yawM']; self.reset()
 
-        if self.threadK.kb.is_pressed('k'):
-            self.targets = ['pitchM', 'pitchK']; self.reset()
+        if self.kb.is_pressed('h'):
+            self.targets = ['hM']; self.reset()
 
-        if self.threadK.kb.is_pressed('w'):
-            self.targets = ['wxM', 'wzK']; self.reset()
+        if self.kb.is_pressed('k'):
+            self.targets = ['pitchM']; self.reset()
 
-        if self.threadK.kb.is_pressed('a'):
-            self.targets = ['axM', 'axK']; self.reset()
+        if self.kb.is_pressed('w'):
+            self.targets = ['wxM']; self.reset()
 
-        if self.threadK.kb.is_pressed('o'):
-            self.targets = ['q0M', 'q0K']; self.reset()
+        if self.kb.is_pressed('a'):
+            self.targets = ['axM']; self.reset()
+
+        if self.kb.is_pressed('o'):
+            self.targets = ['q0M']; self.reset()
                     
         return (time() - self.startTime, self.current)
 
@@ -170,6 +187,18 @@ class Monitor:
         self.startTime = time()
         self.current = None
 
+    def saveDevice(self, data, device, folder):
+        if not data:
+            return pd.DataFrame().to_csv(os.path.join(folder, device, 'data.csv'), index=False)
+        
+        keys = set()
+        for record in data:
+            keys.update(record.keys())
+
+        data = [{key: record.get(key, 0) for key in keys} for record in data]
+        df = pd.DataFrame(data)
+        df.to_csv(os.path.join(folder, device, 'data.csv'), index=False)
+            
     def save(self, folder='output'):
         setFolder(os.path.join(folder, 'reference'))
         setFolder(os.path.join(folder, 'target'))
@@ -177,36 +206,12 @@ class Monitor:
         
         with open(os.path.join(folder, 'info.json'), 'w') as file:
             file.write(json.dumps({
-                "description": "Reference is Plate, Target is Measure, and MRU is Kongsberg",
-                "limits": {
-                    "dynamic": [15, 600],
-                    "static":  [700, 999999999]
-                }
+                "description": "Reference is Plate, Target is Measure, and MRU is Kongsberg"
             }, indent=4))
 
-        if self.valuesK:
-            keysK = set()
-            for record in self.valuesK:
-                keysK.update(record.keys())
-            dataK = [{key: record.get(key, 0) for key in keysK} for record in self.valuesK]
-            dfK = pd.DataFrame(dataK)
-            dfK.to_csv(os.path.join(folder, 'mru', 'data.csv'), index=False)
-        
-        if self.valuesM:
-            keysM = set()
-            for record in self.valuesM:
-                keysM.update(record.keys())
-            dataM = [{key: record.get(key, 0) for key in keysM} for record in self.valuesM]
-            dfM = pd.DataFrame(dataM)
-            dfM.to_csv(os.path.join(folder, 'target', 'data.csv'), index=False)
-
-        if self.valuesP:
-            keysP = set()
-            for record in self.valuesP:
-                keysP.update(record.keys())
-            dataP = [{key: record.get(key, 0) for key in keysP} for record in self.valuesP]
-            dfP = pd.DataFrame(dataP)
-            dfP.to_csv(os.path.join(folder, 'reference', 'data.csv'), index=False)
+        self.saveDevice(self.valuesK, 'mru', folder)
+        self.saveDevice(self.valuesM, 'target', folder)
+        self.saveDevice(self.valuesP, 'reference', folder)
 
 
 if __name__ == '__main__':
@@ -215,7 +220,7 @@ if __name__ == '__main__':
     thread = AsyncThreading(monitor.handle, interval=0.001)
 
     try:
-        graph = TimeGraph(callback=monitor.get, xLim=[0, 6])
+        graph = TimeGraph(callback=monitor.get, xLim=[0, 20])
         monitor.graph = graph
         graph.start()
     except Exception as error:

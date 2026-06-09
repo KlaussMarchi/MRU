@@ -6,6 +6,9 @@ from Device.NMEA import NMEA
 
 
 class Device:
+    KEYS = ["tmp", "pitch", "roll", "yaw", "ax", "ay", "az", "wx", "wy", "wz", "h"]
+    EXPECTED_LENGTH = len(KEYS)
+
     device = None
     port   = None
     rate   = None
@@ -148,7 +151,7 @@ class Device:
             sendEvent('error (mmea)', error)
             return None
 
-    def getJson(self, timeout=5.0):
+    def getJson(self, timeout=0.5):
         startTime = time()
         
         try:
@@ -159,7 +162,7 @@ class Device:
                 
                 raw_line = self.device.readline()
                 cleaned  = raw_line.decode('utf-8', errors='ignore').strip()
-                
+                               
                 if cleaned.startswith('{') and cleaned.endswith('}'):
                     try:
                         return json.loads(cleaned)
@@ -170,9 +173,8 @@ class Device:
             sendEvent('error (json)', error)
             return None
 
-    def getList(self, timeout=5.0):
+    def getList(self, timeout=0.5):
         startTime = time()
-        keys = ["tmp", "pitch", "roll", "yaw", "ax", "ay", "az", "wx", "wy", "wz", "e"]
         
         try:
             while time() - startTime < timeout:
@@ -182,17 +184,23 @@ class Device:
                 
                 raw_line = self.device.readline()
                 cleaned  = raw_line.decode('utf-8', errors='ignore').strip()
-                
+
                 if cleaned.startswith('[') and cleaned.endswith(']'):
-                    try:
-                        data_list = json.loads(cleaned)
-                        if len(data_list) == len(keys):
-                            return dict(zip(keys, data_list))
-                        else:
-                            sendEvent('list length mismatch', cleaned)
-                    except json.JSONDecodeError:
-                        sendEvent('json decode error', cleaned)
+                    raw_values = cleaned[1:-1].split(',')
+            
+                    if len(raw_values) == self.EXPECTED_LENGTH:
+                        try:
+                            data_list = [float(v) for v in raw_values]
+                            return dict(zip(self.KEYS, data_list))
+                        except ValueError:
+                            sendEvent('warning', f'Erro ao converter para número: {cleaned}')
+                            continue
+                    
+                    sendEvent('warning', f'Pacote corrompido (tamanho {len(raw_values)}): {cleaned}')
+                    continue
+                        
             return None
+            
         except Exception as error:
             sendEvent('error (list)', error)
             return None
