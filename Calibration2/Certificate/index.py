@@ -61,7 +61,7 @@ class ReportData:
         metrics = [
             ('RMS estático (deg)', 'rms_stat', 0.20),
             ('RMS dinâmico (deg)', 'rms_dyn', 0.50),
-            ('Scale Factor (deg)', 'rms_scale_factor', 0.1)
+            ('Scale Factor', 'rms_scale_factor', 0.1)
         ]
         
         results = []

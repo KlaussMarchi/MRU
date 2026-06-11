@@ -2,7 +2,7 @@
 #define LISTENER_H
 #include <Arduino.h>
 
-class Listener {
+class Listener{
   private:
     uint64_t startTime;
     uint64_t timeout_us; 

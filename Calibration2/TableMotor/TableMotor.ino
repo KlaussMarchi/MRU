@@ -125,14 +125,14 @@ void loop() {
     if(t >= 15.0f && t < 315.0f){
         float phase = 2.0f * PI * frequency * (t - 15.0f);
         pitchDeg = pitchAmplitude * sinf(phase);
-        wy = pitchAmplitude * (PI / 180.0f) * (2.0f * PI * frequency) * cosf(phase);
+        wy = pitchAmplitude * (2.0f * PI * frequency) * cosf(phase);
         wx = 0.0f;
         wz = 0.0f;
     }
     else if(t >= 325.0f && t < 625.0f){
         float phase = 2.0f * PI * frequency * (t - 325.0f);
         rollDeg = rollAmplitude * sinf(phase);
-        wx = rollAmplitude * (PI / 180.0f) * (2.0f * PI * frequency) * cosf(phase);
+        wx = rollAmplitude * (2.0f * PI * frequency) * cosf(phase);
         wy = 0.0f;
         wz = 0.0f;
     }

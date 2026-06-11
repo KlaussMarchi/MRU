@@ -40,4 +40,75 @@ class ButterworthFilter{
 };
 
 
+class LowPassFilter{
+  private:
+    float    _Fc;
+    float    _b[5], _a[5];
+    float    _x[5], _y[5];
+    uint32_t _dt_us, _last_us;
+    Listener timer = Listener(0);
+
+  public:
+    LowPassFilter(): _Fc(0), _dt_us(0), _last_us(0){
+        memset(_b, 0, sizeof(_b));
+        memset(_a, 0, sizeof(_a));
+        memset(_x, 0, sizeof(_x));
+        memset(_y, 0, sizeof(_y));
+    }
+
+    void setup(float Fc, float dt) {
+        _dt_us = (uint32_t) (dt * 1e6f);
+        timer.set((uint32_t) (dt * 1000.0f));
+        _Fc = Fc;
+
+        memset(_b, 0, sizeof(_b));
+        memset(_a, 0, sizeof(_a));
+        memset(_x, 0, sizeof(_x));
+        memset(_y, 0, sizeof(_y));
+
+        if(Fc <= 0.0f) 
+            return;
+
+        const float W  = 2.0f * M_PI * Fc;
+        const float k  = 2.0f / dt;
+        const float c  = (W - k) / (W + k);
+        const float g  = W / (W + k);
+        const float g4 = g * g * g * g;
+        const float c2 = c * c, c3 = c2 * c, c4 = c3 * c;
+
+        _b[0] = g4;        _b[1] = 4.0f * g4; _b[2] = 6.0f * g4;
+        _b[3] = 4.0f * g4; _b[4] = g4;
+
+        _a[1] = 4.0f * c;  _a[2] = 6.0f * c2;
+        _a[3] = 4.0f * c3; _a[4] = c4;
+    }
+
+    float update(float input) {
+        if(_Fc <= 0.0f) 
+            return input;
+
+        if(!timer.ready())
+            return _y[0];
+
+        const uint32_t now = micros();
+        if (now - _last_us < _dt_us) return _y[0];
+        _last_us = now;
+
+        for (int i = 4; i > 0; i--) { _x[i] = _x[i-1]; _y[i] = _y[i-1]; }
+        _x[0] = input;
+
+        float out = 0.0f;
+        for (int i = 0; i < 5; i++) out += _b[i] * _x[i];
+        for (int i = 1; i < 5; i++) out -= _a[i] * _y[i];
+
+        return _y[0] = out;
+    }
+
+    void reset() {
+        memset(_x, 0, sizeof(_x));
+        memset(_y, 0, sizeof(_y));
+        _last_us = 0;
+    }
+};
+
 #endif

@@ -256,6 +256,7 @@ class KernelSensor {
     int64_t lastAckTime     = esp_timer_get_time();
 
     bool working = false;
+    bool updated_this_frame = false;
     int tx_pin, rx_pin;
     
     KernelSensor(int tx, int rx): 
@@ -347,7 +348,7 @@ class KernelSensor {
     }
 
     int getLength() {
-        if (mode == HR_MODE || mode == HR_MODE_ADJ) 
+        if (mode == HR_MODE || mode == HR_MODE_ADJ || mode == CAL_MODE) 
             return hr.PKT_LEN;
         
         if (mode == QT_MODE)
@@ -362,8 +363,9 @@ class KernelSensor {
     void update(){
         int64_t now_us = esp_timer_get_time();
         float dt = (packetStartTime - lastAckTime) * 1e-6f;
+        updated_this_frame = true;
 
-        if(mode == HR_MODE){
+        if(mode == HR_MODE || mode == CAL_MODE){
             memcpy(hr.packet, rx_buffer, hr.PKT_LEN);
             working = hr.update();
 
@@ -380,20 +382,22 @@ class KernelSensor {
             yaw_raw   = hr.yaw;
             temperature = hr.temperature;
 
-            ax = ax_raw / 1000000.0f;
-            ay = ay_raw / 1000000.0f;
-            az = az_raw / 1000000.0f;
+            if(mode == HR_MODE) {
+                ax = ax_raw / 1000000.0f;
+                ay = ay_raw / 1000000.0f;
+                az = az_raw / 1000000.0f;
 
-            wx = wx_raw / 100000.0f;
-            wy = wy_raw / 100000.0f;
-            wz = wz_raw / 100000.0f;
+                wx = wx_raw / 100000.0f;
+                wy = wy_raw / 100000.0f;
+                wz = wz_raw / 100000.0f;
 
-            pitch = pitch_raw / 1000.0f;
-            roll  = roll_raw / 1000.0f;
-            yaw   = yaw_raw / 1000.0f;
-            
-            heaveFilter.update(ax, ay, az, pitch, roll);
-            heave = heaveFilter.getHeave();
+                pitch = pitch_raw / 1000.0f;
+                roll  = roll_raw / 1000.0f;
+                yaw   = yaw_raw / 1000.0f;
+                
+                heaveFilter.update(ax, ay, az, pitch, roll);
+                heave = heaveFilter.getHeave();
+            }
         }
 
         if(mode == HR_MODE_ADJ){

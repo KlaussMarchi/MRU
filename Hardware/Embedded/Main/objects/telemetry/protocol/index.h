@@ -49,7 +49,7 @@ template <typename Parent> class Protocol{
             return;
         }
 
-        if(device->telemetry.serial.command.contains("parse_orient")){
+        if(device->telemetry.serial.command.contains("calibrate")){
             const int start = device->telemetry.serial.command.find(':');
             const int end   = device->telemetry.serial.command.find('!');
 

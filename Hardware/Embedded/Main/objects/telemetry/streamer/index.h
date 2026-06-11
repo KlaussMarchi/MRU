@@ -64,7 +64,7 @@ public:
                 (float) device->sensors.kernel.heave
             );
         }
-        else if (mode == HR_MODE_ADJ || mode == OR_MODE) {
+        else if (mode == HR_MODE_ADJ || mode == OR_MODE || mode == CAL_MODE) {
             n = snprintf(buffer, sizeof(buffer),
                 "{\"time\":%.3f,\"tmp\":%.3f,\"pitch\":%.3f,\"roll\":%.3f,\"yaw\":%.3f,\"ax\":%.3f,\"ay\":%.3f,\"az\":%.3f,\"wx\":%.3f,\"wy\":%.3f,\"wz\":%.3f,\"h\":%.3f}",
                 (Time::get() - startTime) / 1000.00,
@@ -105,7 +105,7 @@ public:
                 (float) device->sensors.kernel.heave
             );
         } 
-        else if(mode == HR_MODE_ADJ || mode == OR_MODE){
+        else if(mode == HR_MODE_ADJ || mode == OR_MODE || mode == CAL_MODE){
             n = snprintf(buffer, sizeof(buffer),
                 "[%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f]",
                 device->sensors.kernel.temperature,
