@@ -4,9 +4,7 @@
 #include <cmath>
 #include <cstdint>
 #include "../../../utils/time/index.h"
-#include "heave/index.h"
-#include "orientation/index.h"
-#include "gyrocal/index.h"
+#include "fusion/index.h"
 
 
 #define ALIGN_FORWARD     0   
@@ -240,9 +238,7 @@ class KernelSensor {
     float temperature;
     float heave;
 
-    Heave heaveFilter;
-    OrientationParser parser;
-    GyroCalibrator gyrocal;
+    MRUFusion fusion;
 
     KernelModelOrientation ort;
     KernelModelQuaternion qt;
@@ -395,8 +391,8 @@ class KernelSensor {
                 roll  = roll_raw / 1000.0f;
                 yaw   = yaw_raw / 1000.0f;
                 
-                heaveFilter.update(ax, ay, az, pitch, roll);
-                heave = heaveFilter.getHeave();
+                fusion.update(ax, ay, az, wx * (M_PI/180.f), wy * (M_PI/180.f), wz * (M_PI/180.f));
+                heave = fusion.getHeave();
             }
         }
 
@@ -425,28 +421,11 @@ class KernelSensor {
             wy = wy_raw / 100000.0f;
             wz = wz_raw / 100000.0f;
 
-            if(!gyrocal.calibrated){
-                gyrocal.update(wx, wy, wz);
-                
-                if(working) 
-                    lastAckTime = esp_timer_get_time();
-                
-                reset();
-                return;
-            }
-
-            gyrocal.apply(wx, wy, wz);
-
-            if(!parser.initialized)
-                parser.start(ax, ay, az);
-
-            parser.update(wx * (M_PI/180.f), wy * (M_PI/180.f), wz * (M_PI/180.f), ax, ay, az);        
-            pitch = parser.pitch;
-            roll  = parser.roll;
-            yaw   = parser.yaw;
-            
-            heaveFilter.update(ax, ay, az, pitch, roll);
-            heave = heaveFilter.getHeave();
+            fusion.update(ax, ay, az, wx * (M_PI/180.f), wy * (M_PI/180.f), wz * (M_PI/180.f));
+            pitch = fusion.getPitch();
+            roll  = fusion.getRoll();
+            yaw   = fusion.getYaw();
+            heave = fusion.getHeave();
         }
         
         if(mode == QT_MODE){
