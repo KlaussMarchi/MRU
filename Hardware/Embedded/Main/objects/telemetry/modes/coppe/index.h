@@ -3,29 +3,29 @@
 
 
 template <typename Parent> class Coppe{
-  private:
-    Parent* device;
-  
-  public:
-    Coppe(Parent* dev):
-        device(dev){}
+	private:
+		Parent* device;
 
-    void setup(){
+	public:
+		Coppe(Parent* dev):
+				device(dev){}
 
-    }
+		void setup(){
 
-    void handle(){
+		}
 
-    }
+		void handle(){
 
-    void check(){
+		}
 
-    }
+		void check(){
 
-    void request(){
+		}
 
-    }
-  
+		void request(){
+
+		}
+
 };
 
 #endif

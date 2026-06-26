@@ -5,91 +5,91 @@
 
 template<int SIZE> class Json {
   public:
-    StaticJsonDocument<SIZE> data;
+	StaticJsonDocument<SIZE> data;
 
-    void print() const {
-        serializeJsonPretty(data, Serial);
-        Serial.println('\n');
-    }
+	void print() const {
+		serializeJsonPretty(data, Serial);
+		Serial.println('\n');
+	}
 
-    bool empty() const {
-        return (data.template as<JsonObjectConst>().size() == 0);
-    }
+	bool empty() const {
+		return (data.template as<JsonObjectConst>().size() == 0);
+	}
 
-    bool parse(const char* jsonText) {
-        return !deserializeJson(data, jsonText);
-    }
+	bool parse(const char* jsonText) {
+		return !deserializeJson(data, jsonText);
+	}
 
-    bool parse(const String &jsonString) {
-        return !deserializeJson(data, jsonString);
-    }
-    
-    bool exist(const char* key) const {
-        return data.containsKey(key);
-    }
+	bool parse(const String &jsonString) {
+		return !deserializeJson(data, jsonString);
+	}
 
-    void set(const String& key, const String &value) {
-        data[key] = value;
-    }
+	bool exist(const char* key) const {
+		return data.containsKey(key);
+	}
 
-    void set(const char* key, const String &value){
-        data[key] = value;
-    }
-    
-    void set(const char* key, String value){
-        data[key] = value;
-    }
+	void set(const String& key, const String &value) {
+		data[key] = value;
+	}
 
-    void set(const char* key, const char *value){
-        data[key] = value;
-    }
-    
-    void set(const char* key, int value) {
-        data[key] = value;
-    }
+	void set(const char* key, const String &value){
+		data[key] = value;
+	}
 
-    void set(const char* key, float value) {
-        data[key] = value;
-    }
+	void set(const char* key, String value){
+		data[key] = value;
+	}
 
-    void set(const char* key, bool value) {
-        data[key] = value;
-    }
+	void set(const char* key, const char *value){
+		data[key] = value;
+	}
 
-    void set(const char* key, const JsonDocument& other) {
-        data[key] = other.as<JsonVariantConst>();
-    }
-    
-    bool download(const char* key) {
-        Preferences prefs;
-        prefs.begin(key, false);
-        String jsonString = prefs.getString("settings", "{}");
-        prefs.end();
-        return parse(jsonString);
-    }
+	void set(const char* key, int value) {
+		data[key] = value;
+	}
 
-    bool save(const char* key) {
-        Preferences prefs;
-        prefs.begin(key, false);
-        bool ok = prefs.putString("settings", toString());
-        prefs.end();
-        return ok;
-    }
-    
-    template <typename T> T get(const char* key) const {
-        return data[key].template as<T>();
-    }
+	void set(const char* key, float value) {
+		data[key] = value;
+	}
 
-    void clear() {
-        data.clear();
-        data.template to<JsonObject>();
-    }
+	void set(const char* key, bool value) {
+		data[key] = value;
+	}
 
-    String toString() const {
-        String output;
-        serializeJson(data, output);
-        return output;
-    }
+	void set(const char* key, const JsonDocument& other) {
+		data[key] = other.as<JsonVariantConst>();
+	}
+
+	bool download(const char* key) {
+		Preferences prefs;
+		prefs.begin(key, false);
+		String jsonString = prefs.getString("settings", "{}");
+		prefs.end();
+		return parse(jsonString);
+	}
+
+	bool save(const char* key) {
+		Preferences prefs;
+		prefs.begin(key, false);
+		bool ok = prefs.putString("settings", toString());
+		prefs.end();
+		return ok;
+	}
+
+	template <typename T> T get(const char* key) const {
+		return data[key].template as<T>();
+	}
+
+	void clear() {
+		data.clear();
+		data.template to<JsonObject>();
+	}
+
+	String toString() const {
+		String output;
+		serializeJson(data, output);
+		return output;
+	}
 };
 
 #endif

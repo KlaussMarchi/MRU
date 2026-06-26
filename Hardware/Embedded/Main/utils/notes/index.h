@@ -6,146 +6,146 @@
 
 class Notes{
   public:
-    const char* path;
+	const char* path;
 
-    Notes(const char* PATH_NAME){
-        path = PATH_NAME;
-    }
+	Notes(const char* PATH_NAME){
+		path = PATH_NAME;
+	}
 
-    void setup(){
-        if(LittleFS.begin()){
-            Serial.println("LittleFS montado com sucesso!\n");
-            return;
-        }
-        
-        Serial.println("Erro ao montar LittleFS. Tentando formatar...");
+	void setup(){
+		if(LittleFS.begin()){
+			Serial.println("LittleFS montado com sucesso!\n");
+			return;
+		}
 
-        if(!LittleFS.format()){
-            Serial.println("Falha ao formatar LittleFS!");
-            return;
-        }
+		Serial.println("Erro ao montar LittleFS. Tentando formatar...");
 
-        Serial.println("LittleFS formatado! Agora tentando inicializar novamente...");
+		if(!LittleFS.format()){
+			Serial.println("Falha ao formatar LittleFS!");
+			return;
+		}
 
-        if(!LittleFS.begin()){
-            Serial.println("Falha ao montar LittleFS após a formatação!");
-            return;
-        }
+		Serial.println("LittleFS formatado! Agora tentando inicializar novamente...");
 
-        Serial.println("LittleFS montado após formatação!");
-    }
+		if(!LittleFS.begin()){
+			Serial.println("Falha ao montar LittleFS após a formatação!");
+			return;
+		}
 
-    int length(){
-        File file = LittleFS.open(path, FILE_READ);
-        
-        if(!file)
-            return -1;
+		Serial.println("LittleFS montado após formatação!");
+	}
 
-        int size = file.size();
-        file.close();
-        return size;
-    }
+	int length(){
+		File file = LittleFS.open(path, FILE_READ);
 
-    String read(){
-        File file = LittleFS.open(path, FILE_READ);
+		if(!file)
+			return -1;
 
-        if(!file){
-            Serial.println("Erro ao abrir o arquivo para leitura");
-            return ""; 
-        }
+		int size = file.size();
+		file.close();
+		return size;
+	}
 
-        String content = file.readString();
-        file.close();
-        return content;
-    }
+	String read(){
+		File file = LittleFS.open(path, FILE_READ);
 
-    void append(const String& message){
-        File file = LittleFS.open(path, FILE_APPEND);
+		if(!file){
+			Serial.println("Erro ao abrir o arquivo para leitura");
+			return ""; 
+		}
 
-        if(!file){
-            Serial.println("Erro ao abrir o arquivo para adição");
-            return;
-        }
+		String content = file.readString();
+		file.close();
+		return content;
+	}
 
-        if(!file.println(message))
-            Serial.println("ERRO AO SALVAR TEXTO NO SPIFFS");
+	void append(const String& message){
+		File file = LittleFS.open(path, FILE_APPEND);
 
-        file.close();
-    }
+		if(!file){
+			Serial.println("Erro ao abrir o arquivo para adição");
+			return;
+		}
 
-    void erase(){
-        write("");
-    }
+		if(!file.println(message))
+			Serial.println("ERRO AO SALVAR TEXTO NO SPIFFS");
 
-    void write(const String& message) {
-        File file = LittleFS.open(path, FILE_WRITE);
-        
-        if(!file){
-            Serial.println("Erro ao abrir o arquivo para escrita");
-            return;
-        }
+		file.close();
+	}
 
-        if(!file.println(message))
-            Serial.println("Erro ao escrever no arquivo");
+	void erase(){
+		write("");
+	}
 
-        file.close();
-    }
+	void write(const String& message) {
+		File file = LittleFS.open(path, FILE_WRITE);
 
-    String readlines(int n){
-        File file = LittleFS.open(path, FILE_READ);
-        if(!file){
-            Serial.println("Erro ao abrir o arquivo para leitura em readlines");
-            return "";
-        }
+		if(!file){
+			Serial.println("Erro ao abrir o arquivo para escrita");
+			return;
+		}
 
-        String result = "";
-        for(int i = 0; i < n && file.available(); i++){
-            String line = file.readStringUntil('\n');
+		if(!file.println(message))
+			Serial.println("Erro ao escrever no arquivo");
 
-            if(line.endsWith("\r"))
-                line.remove(line.length() - 1);
+		file.close();
+	}
 
-            result += line;
-            
-            if(i < n - 1)
-                result += '\n';
-        }
-        
-        result.trim();
-        file.close();
-        return result;
-    }
-    
-    bool droplines(int n){
-        File file = LittleFS.open(path, FILE_READ);
-        if(!file){
-            Serial.println("Erro ao abrir o arquivo para leitura em droplines");
-            return false;
-        }
+	String readlines(int n){
+		File file = LittleFS.open(path, FILE_READ);
+		if(!file){
+			Serial.println("Erro ao abrir o arquivo para leitura em readlines");
+			return "";
+		}
 
-        File temp = LittleFS.open("/temp.txt", FILE_WRITE);
-        if(!temp){
-            Serial.println("Erro ao criar o arquivo temporário em droplines");
-            file.close();
-            return false;
-        }
+		String result = "";
+		for(int i = 0; i < n && file.available(); i++){
+			String line = file.readStringUntil('\n');
 
-        for(int i = 0; i < n && file.available(); i++)
-            file.readStringUntil('\n');
-        
-        const size_t bufferSize = 512;
-        uint8_t buffer[bufferSize];
-        while(file.available()){
-            size_t bytesRead = file.read(buffer, bufferSize);
-            temp.write(buffer, bytesRead);
-        }
+			if(line.endsWith("\r"))
+				line.remove(line.length() - 1);
 
-        file.close();
-        temp.close();
-        LittleFS.remove(path);
-        LittleFS.rename("/temp.txt", path);
-        return true;
-    }
+			result += line;
+
+			if(i < n - 1)
+				result += '\n';
+		}
+
+		result.trim();
+		file.close();
+		return result;
+	}
+
+	bool droplines(int n){
+		File file = LittleFS.open(path, FILE_READ);
+		if(!file){
+			Serial.println("Erro ao abrir o arquivo para leitura em droplines");
+			return false;
+		}
+
+		File temp = LittleFS.open("/temp.txt", FILE_WRITE);
+		if(!temp){
+			Serial.println("Erro ao criar o arquivo temporário em droplines");
+			file.close();
+			return false;
+		}
+
+		for(int i = 0; i < n && file.available(); i++)
+			file.readStringUntil('\n');
+
+		const size_t bufferSize = 512;
+		uint8_t buffer[bufferSize];
+		while(file.available()){
+			size_t bytesRead = file.read(buffer, bufferSize);
+			temp.write(buffer, bytesRead);
+		}
+
+		file.close();
+		temp.close();
+		LittleFS.remove(path);
+		LittleFS.rename("/temp.txt", path);
+		return true;
+	}
 };
 
 #endif

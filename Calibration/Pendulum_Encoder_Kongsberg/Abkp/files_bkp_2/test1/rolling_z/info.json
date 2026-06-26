@@ -1,0 +1,13 @@
+{
+    "description": "Reference is MRU and target is Kongsberg",
+    "limits": {
+        "dynamic": [
+            30,
+            100
+        ],
+        "static": [
+            500,
+            900
+        ]
+    }
+}

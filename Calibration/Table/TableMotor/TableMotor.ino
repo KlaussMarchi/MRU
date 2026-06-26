@@ -52,7 +52,7 @@ class Motor {
         pitchMotor->moveTo(degreesToSteps(pitchDeg));
     }
 
-    float getRoll() {
+    float getRoll(){
         if(!rollMotor) return 0.0f;
         return stepsToDegrees(rollMotor->getCurrentPosition());
     }
@@ -74,19 +74,24 @@ class Motor {
     }
 };
 
+float ROLL_AMPLITUDE  = 15.00f; // 5.00f
+float PITCH_AMPLITUDE = 15.00f; // 5.00f
+float frequency      = 0.30f;   // 0.10f
+const bool autostart = true;
+
 Motor motor;
 const float dt = 0.10f;
 int64_t startTime = 0;
 
 void setup() {
-    Serial.begin(9600);
+    Serial.begin(115200);
     delay(700);
 
     Serial.println("\nmotor setup");
     motor.setup();
     delay(700);
 
-    while(!Serial.available())
+    while(!autostart && !Serial.available())
         delay(100);
 
     while(Serial.available())
@@ -104,10 +109,6 @@ void loop() {
     static int64_t lastPrintTime = 0;
 
     float t = getTime();
-    float rollAmplitude  = 5.00f;
-    float pitchAmplitude = 5.00f;
-    float frequency = 0.10f;
-
     float rollDeg  = 0.0f;
     float pitchDeg = 0.0f;
 
@@ -124,15 +125,15 @@ void loop() {
     
     if(t >= 15.0f && t < 315.0f){
         float phase = 2.0f * PI * frequency * (t - 15.0f);
-        pitchDeg = pitchAmplitude * sinf(phase);
-        wy = pitchAmplitude * (2.0f * PI * frequency) * cosf(phase);
+        pitchDeg = PITCH_AMPLITUDE * sinf(phase);
+        wy = PITCH_AMPLITUDE * (2.0f * PI * frequency) * cosf(phase);
         wx = 0.0f;
         wz = 0.0f;
     }
     else if(t >= 325.0f && t < 625.0f){
         float phase = 2.0f * PI * frequency * (t - 325.0f);
-        rollDeg = rollAmplitude * sinf(phase);
-        wx = rollAmplitude * (2.0f * PI * frequency) * cosf(phase);
+        rollDeg = ROLL_AMPLITUDE * sinf(phase);
+        wx = ROLL_AMPLITUDE * (2.0f * PI * frequency) * cosf(phase);
         wy = 0.0f;
         wz = 0.0f;
     }
@@ -174,5 +175,5 @@ void loop() {
     if(Serial.available() && Serial.readString().indexOf("reset") != -1)
         ESP.restart();
 
-    Serial.write((uint8_t*)buffer, len);
+    Serial.write((uint8_t*) buffer, len);
 }

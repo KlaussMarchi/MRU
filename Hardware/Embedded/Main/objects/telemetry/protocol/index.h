@@ -5,142 +5,142 @@
 
 template <typename Parent> class Protocol{
   private:
-    Parent* device;
+	Parent* device;
 
   public:
-    Protocol(Parent* dev):
-        device(dev){}
+	Protocol(Parent* dev):
+		device(dev){}
 
-    void check(){
-        device->telemetry.serial.clean();
+	void check(){
+		device->telemetry.serial.clean();
 
-        if(device->telemetry.serial.command.contains("MICRS")){
-            device->reset();
-            return;
-        }
+		if(device->telemetry.serial.command.contains("MICRS")){
+			device->reset();
+			return;
+		}
 
-        if(device->telemetry.serial.command.contains("D:")){
-            handleID();
-            return;
-        }
+		if(device->telemetry.serial.command.contains("D:")){
+			handleID();
+			return;
+		}
 
-        if(device->telemetry.serial.command.contains("F:")){
-            handleConfig();
-            return;
-        }
+		if(device->telemetry.serial.command.contains("F:")){
+			handleConfig();
+			return;
+		}
 
-        if(device->telemetry.serial.command.contains("updt")){
-            device->updater.start();
-            return;
-        }
+		if(device->telemetry.serial.command.contains("updt")){
+			device->updater.start();
+			return;
+		}
 
-        if(device->telemetry.serial.command.contains("firmware")){
-            device->telemetry.response.set(device->firmware);
-            return;
-        }
-        
-        if(device->telemetry.serial.command.contains("stream_start")){
-            device->telemetry.streamer.set(true);
-            return;
-        }
+		if(device->telemetry.serial.command.contains("firmware")){
+			device->telemetry.response.set(device->firmware);
+			return;
+		}
 
-        if(device->telemetry.serial.command.contains("stream_stop")){
-            device->telemetry.streamer.set(false);
-            return;
-        }
+		if(device->telemetry.serial.command.contains("stream_start")){
+			device->telemetry.streamer.set(true);
+			return;
+		}
 
-        if(device->telemetry.serial.command.contains("calibrate")){
-            const int start = device->telemetry.serial.command.find(':');
-            const int end   = device->telemetry.serial.command.find('!');
+		if(device->telemetry.serial.command.contains("stream_stop")){
+			device->telemetry.streamer.set(false);
+			return;
+		}
 
-            if(start == -1 || end == -1)
-                return device->telemetry.response.set("ERROR");
-            
-            auto value = device->telemetry.serial.command.substring(start+1, end);
-            device->processing.parse(value.buffer);
-            return;
-        }
+		if(device->telemetry.serial.command.contains("calibrate")){
+			const int start = device->telemetry.serial.command.find(':');
+			const int end   = device->telemetry.serial.command.find('!');
 
-        if(device->telemetry.serial.command.contains("check_sensor")){
-            device->telemetry.response.set(device->sensors.working ? "OK" : "NOT WORKING");
-            return;
-        }
+			if(start == -1 || end == -1)
+				return device->telemetry.response.set("ERROR");
 
-        if(device->telemetry.serial.command.contains("align")){ // $align:3! (resetar) e $align:4! (upside down)
-            const int start = device->telemetry.serial.command.find(':');
-            const int end   = device->telemetry.serial.command.find('!');
+			auto value = device->telemetry.serial.command.substring(start+1, end);
+			device->processing.parse(value.buffer);
+			return;
+		}
 
-            if(start == -1 || end == -1)
-                return device->telemetry.response.set("ERROR");
-            
-            long value = device->telemetry.serial.command.substring(start + 1, end).toInt();
-            device->sensors.kernel.align(static_cast<byte>(value));
-            device->telemetry.response.set("ALIGNMENT COMPLETE: ");
-            device->telemetry.response += String(value);
-            return;
-        }
-        
-        if(device->telemetry.serial.command.contains("ackoneledge")){
-            device->telemetry.response.set("$MICACK!");
-            return;
-        }
+		if(device->telemetry.serial.command.contains("check_sensor")){
+			device->telemetry.response.set(device->sensors.working ? "OK" : "NOT WORKING");
+			return;
+		}
 
-        if(device->telemetry.serial.command.contains("reset_encoder")){
-            device->telemetry.response.set("$MICACK!");
-            device->components.encoder.reset();
-            return;
-        }
-            
-        if(device->telemetry.serial.command.contains("settings")){
-            device->telemetry.serial.send(device->settings.params.toString());
-            return;
-        }
+		if(device->telemetry.serial.command.contains("align")){ // $align:3! (resetar) e $align:4! (upside down)
+			const int start = device->telemetry.serial.command.find(':');
+			const int end   = device->telemetry.serial.command.find('!');
 
-        if(device->telemetry.serial.command.contains("$ERASE!")){
-            device->settings.erase(); 
-            device->reset();
-        }
+			if(start == -1 || end == -1)
+				return device->telemetry.response.set("ERROR");
 
-        device->telemetry.serial.reset();
-    }
+			long value = device->telemetry.serial.command.substring(start + 1, end).toInt();
+			device->sensors.kernel.align(static_cast<byte>(value));
+			device->telemetry.response.set("ALIGNMENT COMPLETE: ");
+			device->telemetry.response += String(value);
+			return;
+		}
 
-    void handleID(){
-        const int start = device->telemetry.serial.command.find(':');
-        const int end   = device->telemetry.serial.command.find('$');
+		if(device->telemetry.serial.command.contains("ackoneledge")){
+			device->telemetry.response.set("$MICACK!");
+			return;
+		}
 
-        if(start == -1 || end == -1)
-            return device->telemetry.response.set("ERROR");
-        
-        auto key   = device->telemetry.serial.command.substring(start+1, end);
-        auto value = device->settings.template get<String>(key.get());
+		if(device->telemetry.serial.command.contains("reset_encoder")){
+			device->telemetry.response.set("$MICACK!");
+			device->components.encoder.reset();
+			return;
+		}
 
-        if(value.length() == 0)
-            return device->telemetry.response.set("ERROR");
+		if(device->telemetry.serial.command.contains("settings")){
+			device->telemetry.serial.send(device->settings.params.toString());
+			return;
+		}
 
-        device->telemetry.response.reset();
-        device->telemetry.response += '$';
-        device->telemetry.response += (value);
-        device->telemetry.response += '!';
-    }
+		if(device->telemetry.serial.command.contains("$ERASE!")){
+			device->settings.erase(); 
+			device->reset();
+		}
 
-    void handleConfig(){
-        const int start = device->telemetry.serial.command.find(':');
-        const int mid   = device->telemetry.serial.command.find('$');
-        const int end   = device->telemetry.serial.command.find('!');
+		device->telemetry.serial.reset();
+	}
 
-        if(start == -1 || mid == -1 || end == -1)
-            return device->telemetry.response.set("NONE");
+	void handleID(){
+		const int start = device->telemetry.serial.command.find(':');
+		const int end   = device->telemetry.serial.command.find('$');
 
-        auto key   = device->telemetry.serial.command.substring(start+1, mid);
-        auto value = device->telemetry.serial.command.substring(mid+1, end);
-        
-        device->settings.params.set(key.get(), value.get());
-        device->telemetry.response.set(key.toString() + " set to " + value.toString());
-        device->settings.save();
+		if(start == -1 || end == -1)
+			return device->telemetry.response.set("ERROR");
 
-        delay(500);
-        device->reset();
-    }
+		auto key   = device->telemetry.serial.command.substring(start+1, end);
+		auto value = device->settings.template get<String>(key.get());
+
+		if(value.length() == 0)
+			return device->telemetry.response.set("ERROR");
+
+		device->telemetry.response.reset();
+		device->telemetry.response += '$';
+		device->telemetry.response += (value);
+		device->telemetry.response += '!';
+	}
+
+	void handleConfig(){
+		const int start = device->telemetry.serial.command.find(':');
+		const int mid   = device->telemetry.serial.command.find('$');
+		const int end   = device->telemetry.serial.command.find('!');
+
+		if(start == -1 || mid == -1 || end == -1)
+			return device->telemetry.response.set("NONE");
+
+		auto key   = device->telemetry.serial.command.substring(start+1, mid);
+		auto value = device->telemetry.serial.command.substring(mid+1, end);
+
+		device->settings.params.set(key.get(), value.get());
+		device->telemetry.response.set(key.toString() + " set to " + value.toString());
+		device->settings.save();
+
+		delay(500);
+		device->reset();
+	}
 };
 
 #endif

@@ -22,49 +22,49 @@
 
 class Device{
   public:
-    bool multitask = true;
-    float frequency = 100.0;
-    unsigned long startTime;
-    const char* firmware;
-    Settings settings;
-    Text<12> id;
+	bool multitask = true;
+	float frequency = 100.0;
+	unsigned long startTime;
+	const char* firmware;
+	Settings settings;
+	Text<12> id;
 
-    Telemetry<Device> telemetry;
-    Sensors<Device> sensors;
-    Processing<Device> processing;
-    Tasks<Device> tasks;
-    Components<Device> components;
-    Updater<Device> updater;
+	Telemetry<Device> telemetry;
+	Sensors<Device> sensors;
+	Processing<Device> processing;
+	Tasks<Device> tasks;
+	Components<Device> components;
+	Updater<Device> updater;
 
-    Device(const char* version):
-        firmware(version),
-        telemetry(this),
-        processing(this),
-        sensors(this),
-        tasks(this),
-        updater(this),
-        components(this){}
-    
-    void setup(){
-        snprintf(id.buffer, sizeof(id.buffer), "%04X%08X", (uint16_t)(ESP.getEfuseMac() >> 32), (uint32_t)ESP.getEfuseMac());
-        
-        Serial.println("Device Started: " + id.toString());
-        Serial.println("Firmware: " + String(firmware));
-        Serial.println();
-        components.setup();
-        
-        startTime = Time::get();
-        settings.import();
-        
-        frequency = settings.template get<unsigned long>("frequency", 100);
-        telemetry.setup();
-        sensors.setup();
-        processing.setup();
-    }
+	Device(const char* version):
+		firmware(version),
+		telemetry(this),
+		processing(this),
+		sensors(this),
+		tasks(this),
+		updater(this),
+		components(this){}
 
-    void reset(){
-        ESP.restart();
-    }
+	void setup(){
+		snprintf(id.buffer, sizeof(id.buffer), "%04X%08X", (uint16_t)(ESP.getEfuseMac() >> 32), (uint32_t)ESP.getEfuseMac());
+
+		Serial.println("Device Started: " + id.toString());
+		Serial.println("Firmware: " + String(firmware));
+		Serial.println();
+		components.setup();
+
+		startTime = Time::get();
+		settings.import();
+
+		frequency = settings.template get<unsigned long>("frequency", 100);
+		telemetry.setup();
+		sensors.setup();
+		processing.setup();
+	}
+
+	void reset(){
+		ESP.restart();
+	}
 };
 
 #endif

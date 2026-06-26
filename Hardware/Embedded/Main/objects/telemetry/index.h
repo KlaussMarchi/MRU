@@ -11,95 +11,96 @@
 
 template <typename Parent> class Telemetry{
 private:
-    Parent *device;
+	Parent *device;
 
 public:
-    NextSerial<CMD_MAX_SIZE> serial;
-    Text<CMD_MAX_SIZE> last_cmd;
-    Protocol<Parent> protocol;
-    Streamer<Parent> streamer;
-    Text<64> response;
-    Coppe<Parent> coppe;
-    byte type = 0;
-    bool working;
+	NextSerial<CMD_MAX_SIZE> serial;
+	Text<CMD_MAX_SIZE> last_cmd;
+	Protocol<Parent> protocol;
+	Streamer<Parent> streamer;
+	Text<64> response;
+	Coppe<Parent> coppe;
+	byte type = 0;
+	bool working;
 
-    Telemetry(Parent *dev): 
-        device(dev),
-        streamer(dev),
-        protocol(dev),
-        coppe(dev){}
+	Telemetry(Parent *dev): 
+		device(dev),
+		streamer(dev),
+		protocol(dev),
+		coppe(dev){}
 
-    void setup(){
-        type = device->settings.template get<byte>("telemetry");
-        serial.setup(device->settings.template get<int>("baudrate", 9600));
+	void setup(){
+		type = device->settings.template get<byte>("telemetry");
+		serial.setup(device->settings.template get<int>("baudrate", 9600));
+		Serial.println("Telemetry Type: " + String(toText()) + " (baudrate " + String(device->settings.template get<int>("baudrate", 9600)) + ")");
 
-        if(type == COPPE_TEL)
-            coppe.setup();
+		if(type == COPPE_TEL)
+			coppe.setup();
 
-        streamer.setup();
-        response.reset();
-    }
+		streamer.setup();
+		response.reset();
+	}
 
-    void handle() {
-        serial.listen();
+	void handle() {
+		serial.listen();
 
-        if(serial.available)
-            Serial.println(serial.command.toString());
+		if(serial.available)
+			Serial.println(serial.command.toString());
 
-        handleProtocol();
-        handleRequest();
+		handleProtocol();
+		handleRequest();
 
-        if(Time::get() - serial.lastAckTime > 60000)
-            working = false;
+		if(Time::get() - serial.lastAckTime > 60000)
+			working = false;
 
-        if(response.length() > 0)
-            event(response.get());
+		if(response.length() > 0)
+			event(response.get());
 
-        if(serial.available)
-            last_cmd = serial.command.get();
+		if(serial.available)
+			last_cmd = serial.command.get();
 
-        streamer.handle();
+		streamer.handle();
 
-        handleOperation();
-        serial.reset();
-    }
+		handleOperation();
+		serial.reset();
+	}
 
-    void handleProtocol() {
-        if(type == COPPE_TEL)
-            coppe.check();
+	void handleProtocol() {
+		if(type == COPPE_TEL)
+			coppe.check();
 
-        if(serial.available)
-            protocol.check();
-    }
+		if(serial.available)
+			protocol.check();
+	}
 
-    void handleRequest() {
-        if (type == COPPE_TEL)
-            coppe.request();
-    }
+	void handleRequest() {
+		if (type == COPPE_TEL)
+			coppe.request();
+	}
 
-    void handleOperation() {
-        if (type == COPPE_TEL)
-            coppe.handle();
-    }
+	void handleOperation() {
+		if (type == COPPE_TEL)
+			coppe.handle();
+	}
 
-    void event(const char *value) {
-        // device->logs.add(value);
-        serial.send(value, true);
-        response.reset();
-    }
+	void event(const char *value) {
+		// device->logs.add(value);
+		serial.send(value, true);
+		response.reset();
+	}
 
-    void event(const String &value) {
-        // device->logs.add(value.c_str());
-        serial.send(value.c_str(), true);
-        response.reset();
-    }
+	void event(const String &value) {
+		// device->logs.add(value.c_str());
+		serial.send(value.c_str(), true);
+		response.reset();
+	}
 
-    const char *toText() {
-        if (type == COPPE_TEL)
-            return "Padrão";
+	const char *toText() {
+		if (type == COPPE_TEL)
+			return "Padrão";
 
-        return "None";
-    }
+		return "None";
+	}
 };
 
 #endif

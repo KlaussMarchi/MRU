@@ -3,18 +3,18 @@ Device device{"v1.0.4"};
 
 
 void setup(){
-    device.components.encoder.enabled = true;
-    device.components.leds.enabled = true;
-    device.multitask     = true;
-    device.sensors.debug = false;
-    
-    Serial.begin(115200);
-    delay(1500);
+	device.components.encoder.enabled = false;
+	device.components.leds.enabled = true;
+	device.multitask     = true;
+	device.sensors.debug = false;
 
-    Serial.println("Serial Setup Complete... Starting Program");
-    device.setup();
+	Serial.begin(115200);
+	delay(1500);
+
+	Serial.println("Serial Setup Complete... Starting Program");
+	device.setup();
 }
 
 void loop(){
-    device.tasks.handle();
+	device.tasks.handle();
 }
