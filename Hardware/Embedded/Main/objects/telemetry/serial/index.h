@@ -23,6 +23,14 @@
 #define UART_RS232 0
 #define UART_RS422 2
 
+// Safety net: UART0 is free for RS232 ONLY because `Serial` is the USB-CDC
+// (HWCDC) console on the S3. If "USB CDC On Boot" is Disabled, `Serial`
+// becomes UART0 and would collide with RS232 — fail at compile time (clear
+// message) instead of silently breaking the console + RS232 at runtime.
+#if defined(ARDUINO_USB_CDC_ON_BOOT) && (ARDUINO_USB_CDC_ON_BOOT == 0) && (UART_RS232 == 0)
+  #error "RS232 is on UART0, which is the `Serial` console while 'USB CDC On Boot' is Disabled. Enable 'USB CDC On Boot', or move RS232 (UART_RS232) to a free UART."
+#endif
+
 
 template<int CMD_MAX_SIZE> class NextSerial {
   private:
