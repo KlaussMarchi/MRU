@@ -32,7 +32,7 @@ template<int CMD_MAX_SIZE> class NextSerial {
 
   public:
 	Stream* uart = &rs232;
-	int port = 1;
+	int port = 3; // 3 = RS232, kept consistent with uart=&rs232 (1=USB, 2=RS422, 3=RS232)
 
 	Text<CMD_MAX_SIZE> command;
 	const int timeout = 1000;
