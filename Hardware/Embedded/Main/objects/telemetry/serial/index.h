@@ -9,6 +9,20 @@
 #define RX_RS232 10
 #define TX_RS232 11
 
+// ── Hardware UART allocation (ESP32-S3 has 3 UARTs: 0, 1, 2) ──────────────
+//   UART0 -> RS232  (this class)        pins RX=10 / TX=11
+//   UART1 -> Kernel IMU sensor          (objects/sensors/Kernel) — RESERVED
+//   UART2 -> RS422  (this class)        pins RX=13 / TX=12
+//
+// RS232 used to live on UART1 — the SAME peripheral the Kernel sensor opens
+// (objects/sensors/Kernel/index.h: `new HardwareSerial(1)`). Since
+// sensors.setup() runs AFTER telemetry.setup() (see device/index.h), the
+// Kernel's begin(115200, rx=3, tx=4) silently re-mapped UART1 and left
+// GPIO10/11 dead — RS232 stopped sending AND receiving. Keeping RS232 on its
+// own UART (UART0, free because `Serial` is USB-CDC/HWCDC on the S3) fixes it.
+#define UART_RS232 0
+#define UART_RS422 2
+
 
 template<int CMD_MAX_SIZE> class NextSerial {
   private:
@@ -27,9 +41,9 @@ template<int CMD_MAX_SIZE> class NextSerial {
 	unsigned long lastAckTime = 0;
 	bool available = false;
 
-	NextSerial(): 
-		rs232(1),
-		rs422(2){}
+	NextSerial():
+		rs232(UART_RS232),
+		rs422(UART_RS422){}
 
 	void setup(int baud=9600){
 		baudrate = baud;
