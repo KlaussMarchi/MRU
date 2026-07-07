@@ -404,7 +404,6 @@ class KernelSensor {
 				pitch = fusion.pitch * (180.0f / M_PI);
 				roll  = fusion.roll  * (180.0f / M_PI);
 				yaw   = fusion.yaw   * (180.0f / M_PI);
-
 				heave.update(wx * (M_PI/180.f), wy * (M_PI/180.f), wz * (M_PI/180.f), ax, ay, az, pitch, roll, now_us);
 			}
 		}

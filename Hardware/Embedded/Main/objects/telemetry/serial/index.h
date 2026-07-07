@@ -9,30 +9,15 @@
 #define RX_RS232 10
 #define TX_RS232 11
 
-// ── Hardware UART allocation (ESP32-S3 has 3 UARTs: 0, 1, 2) ──────────────
-//   UART0 -> RS232  (this class)        pins RX=10 / TX=11
-//   UART1 -> Kernel IMU sensor          (objects/sensors/Kernel) — RESERVED
-//   UART2 -> RS422  (this class)        pins RX=13 / TX=12
-//
-// RS232 used to live on UART1 — the SAME peripheral the Kernel sensor opens
-// (objects/sensors/Kernel/index.h: `new HardwareSerial(1)`). Since
-// sensors.setup() runs AFTER telemetry.setup() (see device/index.h), the
-// Kernel's begin(115200, rx=3, tx=4) silently re-mapped UART1 and left
-// GPIO10/11 dead — RS232 stopped sending AND receiving. Keeping RS232 on its
-// own UART (UART0, free because `Serial` is USB-CDC/HWCDC on the S3) fixes it.
 #define UART_RS232 0
 #define UART_RS422 2
 
-// Safety net: UART0 is free for RS232 ONLY because `Serial` is the USB-CDC
-// (HWCDC) console on the S3. If "USB CDC On Boot" is Disabled, `Serial`
-// becomes UART0 and would collide with RS232 — fail at compile time (clear
-// message) instead of silently breaking the console + RS232 at runtime.
 #if defined(ARDUINO_USB_CDC_ON_BOOT) && (ARDUINO_USB_CDC_ON_BOOT == 0) && (UART_RS232 == 0)
   #error "RS232 is on UART0, which is the `Serial` console while 'USB CDC On Boot' is Disabled. Enable 'USB CDC On Boot', or move RS232 (UART_RS232) to a free UART."
 #endif
 
 
-template<int CMD_MAX_SIZE> class NextSerial {
+template<int CMD_MAX_SIZE> class NextSerial{
   private:
 	Listener checkTimer = Listener(100);
 	HardwareSerial rs232;
@@ -40,7 +25,7 @@ template<int CMD_MAX_SIZE> class NextSerial {
 
   public:
 	Stream* uart = &rs232;
-	int port = 3; // 3 = RS232, kept consistent with uart=&rs232 (1=USB, 2=RS422, 3=RS232)
+	int port 	 = 3;
 
 	Text<CMD_MAX_SIZE> command;
 	const int timeout = 1000;
@@ -55,9 +40,8 @@ template<int CMD_MAX_SIZE> class NextSerial {
 
 	void setup(int baud=9600){
 		baudrate = baud;
-
 		rs232.begin(baudrate, SERIAL_8N1, RX_RS232, TX_RS232); delay(200);
-		//rs422.begin(baudrate, SERIAL_8N1, RX_RS422, TX_RS422); delay(200);
+		rs422.begin(baudrate, SERIAL_8N1, RX_RS422, TX_RS422); delay(200);
 
 		Serial.printf("RS422 Started at tx=%d - rx=%d\n", TX_RS422, RX_RS422);
 		Serial.printf("RS232 Started at tx=%d - rx=%d\n", TX_RS232, RX_RS232);
@@ -135,7 +119,7 @@ template<int CMD_MAX_SIZE> class NextSerial {
 			clear(true);
 	}
 
-	void clean() {
+	void clean(){
 		command.remove('\r');
 		command.remove('\n');
 		command.remove('\t');
@@ -144,7 +128,7 @@ template<int CMD_MAX_SIZE> class NextSerial {
 			reset();
 	}
 
-	void clear(bool _reset = false) {
+	void clear(bool _reset = false){
 		while(uart->available())
 			read();
 
@@ -152,7 +136,7 @@ template<int CMD_MAX_SIZE> class NextSerial {
 			reset();
 	}
 
-	char read() {
+	char read(){
 		char letter = (char) uart->read();
 
 		if(!uart->available())
