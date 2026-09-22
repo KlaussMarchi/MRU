@@ -58,7 +58,6 @@ led 2: comunicação
 	- nada funcionando: apagado
 	- streamando: duty 0.2 seg on e 0.2 seg off
 	- comunicando por protocolo: duty 0.5 seg on e 0.5 seg off
-
 */
 
 #endif

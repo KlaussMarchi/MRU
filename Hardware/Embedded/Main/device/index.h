@@ -27,7 +27,7 @@ class Device{
 	unsigned long startTime;
 	const char* firmware;
 	Settings settings;
-	Text<12> id;
+	Text<13> id;    // 4 + 8 DIGITOS DO MAC MAIS O TERMINADOR
 
 	Telemetry<Device> telemetry;
 	Sensors<Device> sensors;
@@ -39,11 +39,11 @@ class Device{
 	Device(const char* version):
 		firmware(version),
 		telemetry(this),
-		processing(this),
 		sensors(this),
+		processing(this),
 		tasks(this),
-		updater(this),
-		components(this){}
+		components(this),
+		updater(this){}
 
 	void setup(){
 		snprintf(id.buffer, sizeof(id.buffer), "%04X%08X", (uint16_t)(ESP.getEfuseMac() >> 32), (uint32_t)ESP.getEfuseMac());

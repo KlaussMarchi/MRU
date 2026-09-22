@@ -39,6 +39,7 @@ template <typename Parent> class Tasks {
 
 	void thread0() {
 		device->sensors.handle();
+		device->processing.handle();
 		device->components.handle();
 	}
 

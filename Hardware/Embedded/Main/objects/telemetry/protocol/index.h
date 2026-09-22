@@ -50,14 +50,7 @@ template <typename Parent> class Protocol{
 		}
 
 		if(device->telemetry.serial.command.contains("calibrate")){
-			const int start = device->telemetry.serial.command.find(':');
-			const int end   = device->telemetry.serial.command.find('!');
-
-			if(start == -1 || end == -1)
-				return device->telemetry.response.set("ERROR");
-
-			auto value = device->telemetry.serial.command.substring(start+1, end);
-			device->processing.parse(value.buffer);
+			device->telemetry.response.set(device->processing.toString());
 			return;
 		}
 
@@ -66,7 +59,7 @@ template <typename Parent> class Protocol{
 			return;
 		}
 
-		if(device->telemetry.serial.command.contains("align")){ // $align:3! (resetar) e $align:4! (upside down)
+		if(device->telemetry.serial.command.contains("align")){
 			const int start = device->telemetry.serial.command.find(':');
 			const int end   = device->telemetry.serial.command.find('!');
 
@@ -75,6 +68,7 @@ template <typename Parent> class Protocol{
 
 			long value = device->telemetry.serial.command.substring(start + 1, end).toInt();
 			device->sensors.kernel.align(static_cast<byte>(value));
+			device->processing.reset();    // A ATITUDE DE REFERENCIA MUDOU: FILTRO E MODELO RECOMECAM
 			device->telemetry.response.set("ALIGNMENT COMPLETE: ");
 			device->telemetry.response += String(value);
 			return;

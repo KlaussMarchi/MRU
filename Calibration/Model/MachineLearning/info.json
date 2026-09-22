@@ -1,0 +1,12 @@
+{
+    "target_var": [
+        "pitch",
+        "roll"
+    ],
+    "seevar": "wx",
+    "n_states": 30,
+    "k_cv": 5,
+    "model": "linear_regression",
+    "n_iter": 15000,
+    "dt": 0.1
+}

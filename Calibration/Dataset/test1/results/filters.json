@@ -1,0 +1,30 @@
+{
+    "strategy":"filters",
+    "backup":"Filters\/Backup\/filters_2",
+    "filters":{
+        "ax":{
+            "name":"exponential",
+            "error":0.5462773624
+        },
+        "ay":{
+            "name":"low_pass",
+            "error":3.7345984988
+        },
+        "az":{
+            "name":"butterworth",
+            "error":0.8021623293
+        },
+        "wx":{
+            "name":"exponential",
+            "error":0.998262326
+        },
+        "wy":{
+            "name":"butterworth",
+            "error":0.7811827697
+        },
+        "wz":{
+            "name":"low_pass",
+            "error":5.8381485041
+        }
+    }
+}

@@ -1,6 +1,5 @@
 #ifndef TELEMETRY_H
 #define TELEMETRY_H
-#include "modes/coppe/index.h"
 #include "protocol/index.h"
 #include "serial/index.h"
 #include "streamer/index.h"
@@ -19,36 +18,31 @@ public:
 	Protocol<Parent> protocol;
 	Streamer<Parent> streamer;
 	Text<64> response;
-	Coppe<Parent> coppe;
-	byte type = 0;
 	bool working;
 
 	Telemetry(Parent *dev): 
 		device(dev),
-		streamer(dev),
 		protocol(dev),
-		coppe(dev){}
+		streamer(dev){}
 
 	void setup(){
-		type = device->settings.template get<byte>("telemetry");
-		serial.setup(device->settings.template get<int>("baudrate", 9600));
-		Serial.println("Telemetry Type: " + String(toText()) + " (baudrate " + String(device->settings.template get<int>("baudrate", 9600)) + ")");
+		int baud = device->settings.template get<int>("baudrate", 9600);
 
-		if(type == COPPE_TEL)
-			coppe.setup();
+		serial.setup(baud);
+		Serial.println("baudrate: " + String(baud));
 
 		streamer.setup();
 		response.reset();
 	}
 
-	void handle() {
+	void handle(){
 		serial.listen();
 
 		if(serial.available)
 			Serial.println(serial.command.toString());
 
-		handleProtocol();
-		handleRequest();
+		if(serial.available)
+			protocol.check();
 
 		if(Time::get() - serial.lastAckTime > 60000)
 			working = false;
@@ -60,46 +54,19 @@ public:
 			last_cmd = serial.command.get();
 
 		streamer.handle();
-
-		handleOperation();
 		serial.reset();
 	}
 
-	void handleProtocol() {
-		if(type == COPPE_TEL)
-			coppe.check();
-
-		if(serial.available)
-			protocol.check();
-	}
-
-	void handleRequest() {
-		if (type == COPPE_TEL)
-			coppe.request();
-	}
-
-	void handleOperation() {
-		if (type == COPPE_TEL)
-			coppe.handle();
-	}
-
-	void event(const char *value) {
+	void event(const char *value){
 		// device->logs.add(value);
 		serial.send(value, true);
 		response.reset();
 	}
 
-	void event(const String &value) {
+	void event(const String &value){
 		// device->logs.add(value.c_str());
 		serial.send(value.c_str(), true);
 		response.reset();
-	}
-
-	const char *toText() {
-		if (type == COPPE_TEL)
-			return "Padrão";
-
-		return "None";
 	}
 };
 

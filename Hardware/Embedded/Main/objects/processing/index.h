@@ -1,152 +1,130 @@
 #ifndef PROCESSING_H
 #define PROCESSING_H
-
-#include <cstdint>
 #include <Arduino.h>
-#include "../../utils/json/index.h"
-#include "filters/index.h"
+#include "config.h"
+#include "filters/butterworth/index.h"
+#include "filters/butterworth/config.h"
 
 
+// O SINAL QUE O MRU ENTREGA: SENSORES FILTRADOS E ANGULOS DO MODELO QUE A CALIBRACAO ESCOLHEU
 template <typename Parent> class Processing{
   private:
 	Parent* device;
+	int64_t lastPacket = 0;
 
-	class LinearFit{
-	  private:
-		LowPassFilter filter;
+	void read(float* sensors){
+		sensors[0] = device->sensors.kernel.ax;
+		sensors[1] = device->sensors.kernel.ay;
+		sensors[2] = device->sensors.kernel.az;
+		sensors[3] = device->sensors.kernel.wx;
+		sensors[4] = device->sensors.kernel.wy;
+		sensors[5] = device->sensors.kernel.wz;
+	}
 
-	  public:
-		float a = 1;
-		float b = 0;
-		float constant  = 1;
-		float fc = 0;
-		bool use_filter = false;
+	// PRIMEIRO PACOTE: OS FILTROS COMECAM NA LEITURA, SEM O TRANSITORIO DE PARTIDA DO ZERO
+	void start(){
+		float sensors[6];
+		read(sensors);
 
-		void setup(JsonObject data, float dt){
-			if(data.containsKey("a"))
-				this->a = data["a"];
+		for(int i = 0; i < 6; i++)
+			filters[i].reset(sensors[i]);
 
-			if(data.containsKey("b"))
-				this->b = data["b"];
+		model.reset();
+		mirror();
+	}
 
-			if(data.containsKey("fc")){
-				fc = data["fc"];
-				use_filter = (fc > 0.0f);
+	void update(const float dt){
+		float sensors[6], angles[3];
+		read(sensors);
 
-				if(use_filter)
-					filter.setup(fc, dt);
-			}
-		}
+		angles[0] = device->sensors.kernel.pitch;
+		angles[1] = device->sensors.kernel.roll;
+		angles[2] = device->sensors.kernel.yaw;
 
-		float get(int32_t newValue){
-			float scaled = (float) newValue * constant;
+		ax = filters[0].compute(sensors[0]);
+		ay = filters[1].compute(sensors[1]);
+		az = filters[2].compute(sensors[2]);
+		wx = filters[3].compute(sensors[3]);
+		wy = filters[4].compute(sensors[4]);
+		wz = filters[5].compute(sensors[5]);
 
-			if(use_filter)
-				scaled = filter.update(scaled);
+		model.update(sensors, angles, dt);    // O MODELO VE O SINAL CRU, QUE E COMO ELE FOI AJUSTADO
 
-			return (float) (a * scaled + b);
-		}
-	};
+		pitch = model.pitch;
+		roll  = model.roll;
+		yaw   = model.yaw;
+	}
 
   public:
-	bool active;
-	LinearFit pitch, roll, yaw;
-	LinearFit ax, ay, az;
-	LinearFit wx, wy, wz;
+	ButterworthFilter filters[6];    // ax, ay, az, wx, wy, wz
+	ProcessingModel model;
+
+	float ax, ay, az;
+	float wx, wy, wz;
+	float pitch, roll, yaw;
+	bool active = false;
 
 	Processing(Parent* dev):
 		device(dev){}
 
 	void setup(){
-		float dt = 1.0f / device->frequency;
+		const float dt = 1.0f / device->frequency;
 
-		ax.constant = ay.constant = az.constant = 1.00f / (1000000.0f * 9.80665f);
-		ay.constant = ay.constant;
-		az.constant = az.constant;
+		for(int i = 0; i < 6; i++)
+			filters[i].setup(BUTTERWORTH_FC[i], dt);
 
-		wx.constant = wy.constant = wz.constant = 1.00f / (100000.0f);
-		wy.constant = wy.constant;
-		wz.constant = wz.constant;
+		model.setup(dt);
+		active = (device->sensors.kernel.mode == HR_MODE) && !device->sensors.kernel.calibrate;
 
-		pitch.constant = 1.00f / (1000.0f);
-		roll.constant  = pitch.constant;
-		yaw.constant   = pitch.constant;
-
-		auto apply_fit = [&](LinearFit& fit, const char* key){
-			if(!device->settings.params.data.containsKey("calibration"))
-				return;
-
-			JsonObject proc = device->settings.params.data["calibration"].template as<JsonObject>();
-
-			if(proc.containsKey(key))
-				fit.setup(proc[key].template as<JsonObject>(), dt);
-		};
-
-		apply_fit(pitch, "pitch");
-		apply_fit(roll,  "roll");
-		apply_fit(yaw,   "yaw");
-		apply_fit(ax, "ax");
-		apply_fit(ay, "ay");
-		apply_fit(az, "az");
-		apply_fit(wx, "wx");
-		apply_fit(wy, "wy");
-		apply_fit(wz, "wz");
-
-		Serial.println("Calibration Options:");
-		auto print_stats = [](const char* name, const LinearFit& fit) {
-			String msg = String(name) + ":\t" + String(fit.a, 6) + " * x + " + String(fit.b, 6);
-			if(fit.use_filter)
-				msg += "\t| Filter: " + String(fit.fc, 2) + "Hz";
-			Serial.println(msg);
-		};
-
-		print_stats("Pitch", pitch);
-		print_stats("Roll ", roll);
-		print_stats("Yaw  ", yaw);
-		print_stats("Acc X", ax);
-		print_stats("Acc Y", ay);
-		print_stats("Acc Z", az);
-		print_stats("Gyr X", wx);
-		print_stats("Gyr Y", wy);
-		print_stats("Gyr Z", wz);
+		mirror();
+		Serial.println("Processing: " + toString());
 	}
 
-	bool parse(const String& jsonString){
-		Json<512> update;
-		Serial.println("New Parameters: " + String(jsonString));
+	void handle(){
+		if(!active)
+			return mirror();
 
-		if(!update.parse(jsonString))
-			return false;
+		if(device->sensors.kernel.lastAckTime == lastPacket)    // SEM PACOTE NOVO: FILTRO NAO PODE COMER A MESMA AMOSTRA DUAS VEZES
+			return;
 
-		JsonObject rootObj = update.data.is<JsonArray>() ? update.data[0] : update.data.as<JsonObject>();
+		const bool first = (lastPacket == 0);
+		const float dt   = (device->sensors.kernel.lastAckTime - lastPacket) * 1e-6f;
+		lastPacket       = device->sensors.kernel.lastAckTime;
 
-		auto setOptions = [&](const char* key) {
-			if(!rootObj.containsKey(key))
-				return;
+		if(first)
+			return start();
 
-			if(!device->settings.params.data.containsKey("calibration"))
-				device->settings.params.data.createNestedObject("calibration");
+		update(dt);
+	}
 
-			JsonObject proc = device->settings.params.data["calibration"].template as<JsonObject>();
+	// SEM MODELO, EM AQUISICAO OU FORA DO MODO HR: SAI O QUE O SENSOR JA ENTREGA
+	void mirror(){
+		ax = device->sensors.kernel.ax;
+		ay = device->sensors.kernel.ay;
+		az = device->sensors.kernel.az;
 
-			if(!proc.containsKey(key))
-				proc.createNestedObject(key);
+		wx = device->sensors.kernel.wx;
+		wy = device->sensors.kernel.wy;
+		wz = device->sensors.kernel.wz;
 
-			JsonObject dest = proc[key].template as<JsonObject>();
-			JsonObject src = rootObj[key].as<JsonObject>();
+		pitch = device->sensors.kernel.pitch;
+		roll  = device->sensors.kernel.roll;
+		yaw   = device->sensors.kernel.yaw;
+	}
 
-			if(src.containsKey("a")) dest["a"] = src["a"];
-			if(src.containsKey("b")) dest["b"] = src["b"];
-			if(src.containsKey("fc")) dest["fc"] = src["fc"];
-		};
+	void reset(){
+		lastPacket = 0;
+		model.reset();
 
-		setOptions("pitch"); setOptions("roll"); setOptions("yaw");
-		setOptions("ax"); setOptions("ay"); setOptions("az");
-		setOptions("wx"); setOptions("wy"); setOptions("wz");
+		for(int i = 0; i < 6; i++)
+			filters[i].reset();
+	}
 
-		device->settings.save();
-		setup();
-		return true;
+	String toString(){
+		if(!active)
+			return "raw sensor";
+
+		return model.toString() + " + butterworth";
 	}
 };
 

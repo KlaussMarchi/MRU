@@ -30,10 +30,10 @@ public:
 	void handle() {
 		static Listener timer = Listener(dt);
 
-		if (!active || !timer.ready())
+		if(!active || !timer.ready())
 			return;
 
-		switch (protocol) {
+		switch(protocol){
 			case JSON_PROTOCOL: printJSON(); break;
 			case LIST_PROTOCOL: printList(); break;
 			case NMEA_PROTOCOL: printNMEA(); break;
@@ -50,29 +50,30 @@ public:
 
 	void printJSON() {
 		static char buffer[256];
-		const byte mode = device->sensors.kernel.mode;
-		int n;
+		const byte mode      = device->sensors.kernel.mode;
+		const bool calibrate = device->sensors.kernel.calibrate;
+		int n = 0;
 
-		if(mode == HR_MODE) {
+		if(mode == HR_MODE && calibrate) {
 			n = snprintf(buffer, sizeof(buffer),
 				"{\"time\":%.3f,\"tmp\":%.3f,\"pitch\":%ld,\"roll\":%ld,\"yaw\":%ld,\"ax\":%ld,\"ay\":%ld,\"az\":%ld,\"wx\":%ld,\"wy\":%ld,\"wz\":%ld,\"h\":%.3f}",
 				(Time::get() - startTime) / 1000.00,
 				device->sensors.kernel.temperature,
 				(long) device->sensors.kernel.pitch_raw, (long) device->sensors.kernel.roll_raw, (long) device->sensors.kernel.yaw_raw,
-				(long) device->sensors.kernel.ax_raw, (long) device->sensors.kernel.ay_raw, (long) device->sensors.kernel.az_raw,
-				(long) device->sensors.kernel.wx_raw, (long) device->sensors.kernel.wy_raw, (long) device->sensors.kernel.wz_raw,
-				(float) device->sensors.kernel.heave.value
+				(long) device->sensors.kernel.ax_raw,    (long) device->sensors.kernel.ay_raw,   (long) device->sensors.kernel.az_raw,
+				(long) device->sensors.kernel.wx_raw,    (long) device->sensors.kernel.wy_raw,   (long) device->sensors.kernel.wz_raw,
+				(float) device->sensors.kernel.heave
 			);
 		}
-		else if (mode == HR_MODE_ADJ || mode == OR_MODE || mode == CAL_MODE) {
+		else if(mode == HR_MODE || mode == OR_MODE) {
 			n = snprintf(buffer, sizeof(buffer),
 				"{\"time\":%.3f,\"tmp\":%.3f,\"pitch\":%.3f,\"roll\":%.3f,\"yaw\":%.3f,\"ax\":%.3f,\"ay\":%.3f,\"az\":%.3f,\"wx\":%.3f,\"wy\":%.3f,\"wz\":%.3f,\"h\":%.3f}",
 				(Time::get() - startTime) / 1000.00,
 				device->sensors.kernel.temperature,
-				(float) device->sensors.kernel.pitch, (float) device->sensors.kernel.roll, (float) device->sensors.kernel.yaw,
-				(float) device->sensors.kernel.ax, (float) device->sensors.kernel.ay, (float) device->sensors.kernel.az,
-				(float) device->sensors.kernel.wx, (float) device->sensors.kernel.wy, (float) device->sensors.kernel.wz,
-				(float) device->sensors.kernel.heave.value
+				(float) device->processing.pitch, (float) device->processing.roll, (float) device->processing.yaw,
+				(float) device->processing.ax,    (float) device->processing.ay,   (float) device->processing.az,
+				(float) device->processing.wx,    (float) device->processing.wy,   (float) device->processing.wz,
+				(float) device->sensors.kernel.heave
 			);
 		} 
 		else if (mode == QT_MODE) {
@@ -81,8 +82,8 @@ public:
 				(Time::get() - startTime) / 1000.00,
 				device->sensors.kernel.temperature,
 				(long) device->sensors.kernel.pitch_raw, (long) device->sensors.kernel.roll_raw, (long) device->sensors.kernel.yaw_raw,
-				(long) device->sensors.kernel.q0_raw, (long) device->sensors.kernel.q1_raw, (long) device->sensors.kernel.q2_raw, (long) device->sensors.kernel.q3_raw,
-				(float) device->sensors.kernel.heave.value
+				(long) device->sensors.kernel.q0_raw, 	 (long) device->sensors.kernel.q1_raw, 	 (long) device->sensors.kernel.q2_raw, (long) device->sensors.kernel.q3_raw,
+				(float) device->sensors.kernel.heave
 			);
 		}
 
@@ -92,27 +93,28 @@ public:
 
 	void printList(){
 		static char buffer[256];
-		const byte mode = device->sensors.kernel.mode;
+		const byte mode      = device->sensors.kernel.mode;
+		const bool calibrate = device->sensors.kernel.calibrate;
 		int n = 0;
 
-		if(mode == HR_MODE){
+		if(mode == HR_MODE && calibrate){
 			n = snprintf(buffer, sizeof(buffer),
 				"[%.3f,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%.3f]",
 				device->sensors.kernel.temperature,
 				(long) device->sensors.kernel.pitch_raw, (long) device->sensors.kernel.roll_raw, (long) device->sensors.kernel.yaw_raw,
-				(long) device->sensors.kernel.ax_raw, (long) device->sensors.kernel.ay_raw, (long) device->sensors.kernel.az_raw,
-				(long) device->sensors.kernel.wx_raw, (long) device->sensors.kernel.wy_raw, (long) device->sensors.kernel.wz_raw,
-				(float) device->sensors.kernel.heave.value
+				(long) device->sensors.kernel.ax_raw, 	 (long) device->sensors.kernel.ay_raw,   (long) device->sensors.kernel.az_raw,
+				(long) device->sensors.kernel.wx_raw, 	 (long) device->sensors.kernel.wy_raw,   (long) device->sensors.kernel.wz_raw,
+				(float) device->sensors.kernel.heave
 			);
 		} 
-		else if(mode == HR_MODE_ADJ || mode == OR_MODE || mode == CAL_MODE){
+		else if(mode == HR_MODE || mode == OR_MODE){
 			n = snprintf(buffer, sizeof(buffer),
 				"[%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f]",
 				device->sensors.kernel.temperature,
-				(float) device->sensors.kernel.pitch, (float) device->sensors.kernel.roll, (float) device->sensors.kernel.yaw,
-				(float) device->sensors.kernel.ax, (float) device->sensors.kernel.ay, (float) device->sensors.kernel.az,
-				(float) device->sensors.kernel.wx, (float) device->sensors.kernel.wy, (float) device->sensors.kernel.wz,
-				(float) device->sensors.kernel.heave.value
+				(float) device->processing.pitch, (float) device->processing.roll, (float) device->processing.yaw,
+				(float) device->processing.ax,    (float) device->processing.ay,   (float) device->processing.az,
+				(float) device->processing.wx,    (float) device->processing.wy,   (float) device->processing.wz,
+				(float) device->sensors.kernel.heave
 			);
 		}
 		else if(mode == QT_MODE){
@@ -120,8 +122,8 @@ public:
 				"[%.3f,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%.3f]",
 				device->sensors.kernel.temperature,
 				(long) device->sensors.kernel.pitch_raw, (long) device->sensors.kernel.roll_raw, (long) device->sensors.kernel.yaw_raw,
-				(long) device->sensors.kernel.q0_raw, (long) device->sensors.kernel.q1_raw, (long) device->sensors.kernel.q2_raw, (long) device->sensors.kernel.q3_raw,
-				(float) device->sensors.kernel.heave.value
+				(long) device->sensors.kernel.q0_raw,    (long) device->sensors.kernel.q1_raw,   (long) device->sensors.kernel.q2_raw, (long) device->sensors.kernel.q3_raw,
+				(float) device->sensors.kernel.heave
 			);
 		}
 
@@ -136,11 +138,12 @@ public:
 
 		snprintf(
 			sentence, sizeof(sentence),
-			"%s,%.3f,%.3f,%.3f",
+			"%s,%.3f,%.3f,%.3f,%.3f",
 			header,
-			(float) device->processing.pitch.get(device->sensors.kernel.pitch),
-			(float) device->processing.roll.get(device->sensors.kernel.roll),
-			(float) device->processing.yaw.get(device->sensors.kernel.yaw)
+			(float) device->processing.pitch,
+			(float) device->processing.roll,
+			(float) device->processing.yaw,
+			(float) device->sensors.kernel.heave
 		);
 
 		unsigned char checksum = 0;

@@ -24,7 +24,6 @@ class Monitor:
         self.kb = KeyboardListener()
         self.kb.start()
         self.current = None
-        self.valuesK = []
         self.valuesM = []
         self.valuesP = []
         self.targets = targets
@@ -34,17 +33,13 @@ class Monitor:
         
     def setup(self):
         self.deviceM = Device(rate=115200)
-        self.deviceK = Device(rate=19200)
         self.deviceP = Device(rate=9600)
         
         self.deviceM.port = '/dev/ttyUSB0'
         self.deviceP.port = '/dev/ttyACM0'
-        self.deviceK.port = '/dev/ttyUSB1'
 
         self.deviceM.connect()
-        #self.deviceP.connect()
-        #self.deviceK.connect()
-
+        self.deviceP.connect()
         self.startTime = time()
 
         sleep(2.00)
@@ -53,7 +48,6 @@ class Monitor:
         
         self.threadM = AsyncThreading(self.handleMeasure)
         self.threadP = AsyncThreading(self.handlePlate)
-        #self.threadK = AsyncThreading(self.handleKongsberg)
 
     def handleMeasure(self):
         if not self.deviceM.available():
@@ -67,14 +61,7 @@ class Monitor:
         
         self.deviceP.last = self.deviceP.getList()
 
-    def handleKongsberg(self):
-        if not self.deviceK.available():
-            return
-        
-        self.deviceK.last = self.deviceK.getNMEA()
-
     def handle(self):
-        kongsberg_working = self.deviceK.last is not None
         measure_working   = self.deviceM.last is not None
         plate_working     = self.deviceP.last is not None
 
@@ -89,14 +76,10 @@ class Monitor:
 
         passed = time() - self.startProg
         sendEvent('measure', ('working'   if measure_working else 'failed')   + f': {str(self.deviceM.last)[:100]}',   'green' if measure_working else 'red')
-        sendEvent('kongsberg', ('working' if kongsberg_working else 'failed') + f': {str(self.deviceK.last)[:100]}', 'green' if kongsberg_working else 'red')
         sendEvent('plate', ('working' if plate_working else 'failed') + f': {str(self.deviceP.last)[:100]}', 'green' if plate_working else 'red')
         sendEvent('time', passed, 'blue')
         print()
         
-        if kongsberg_working:
-            self.deviceK.last['time'] = passed
-
         if measure_working:
             self.deviceM.last['time'] = passed
 
@@ -108,11 +91,10 @@ class Monitor:
             
         for target in self.targets:
             val = None
-            if target.endswith('K') and kongsberg_working:
-                val = self.deviceK.last.get(target[:-1])
-            elif target.endswith('M') and measure_working:
+            if target.endswith('M') and measure_working:
                 val = self.deviceM.last.get(target[:-1])
-            elif target.endswith('P') and plate_working:
+
+            if target.endswith('P') and plate_working:
                 val = self.deviceP.last.get(target[:-1])
                 
             if val is not None:
@@ -134,10 +116,6 @@ class Monitor:
                     self.current[target] = norm_val
                 else:
                     self.current[target] = val
-
-        if kongsberg_working:
-            self.valuesK.append(self.deviceK.last)
-            self.deviceK.last = None
             
         if measure_working:
             self.valuesM.append(self.deviceM.last)
@@ -207,10 +185,9 @@ class Monitor:
         
         with open(os.path.join(folder, 'info.json'), 'w') as file:
             file.write(json.dumps({
-                "description": "Reference is Plate, Target is Measure, and MRU is Kongsberg"
+                "description": "Reference is Plate, Target is Measure"
             }, indent=4))
 
-        self.saveDevice(self.valuesK, 'mru', folder)
         self.saveDevice(self.valuesM, 'target', folder)
         self.saveDevice(self.valuesP, 'reference', folder)
 
