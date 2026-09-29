@@ -181,7 +181,6 @@ class Monitor:
     def save(self, folder='output'):
         setFolder(os.path.join(folder, 'reference'))
         setFolder(os.path.join(folder, 'target'))
-        setFolder(os.path.join(folder, 'mru'))
         
         with open(os.path.join(folder, 'info.json'), 'w') as file:
             file.write(json.dumps({

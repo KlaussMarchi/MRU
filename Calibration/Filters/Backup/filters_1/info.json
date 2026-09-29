@@ -167,7 +167,7 @@
     },
     "search":{
         "population":30,
-        "generations":200,
+        "generations":150,
         "seed":42,
         "runs":5,
         "variables":{
@@ -198,7 +198,7 @@
         }
     },
     "dataset":{
-        "path":"Dataset\/target.csv",
+        "path":"Backup\/target.csv",
         "samples":1799,
         "dt":0.1
     }

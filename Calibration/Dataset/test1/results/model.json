@@ -1,6 +1,6 @@
 {
     "strategy":"kalman_fusion",
-    "backup":"Model\/KalmanFusion\/Backup\/model_1",
+    "backup":"Model\/KalmanFusion\/Backup\/model_2",
     "targets":[
         "pitch",
         "roll",
@@ -8,19 +8,19 @@
     ],
     "metrics":{
         "pitch":{
-            "rmse":8.4313705703,
-            "bias":8.0989515161,
-            "corr":-0.0820528528
+            "rmse":0.5637400215,
+            "bias":0.0063320959,
+            "corr":-0.1715126275
         },
         "roll":{
-            "rmse":0.451870419,
-            "bias":0.0142620235,
-            "corr":0.9989975234
+            "rmse":0.4247810968,
+            "bias":-0.0021397779,
+            "corr":0.9985180076
         },
         "yaw":{
-            "rmse":6.8968662102,
-            "bias":5.3132763314,
-            "corr":0.1354783794
+            "rmse":4.070930007,
+            "bias":-3.3904321599,
+            "corr":-0.9574473779
         }
     }
 }
