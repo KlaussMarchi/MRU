@@ -3,9 +3,9 @@
 #include <ArduinoJson.h>
 #include <Preferences.h>
 
-template<int SIZE> class Json {
+class Json {
   public:
-	StaticJsonDocument<SIZE> data;
+	JsonDocument data;
 
 	void print() const {
 		serializeJsonPretty(data, Serial);
@@ -13,7 +13,7 @@ template<int SIZE> class Json {
 	}
 
 	bool empty() const {
-		return (data.template as<JsonObjectConst>().size() == 0);
+		return (data.as<JsonObjectConst>().size() == 0);
 	}
 
 	bool parse(const char* jsonText) {
@@ -25,7 +25,7 @@ template<int SIZE> class Json {
 	}
 
 	bool exist(const char* key) const {
-		return data.containsKey(key);
+		return !data[key].isNull();
 	}
 
 	void set(const String& key, const String &value) {
@@ -77,12 +77,12 @@ template<int SIZE> class Json {
 	}
 
 	template <typename T> T get(const char* key) const {
-		return data[key].template as<T>();
+		return data[key].as<T>();
 	}
 
 	void clear() {
 		data.clear();
-		data.template to<JsonObject>();
+		data.to<JsonObject>();
 	}
 
 	String toString() const {

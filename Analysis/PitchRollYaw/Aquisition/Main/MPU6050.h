@@ -42,8 +42,8 @@ struct MPU6050{
         az = (int16_t) (wire->read() << 8 | wire->read());
     }
 
-    StaticJsonDocument<128> getData(){
-        StaticJsonDocument<128> data;
+    JsonDocument getData(){
+        JsonDocument data;
         data["ax"] = ax; 
         data["ay"] = ay; 
         data["az"] = az;

@@ -1,5 +1,5 @@
 
-float flilter(const float Xn){
+float filter(const float Xn){
     static unsigned long startTime = millis();
     static const int dt = 100; // ms
     static float Xn1, Xn2;

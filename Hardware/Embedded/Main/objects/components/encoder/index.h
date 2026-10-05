@@ -10,13 +10,8 @@ class Encoder {
 	volatile long counter = 0;
 	static Encoder* instance;
 
-	#if defined(ESP32)
-		static void IRAM_ATTR isrWrapper();
-		void IRAM_ATTR update(); 
-	#else
-		static void isrWrapper();
-		void update();
-	#endif
+	static void isrWrapper();
+	void update();
 
   public:
 	bool enabled = true;

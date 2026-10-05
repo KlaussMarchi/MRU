@@ -3,7 +3,7 @@
 
 class Settings{
   public:
-	Json<2048> params;
+	Json params;
 
 	void import(){
 		params.download("preferences");

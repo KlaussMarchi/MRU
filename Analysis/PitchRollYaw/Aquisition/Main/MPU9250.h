@@ -37,8 +37,8 @@ struct MPU9250{
         gz = imu.gyroZ();
     }
 
-    StaticJsonDocument<128> getData(){
-        StaticJsonDocument<128> data;
+    JsonDocument getData(){
+        JsonDocument data;
         data["ax"] = ax; 
         data["ay"] = ay; 
         data["az"] = az;
