@@ -1,0 +1,208 @@
+{
+    "algorithm":"genetic",
+    "f":0.4520618978,
+    "runs":1,
+    "stopped":39,
+    "variables":{
+        "gyroNoise":-6.449548978,
+        "biasNoise":-12.1145213044,
+        "accelNoise":-4.3135509461,
+        "accelGateK":-0.1985947236,
+        "gyroPhase":0.497456941
+    },
+    "fixed":{
+        "g":9.7875777589,
+        "rateNoise":-4.7959303839,
+        "zuptNoise":-4.7959303839,
+        "stillNoise":-5.2597070383,
+        "spike":2.0,
+        "heavePeriod":1.3,
+        "alignX":90.5292221131,
+        "alignY":0.3691459853,
+        "alignZ":7.5440730861,
+        "leverX":0.0418059499,
+        "leverY":-1.9102454204,
+        "leverZ":0.0592869391,
+        "pointX":0.0677931109,
+        "pointY":-1.9747174818,
+        "pointZ":-0.1718941505
+    },
+    "search":{
+        "population":30,
+        "generations":40,
+        "workers":8,
+        "backend":"process",
+        "seed":42,
+        "bounds":{
+            "gyroNoise":[
+                -9.0,
+                -3.0
+            ],
+            "biasNoise":[
+                -16.0,
+                -8.0
+            ],
+            "accelNoise":[
+                -6.0,
+                1.0
+            ],
+            "accelGateK":[
+                -2.0,
+                5.0
+            ],
+            "gyroPhase":[
+                0.0,
+                1.0
+            ]
+        }
+    },
+    "calibration":{
+        "delay":0.0176787864,
+        "mount":[
+            90.4519138921,
+            0.5512461557,
+            7.5534072229
+        ],
+        "align":[
+            90.5292221131,
+            0.3691459853,
+            7.5440730861
+        ],
+        "lever":[
+            0.0418059499,
+            -1.9102454204,
+            0.0592869391
+        ],
+        "point":[
+            0.0677931109,
+            -1.9747174818,
+            -0.1718941505
+        ],
+        "residual":0.0842508199
+    },
+    "metrics":{
+        "pitch":{
+            "rmse":0.1914787549,
+            "bias":0.1121934262,
+            "corr":0.3058536744
+        },
+        "roll":{
+            "rmse":0.1706265728,
+            "bias":0.0163569004,
+            "corr":0.9995682229
+        },
+        "yaw":{
+            "rmse":2.4825330207,
+            "bias":2.3627558179,
+            "corr":0.3040891417
+        },
+        "heave":{
+            "rmse":0.0048034207,
+            "bias":-0.0000114809,
+            "corr":0.9742885115
+        }
+    },
+    "windows":{
+        "treino":{
+            "pitch":0.2325623553,
+            "roll":0.2194995425,
+            "yaw":2.1313676565,
+            "heave":0.0065600034
+        },
+        "teste":{
+            "pitch":0.1387190615,
+            "roll":0.1002337546,
+            "yaw":2.7898409114,
+            "heave":0.0017641022
+        },
+        "balan\u00e7o":{
+            "pitch":0.230965119,
+            "roll":0.2028434419,
+            "yaw":2.4103572728,
+            "heave":0.0058391884
+        },
+        "repouso":{
+            "pitch":0.0697500613,
+            "roll":0.0785901363,
+            "yaw":2.6146102089,
+            "heave":0.0014348759
+        },
+        "tudo":{
+            "pitch":0.1914787549,
+            "roll":0.1706265728,
+            "yaw":2.4825330207,
+            "heave":0.0048034207
+        }
+    },
+    "projection":{
+        "10 Hz instant\u00e2neo":{
+            "roll din\u00e2mico":0.1026981519,
+            "pitch din\u00e2mico":0.0638259725,
+            "roll est\u00e1tico":0.0585953817,
+            "pitch est\u00e1tico":0.0542422468,
+            "Python (s)":0.580409143
+        },
+        "10 Hz em m\u00e9dia":{
+            "roll din\u00e2mico":0.0383761001,
+            "pitch din\u00e2mico":0.018388001,
+            "roll est\u00e1tico":0.0102878622,
+            "pitch est\u00e1tico":0.0058913298,
+            "Python (s)":0.581272201
+        },
+        "100 Hz instant\u00e2neo":{
+            "roll din\u00e2mico":0.0440767717,
+            "pitch din\u00e2mico":0.023533724,
+            "roll est\u00e1tico":0.0207384021,
+            "pitch est\u00e1tico":0.0152220626,
+            "Python (s)":5.821935633
+        },
+        "100 Hz em m\u00e9dia":{
+            "roll din\u00e2mico":0.0265739394,
+            "pitch din\u00e2mico":0.0096502586,
+            "roll est\u00e1tico":0.0074880861,
+            "pitch est\u00e1tico":0.0045063087,
+            "Python (s)":6.768902364
+        },
+        "ensaio real, 10 Hz instant\u00e2neo":{
+            "roll din\u00e2mico":0.1131677997,
+            "pitch din\u00e2mico":0.1657871985,
+            "roll est\u00e1tico":0.0691741291,
+            "pitch est\u00e1tico":0.0594156398,
+            "Python (s)":null
+        }
+    },
+    "independent":{
+        "rolling_x":{
+            "defasagem (ms)":36.3821523559,
+            "res\u00edduo (m\/s\u00b2)":0.1923153236,
+            "roll din\u00e2mico":0.5713376077,
+            "pitch din\u00e2mico":6.3391345208,
+            "roll est\u00e1tico":0.0583423907,
+            "pitch est\u00e1tico":0.0734879122,
+            "heave (mm)":11.3711489802,
+            "heave verdadeiro (mm)":12.6818781198,
+            "corr heave":0.0246396226
+        },
+        "rolling_z":{
+            "defasagem (ms)":7.617472505,
+            "res\u00edduo (m\/s\u00b2)":0.1054287534,
+            "roll din\u00e2mico":0.1980336049,
+            "pitch din\u00e2mico":0.4486991281,
+            "roll est\u00e1tico":0.0926716063,
+            "pitch est\u00e1tico":0.080529786,
+            "heave (mm)":4.5800451697,
+            "heave verdadeiro (mm)":17.96883748,
+            "corr heave":0.9718571149
+        }
+    },
+    "bias":[
+        0.004722,
+        -0.008614,
+        -0.001073
+    ],
+    "dataset":{
+        "path":"Dataset\/data.csv",
+        "samples":2297,
+        "dt":0.1
+    }
+}

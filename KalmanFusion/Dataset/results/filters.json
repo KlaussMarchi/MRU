@@ -1,0 +1,24 @@
+{
+    "strategy":"kalman_fusion",
+    "backup":"Backup\/model_4",
+    "filters":{
+        "ax":{
+            "name":"nenhum"
+        },
+        "ay":{
+            "name":"nenhum"
+        },
+        "az":{
+            "name":"nenhum"
+        },
+        "wx":{
+            "name":"oscilador harm\u00f4nico"
+        },
+        "wy":{
+            "name":"oscilador harm\u00f4nico"
+        },
+        "wz":{
+            "name":"oscilador harm\u00f4nico"
+        }
+    }
+}

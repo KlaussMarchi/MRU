@@ -1,0 +1,1 @@
+A combinação dos modelos apresentados nos dois documentos permite estruturar uma classe em C++ ou Python com um Filtro de Kalman modificado, capaz de receber os dados brutos de uma IMU ($a_x, a_y, a_z$ e $g_x, g_y, g_z$), calcular a atitude (Pitch, Roll, Yaw), estimar a arfagem (Heave) e fornecer as componentes inerciais filtradas.  

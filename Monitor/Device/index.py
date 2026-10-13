@@ -7,17 +7,17 @@ from Device.NMEA import NMEA
 
 class Device:
     KEYS = ["tmp", "pitch", "roll", "yaw", "ax", "ay", "az", "wx", "wy", "wz", "h"]
-    EXPECTED_LENGTH = len(KEYS)
 
     device = None
     port   = None
     rate   = None
     data   = None
 
-    def __init__(self, port=None, rate=9600, timeout=3.0):
+    def __init__(self, port=None, rate=9600, timeout=3.0, keys=None):
         self.port = port
         self.rate = rate
         self.timeout = timeout
+        self.keys = keys if keys is not None else self.KEYS
         self.last = None
         self.nmea = NMEA()
 
@@ -190,11 +190,11 @@ class Device:
 
                 if cleaned.startswith('[') and cleaned.endswith(']'):
                     raw_values = cleaned[1:-1].split(',')
-            
-                    if len(raw_values) == self.EXPECTED_LENGTH:
+
+                    if len(raw_values) == len(self.keys):
                         try:
                             data_list = [float(v) for v in raw_values]
-                            return dict(zip(self.KEYS, data_list))
+                            return dict(zip(self.keys, data_list))
                         except ValueError:
                             sendEvent('warning', f'Erro ao converter para número: {cleaned}')
                             continue
