@@ -1,136 +1,66 @@
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
-import numpy as np
-from Utils.functions import sendEvent
-from Utils.classes import AsyncThreading
-from time import time as getTime
-from time import sleep as delay
+from time import time
 
-class TimeGraph:
-    startTime = getTime()
+for keymap in ['keymap.pan', 'keymap.zoom', 'keymap.home', 'keymap.yscale', 'keymap.xscale']:    # AS LETRAS DOS GRUPOS SÃO DO MONITOR
+    plt.rcParams[keymap] = []
 
-    def __init__(self, xLim=[0, 5], interval=0.001, callback=None):
-        self.initialXLim = list(xLim)
-        self.xLim = list(xLim)
-        self.interval = int(interval * 1000) 
-        self.size = len(np.arange(xLim[0], xLim[1], interval))
-        self.t = 0
-        self.newData = {}
-        self.time  = []     # VETOR DE TEMPO
-        self.data  = {}     # {'y1': [1, 2, 3], 'y2': [4, 5, 6], ...}
-        self.lines = {}     # OBJETOS DE CADA LINHA
-        self.callback = callback
-        self.thread   = None
-        self.need_reset = False
 
-    def reset(self):
-        self.t = 0
-        self.newData = {}
-        self.time = []
-        self.data = {}
-        self.xLim = list(self.initialXLim)
-        
-        if hasattr(self, 'ax'):
-            for lineObj in self.lines.values():
-                try:
-                    lineObj.remove()
-                except Exception:
-                    pass
-            self.ax.set_xlim(self.xLim[0], self.xLim[1])
-            if self.ax.get_legend():
-                self.ax.get_legend().remove()
+# A JANELA AO VIVO: O GRUPO DO MRU QUE A TECLA ESCOLHE, A MESA AO LADO E O STATUS EMBAIXO; q FECHA E SALVA
+class Plotter:
+    INTERVAL = 100    # ms ENTRE QUADROS
 
-        self.lines = {}
-        self.need_reset = False
+    groups = {
+        'p': ['pitch'],
+        'r': ['roll'],
+        'y': ['yaw'],
+        'a': ['ax', 'ay', 'az'],
+        'w': ['wx', 'wy', 'wz'],
+        'h': ['h', 'hr'],
+        'i': ['inc', 'b_max', 'c_max', 'inc_max'],
+        'o': ['q0', 'q1', 'q2', 'q3'],
+        't': ['tmp']
+    }
+
+    def __init__(self, monitor):
+        self.monitor = monitor
+        self.group   = 'p'
 
     def start(self):
-        self.thread = AsyncThreading(self.handleThread)
-        sendEvent('event', 'thread started')
-
-        self.fig, self.ax = plt.subplots(figsize=(10, 6))
-        self.ax.set_title('Plotter Serial')
-        self.ax.set_xlabel('time')
-        self.ax.set_ylabel('response')
-        self.ax.grid()
-        self.ani = FuncAnimation(self.fig, self.update, interval=self.interval, blit=False, cache_frame_data=False)
+        panels      = 2 if self.monitor.reference else 1
+        self.figure = plt.figure(figsize=(16, 6))
+        self.axes   = [plt.subplot(1, panels, i + 1) for i in range(panels)]
+        self.figure.canvas.mpl_connect('key_press_event', self.handle)
+        self.animation = FuncAnimation(self.figure, self.update, interval=self.INTERVAL, cache_frame_data=False)
         plt.show()
 
-    def handleThread(self):
-        data = self.callback()
-
-        if data is None:
-            return
-
-        if len(data) != 2:
-            return
-        
-        self.t, self.newData = data
+    def handle(self, event):
+        if event.key in self.groups:
+            self.group = event.key
 
     def update(self, frame):
-        if self.need_reset:
-            self.reset()
-            return []
+        self.monitor.update()
+        self.draw(self.axes[0], self.monitor.target, self.groups[self.group], f'MRU ({self.group})')
 
-        if not self.newData:
-            return []
+        if self.monitor.reference:
+            self.draw(self.axes[1], self.monitor.reference, ['pitch', 'roll'], 'Mesa de referência')
 
-        self.time.append(self.t)
-        self.time = self.time[-self.size:]
+        self.figure.suptitle(self.monitor.getStatus(), fontsize=10)
+        self.figure.supxlabel('teclas: p r y pitch, roll, yaw · a aceleração · w giro · h heave · i NORMAM · o quaternion · t temperatura · q sai e salva', fontsize=9)
 
-        for (label, value) in self.newData.items():
-            if label not in self.data:
-                self.data[label] = []
-            
-            self.data[label].append(value)
-            self.data[label] = self.data[label][-self.size:] 
+    def draw(self, axis, stream, keys, title):
+        now  = time()
+        rows = list(stream.buffer)
+        axis.cla()
 
-        self.adjustXLim()
-        self.adjustYLim()
-        lines = self.updateLines()
-        return lines
+        for key in keys:
+            points = [(host - now, values[key]) for host, values in rows if key in values]
 
-    def adjustXLim(self):
-        if len(self.time) == 0:
-            return
+            if points:
+                axis.plot(*zip(*points), label=key, linewidth=1)
 
-        if self.time[-1] > self.xLim[1]:
-            desloc = (self.time[-1] - self.xLim[1])
-            self.xLim[0] += desloc
-            self.xLim[1] += desloc
+        axis.set_xlim(-stream.window, 0)
+        axis.set_title(title); axis.set_xlabel('s até agora'); axis.grid(alpha=0.3)
 
-        self.ax.set_xlim(self.xLim[0], self.xLim[1])
-
-    def adjustYLim(self):
-        allValues = []
-
-        for label in self.data:
-            allValues.extend(self.data[label])
-
-        if len(allValues) == 0:
-            return
-
-        minY = min(allValues)
-        maxY = max(allValues)
-        minY = minY * 0.95 if minY >= 0 else minY * 1.05
-        maxY = maxY * 1.05 if maxY >= 0 else maxY * 0.95
-        
-        if minY == maxY:
-            minY -= 1
-            maxY += 1
-            
-        self.ax.set_ylim(minY, maxY)
-
-    def updateLines(self):
-        updated_lines = []
-
-        for label, seriesData in self.data.items():
-            if label not in self.lines:
-                lineObj, = self.ax.plot([], [], label=label)
-                self.lines[label] = lineObj
-                self.ax.legend()
-
-            lineObj = self.lines[label]
-            lineObj.set_data(self.time, seriesData)
-            updated_lines.append(lineObj)
-
-        return updated_lines
+        if axis.get_legend_handles_labels()[0]:
+            axis.legend(loc='upper left')

@@ -9,12 +9,25 @@
 #include "quat/index.h"
 #include "orient/index.h"
 
-
-#define ALIGN_FORWARD     0   
-#define ALIGN_DOWN        1  // cabeça pra cima (measure em pé) - com barriguinha 
-#define ALIGN_UP          2  // cabeça pra baixo (cabo pra baixo) 
-#define ALIGN_RESET       3 
+#define ALIGN_FORWARD     0
+#define ALIGN_DOWN        1  // cabeça pra cima (measure em pé) - com barriguinha
+#define ALIGN_UP          2  // cabeça pra baixo (cabo pra baixo)
+#define ALIGN_RESET       3
 #define ALIGN_UPSIDE_DOWN 4
+
+
+// FATORES DO ICD QUE LEVAM CADA CAMPO DO PACOTE A m/s^2, graus/s, graus, QUATERNION UNITARIO E graus C
+struct KernelScale{
+	float accel, gyro, angle, quat, temperature;
+};
+
+
+// UM PARAMETRO DA FLASH DO KERNEL (TABELA 5.24 DO ICD): ID, TAMANHO EM BYTES E VALOR
+struct KernelParameter{
+	uint16_t id;
+	uint8_t size;
+	uint16_t value;
+};
 
 
 class KernelSensor {
@@ -24,44 +37,69 @@ class KernelSensor {
 	HardwareSerial* uart;
 
   public:
-	int32_t ax_raw, ay_raw, az_raw;
-	int32_t wx_raw, wy_raw, wz_raw;
-	int32_t q0_raw, q1_raw, q2_raw, q3_raw; 
-	int32_t pitch_raw, roll_raw, yaw_raw;
+	static constexpr float G0      = 9.8106f;    // m/s^2 POR g, NOTA DO ICD 1.42
+	static constexpr float RATE    = 200.0f;     // Hz DE SAIDA: DIVISOR DE 2000, MEDIA DE 10 AMOSTRAS INTERNAS
+	static constexpr uint32_t BAUD = 460800;     // HR DE 60 BYTES A 200 Hz OCUPA 29% (FORMULA 5.1 DO ICD)
+	static constexpr int ANSWER    = 300;        // ms DE ESPERA PELA RESPOSTA DO ReadRAM
+	static constexpr uint32_t BAUDS[4] = {BAUD, 115200, 230400, 921600};    // ONDE PROCURAR O KERNEL: O NOSSO, O DE FABRICA E OS VIZINHOS
+	static constexpr uint16_t ALIGNMENT = 0x023A;    // Alignment_Angles: PROA, PITCH E ROLL EM float
 
-	float ax, ay, az;
-	float wx, wy, wz;
-	float q0, q1, q2, q3;
-	float pitch, roll, yaw;
-	float heave = 0;
+	static constexpr KernelScale SCALE[3] = {
+		{G0*1e-6f,   1e-5f, 1e-3f, 0.0f,  0.1f},    // HR: g*1e6, graus/s*1e5, graus*1e3
+		{0.0f,       0.0f,  1e-2f, 1e-4f, 0.1f},    // QT: graus*1e2, quaternion*1e4
+		{G0/4000.0f, 0.02f, 1e-2f, 0.0f,  0.1f}     // OR: g*4000, graus/s*50, graus*1e2
+	};
 
-	float temperature;
+	// O QUE O FIRMWARE GARANTE NA FLASH DO KERNEL A CADA BOOT, O BAUD PRIMEIRO PORQUE ELE LIMITA A TAXA
+	static constexpr KernelParameter PARAMETERS[4] = {
+		{0x03B2, 1, 0x09},    			 // Baud_Rate: 460800, VALE DEPOIS DO CommitBaudRate
+		{0x0012, 2, (uint16_t) RATE},    // Data_Rate em Hz
+		{0x03D0, 1, 0x01},    // Output_Variant: MEDIA DAS AMOSTRAS DE 2 kHz, O ANTI-ALIASING DA DECIMACAO
+		{0x03D7, 1, 0x02}     // LPF_Bandwidth: 66 Hz ANTES DA MEDIA, BEM ACIMA DO MOVIMENTO DO NAVIO
+	};
+
+	int32_t ax, ay, az;
+	int32_t wx, wy, wz;
+	int32_t q0, q1, q2, q3;
+	int32_t pitch, roll, yaw;
+	int16_t temperature;
+	float alignment[3] = {NAN, NAN, NAN};    // O QUE O KERNEL APLICA DESDE QUE LIGOU; NAN SE ELE NAO RESPONDEU
 
 	KernelModelOrientation ort;
 	KernelModelQuaternion qt;
 	KernelModelHR hr;
 
 	byte mode = HR_MODE;
-	bool calibrate = false;
 	bool header;
 	int index;
 
 	int64_t packetStartTime = esp_timer_get_time();
-	int64_t lastAckTime     = esp_timer_get_time();
+	int64_t lastAckTime     = 0;    // NENHUM PACOTE AINDA: O PROCESSAMENTO ESPERA O PRIMEIRO
 
 	bool working = false;
+	uint32_t baud = BAUD;
 	int tx_pin, rx_pin;
 
-	KernelSensor(int tx, int rx): 
+	KernelSensor(int tx, int rx):
 		uart(new HardwareSerial(1)), ort(uart), qt(uart), hr(uart){
 			tx_pin = tx;
 			rx_pin = rx;
 		}
 
 	void setup(){
-		uart->begin(115200, SERIAL_8N1, rx_pin, tx_pin);
+		if(mode > OR_MODE)    // CONFIGURACAO FORA DOS TRES MODOS: A TABELA DE ESCALA SAIRIA DO VETOR
+			mode = HR_MODE;
+
+		uart->setRxBufferSize(4096);    // ~80 ms DE PACOTES A 460800: O LACO PODE ATRASAR SEM PERDER AMOSTRA
+
+		if(connect()){
+			configure();
+			ask(ALIGNMENT, 12, alignment);    // ANTES DO STREAM: COM ELE RODANDO A RESPOSTA SE PERDE NOS PACOTES
+		}
+
 		Serial.println("Kernel Mode: " + toString());
-		Serial.printf("pins tx=%d and rx=%d\n", tx_pin, rx_pin);
+		Serial.printf("Kernel Align: proa %.1f, pitch %.1f, roll %.1f\n", alignment[0], alignment[1], alignment[2]);
+		Serial.printf("pins tx=%d and rx=%d | %lu bps | %.0f Hz\n", tx_pin, rx_pin, (unsigned long) baud, RATE);
 		lastUpdate = Time::get();
 
 		if(mode == HR_MODE)
@@ -81,66 +119,31 @@ class KernelSensor {
 			memcpy(hr.packet, rx_buffer, hr.PKT_LEN);
 			working = hr.update();
 
-			ax_raw = hr.ax; ay_raw = hr.ay; az_raw = hr.az;
-			wx_raw = hr.wx; wy_raw = hr.wy; wz_raw = hr.wz;
+			ax = hr.ax; ay = hr.ay; az = hr.az;
+			wx = hr.wx; wy = hr.wy; wz = hr.wz;
 
-			pitch_raw   = hr.pitch; roll_raw = hr.roll; yaw_raw = hr.yaw;
+			pitch = hr.pitch; roll = hr.roll; yaw = hr.yaw;
 			temperature = hr.temperature;
-
-			if(!calibrate){
-				ax = (ax_raw / 1000000.0f);
-				ay = (ay_raw / 1000000.0f);
-				az = (az_raw / 1000000.0f);
-
-				wx = (wx_raw / 100000.0f);
-				wy = (wy_raw / 100000.0f);
-				wz = (wz_raw / 100000.0f);
-
-				pitch = (pitch_raw / 1000.0f);
-				roll  = (roll_raw  / 1000.0f);
-				yaw   = (yaw_raw   / 1000.0f);
-			}
 		}
 
 		if(mode == QT_MODE){
 			memcpy(qt.packet, rx_buffer, qt.PKT_LEN);
 			working = qt.update();
 
-			q0_raw = qt.q0; q1_raw = qt.q1; q2_raw = qt.q2; q3_raw = qt.q3;
-			pitch_raw = qt.pitch; roll_raw = qt.roll; yaw_raw = qt.yaw;
+			q0 = qt.q0; q1 = qt.q1; q2 = qt.q2; q3 = qt.q3;
+			pitch = qt.pitch; roll = qt.roll; yaw = qt.yaw;
 			temperature = qt.temperature;
-
-			q0 = (q0_raw / 10000.0f);
-			q1 = (q1_raw / 10000.0f);
-			q2 = (q2_raw / 10000.0f);
-			q3 = (q3_raw / 10000.0f);
-
-			pitch = (pitch_raw / 100.0f);
-			roll  = (roll_raw  / 100.0f);
-			yaw   = (yaw_raw   / 100.0f);
 		}
 
 		if(mode == OR_MODE){
 			memcpy(ort.packet, rx_buffer, ort.PKT_LEN);
 			working = ort.update();
 
-			ax_raw = ort.ax; ay_raw = ort.ay; az_raw = ort.az;
-			wx_raw = ort.wx; wy_raw = ort.wy; wz_raw = ort.wz;
+			ax = ort.ax; ay = ort.ay; az = ort.az;
+			wx = ort.wx; wy = ort.wy; wz = ort.wz;
 
-			pitch_raw = ort.pitch; roll_raw = ort.roll; yaw_raw = ort.yaw;
+			pitch = ort.pitch; roll = ort.roll; yaw = ort.yaw;
 			temperature = ort.temperature;
-
-			ax = (ax_raw / 4000.0f);
-			ay = (ay_raw / 4000.0f);
-			az = (az_raw / 4000.0f);
-
-			wx = (wx_raw / 50.0f);
-			wy = (wy_raw / 50.0f);
-			wz = (wz_raw / 50.0f);
-
-			pitch = (pitch_raw / 100.0f);
-			roll  = (roll_raw  / 100.0f);
-			yaw   = (yaw_raw   / 100.0f);
 		}
 
 		if(working)
@@ -162,12 +165,12 @@ class KernelSensor {
 					rx_buffer[0] = 0xAA;
 					index = 1;
 					packetStartTime = esp_timer_get_time();
-				} 
+				}
 				else if(index == 1 && newByte == 0x55) {
 					rx_buffer[1] = 0x55;
 					header = true;
 					index = 2;
-				} 
+				}
 				else {
 					index = 0;
 				}
@@ -185,8 +188,134 @@ class KernelSensor {
 		}
 	}
 
+	// PROCURA O BAUD EM QUE O KERNEL RESPONDE, PARANDO ANTES O STREAM QUE UM BOOT ANTERIOR DEIXOU RODANDO
+	bool connect(){
+		const uint8_t stop[1] = {0xFE};
+		uint16_t value = 0;
+
+		uart->begin(BAUD, SERIAL_8N1, rx_pin, tx_pin);
+
+		for(const uint32_t candidate : BAUDS){
+			uart->updateBaudRate(candidate);
+			baud = candidate;
+			command(stop, 1);
+			delay(50);
+
+			if(ask(PARAMETERS[1].id, PARAMETERS[1].size, &value))
+				return true;
+		}
+
+		Serial.println("Kernel nao respondeu em nenhum baud");
+		uart->updateBaudRate(BAUD);
+		baud = BAUD;
+		return false;
+	}
+
+	// GRAVA NA FLASH DO KERNEL SO O PARAMETRO QUE DIFERE: A FLASH TEM CICLOS LIMITADOS
+	void configure(){
+		const uint8_t commit[1] = {0xC2};    // CommitBaudRate: O BAUD NOVO VALE SEM DESLIGAR
+
+		for(const KernelParameter& parameter : PARAMETERS){
+			uint16_t value = 0;
+
+			if(ask(parameter.id, parameter.size, &value) && value == parameter.value)
+				continue;
+
+			const uint8_t payload[8] = {0xB2, 0xFF, (uint8_t) parameter.id, (uint8_t) (parameter.id >> 8), parameter.size, 0x00, (uint8_t) parameter.value, (uint8_t) (parameter.value >> 8)};
+			command(payload, 6 + parameter.size);
+			Serial.printf("Kernel: parametro 0x%04X gravado com %u\n", parameter.id, parameter.value);
+			delay(200);
+
+			if(parameter.id != PARAMETERS[0].id)
+				continue;
+
+			command(commit, 1);
+			delay(100);
+			uart->updateBaudRate(BAUD);
+			baud = BAUD;
+		}
+	}
+
+	// LE UM PARAMETRO DA RAM DO KERNEL NO TIPO DELE, LSB PRIMEIRO; A RESPOSTA E AA 55 01 B1, TAMANHO, VALOR E SOMA
+	bool ask(const uint16_t id, const uint8_t size, void* value){
+		const uint8_t header[4]  = {0xAA, 0x55, 0x01, 0xB1};
+		const uint8_t payload[6] = {0xB1, 0xFF, (uint8_t) id, (uint8_t) (id >> 8), size, 0x00};
+		uint8_t packet[20];    // ATE 12 BYTES DE VALOR: OS TRES float DO ALIGN
+		int length = 0;
+
+		while(uart->available())
+			uart->read();
+
+		command(payload, 6);
+		const unsigned long startTime = Time::get();
+
+		while(length < 8 + size && Time::get() - startTime < ANSWER){
+			if(!uart->available())
+				continue;
+
+			packet[length] = uart->read();
+
+			if(length < 4 && packet[length] != header[length]){    // FORA DO CABECALHO: RECOMECA, TALVEZ JA NESTE BYTE
+				length    = (packet[length] == 0xAA) ? 1 : 0;
+				packet[0] = 0xAA;
+				continue;
+			}
+
+			length++;
+		}
+
+		if(length < 8 + size)
+			return false;
+
+		uint16_t checksum = 0;
+
+		for(int i = 2; i < 6 + size; i++)
+			checksum += packet[i];
+
+		if(checksum != (packet[6 + size] | (packet[7 + size] << 8)))
+			return false;
+
+		memcpy(value, packet + 6, size);
+		return true;
+	}
+
+	// AA 55 00 00, TAMANHO, PAYLOAD E A SOMA DOS BYTES A PARTIR DO TERCEIRO (TABELA 5.2 DO ICD)
+	void command(const uint8_t* payload, const int size){
+		const uint16_t length = size + 6;
+		uint16_t checksum = 0;
+		uint8_t packet[32];
+
+		packet[0] = 0xAA; packet[1] = 0x55; packet[2] = 0x00; packet[3] = 0x00;
+		packet[4] = length & 0xFF; packet[5] = length >> 8;
+		memcpy(packet + 6, payload, size);
+
+		for(int i = 2; i < 6 + size; i++)
+			checksum += packet[i];
+
+		packet[6 + size] = checksum & 0xFF;
+		packet[7 + size] = checksum >> 8;
+		uart->write(packet, 8 + size);
+	}
+
+	// CAMPOS DO PACOTE NO TIPO ORIGINAL, NA ORDEM DO STREAMER; O KERNEL NAO TEM HEAVE
+	int read(double* values) const {
+		values[0] = temperature;
+		values[1] = pitch; values[2] = roll; values[3] = yaw;
+
+		if(mode == QT_MODE){
+			values[4] = q0; values[5] = q1; values[6] = q2; values[7] = q3;
+			values[8] = 0;
+			return 9;
+		}
+
+		values[4] = ax; values[5] = ay; values[6] = az;
+		values[7] = wx; values[8] = wy; values[9] = wz;
+		values[10] = 0;
+		return 11;
+	}
+
 	int getLength(){
-		if(mode == HR_MODE) 
+		if(mode == HR_MODE)
 			return hr.PKT_LEN;
 
 		if(mode == QT_MODE)
@@ -198,34 +327,24 @@ class KernelSensor {
 		return 0;
 	}
 
-	bool timeout(){
-		return (header && (Time::get() - lastUpdate > 100));
-	}
-
 	void align(byte position = ALIGN_DOWN){
-		uint8_t cmd[26] = { 0xAA, 0x55, 0x00, 0x00, 0x18, 0x00, 0xB2, 0xFF, 0x3A, 0x02, 0x0C, 0x00, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0 };
+		uint8_t payload[18] = {0xB2, 0xFF, 0x3A, 0x02, 0x0C, 0x00, 0,0,0,0, 0,0,0,0, 0,0,0,0};    // Alignment_Angles: proa, pitch e roll em float
 
 		if(position == ALIGN_UPSIDE_DOWN){
-			cmd[12] = 0x00; cmd[13] = 0x00; cmd[14] = 0x34; cmd[15] = 0x43; // H=180
-			cmd[20] = 0x00; cmd[21] = 0x00; cmd[22] = 0x34; cmd[23] = 0x43; // R=180
-		} 
-
-		else if (position == ALIGN_DOWN) {
-			cmd[16] = 0x00; cmd[17] = 0x00; cmd[18] = 0xB4; cmd[19] = 0xC2; // P=-90
-		} 
-
-		else if (position == ALIGN_UP) {
-			cmd[16] = 0x00; cmd[17] = 0x00; cmd[18] = 0xB4; cmd[19] = 0x42; // P=90
+			payload[6]  = 0x00; payload[7]  = 0x00; payload[8]  = 0x34; payload[9]  = 0x43; // H=180
+			payload[14] = 0x00; payload[15] = 0x00; payload[16] = 0x34; payload[17] = 0x43; // R=180
 		}
 
-		uint16_t checksum = 0;
-		for (int i = 2; i < 24; i++) 
-			checksum += cmd[i];
+		else if (position == ALIGN_DOWN) {
+			payload[10] = 0x00; payload[11] = 0x00; payload[12] = 0xB4; payload[13] = 0xC2; // P=-90
+		}
 
-		cmd[24] = checksum & 0xFF; cmd[25] = (checksum >> 8) & 0xFF;
-		uart->write(cmd, 26);
+		else if (position == ALIGN_UP) {
+			payload[10] = 0x00; payload[11] = 0x00; payload[12] = 0xB4; payload[13] = 0x42; // P=90
+		}
+
+		command(payload, 18);
 		delay(1000);
-		heave = 0;
 	}
 
 	void reset() {
@@ -233,8 +352,12 @@ class KernelSensor {
 		index  = 0;
 	}
 
+	bool timeout(){
+		return (header && (Time::get() - lastUpdate > 100));
+	}
+
 	String toString(){
-		if(mode == HR_MODE)  return calibrate ? "HR Mode (Calibration)" : "HR Mode";
+		if(mode == HR_MODE)  return "HR Mode";
 		if(mode == QT_MODE)  return "Quaternion Mode";
 		if(mode == OR_MODE)  return "Orientation Mode";
 		return "Unknown Mode";

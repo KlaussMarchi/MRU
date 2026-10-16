@@ -26,7 +26,7 @@ public:
 		streamer(dev){}
 
 	void setup(){
-		int baud = device->settings.template get<int>("baudrate", 9600);
+		int baud = (device->mode == ACQUISITION_MODE) ? ACQUISITION_BAUD : device->settings.template get<int>("baudrate", 9600);
 
 		serial.setup(baud);
 		Serial.println("baudrate: " + String(baud));

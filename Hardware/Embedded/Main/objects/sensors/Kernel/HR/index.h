@@ -27,7 +27,7 @@ class KernelModelHR{
 	int32_t ax, ay, az;
 	int32_t wx, wy, wz;
 	int32_t pitch, roll, yaw;
-	float temperature;
+	int16_t temperature;    // C*10, O TIPO QUE O KERNEL MANDA
 
 	KernelModelHR(HardwareSerial* uart){
 		this->uart = uart;
@@ -49,7 +49,7 @@ class KernelModelHR{
 		ay = extract_i32(34);
 		az = extract_i32(38);
 
-		temperature = ((float) extract_i16(56)) / 10.0f; // Temperatura 
+		temperature = extract_i16(56);
 		return true;
 	}
 

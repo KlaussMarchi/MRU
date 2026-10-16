@@ -1,0 +1,11 @@
+{
+    "description": "ensaio do pendulo formatado antes do Monitor: o Format antigo trocou ay/az sem sinal, wy/wz com sinal e roll/pitch",
+    "axes": {
+        "ay": "az",
+        "az": "ay",
+        "wy": "wz",
+        "wz": "-wy",
+        "pitch": "roll",
+        "roll": "-pitch"
+    }
+}

@@ -1,0 +1,16 @@
+{
+    "strategy":"heave",
+    "backup":"4 - Heave\/Backup\/heave_2",
+    "attitude":"kalman_fusion",
+    "pivot":[
+        -0.1951779119,
+        -1.9386759643,
+        0.0568038046
+    ],
+    "trend":10.0,
+    "metrics":{
+        "rms":0.0205131702,
+        "amplitude":0.1582121066,
+        "corr":0.7678511709
+    }
+}

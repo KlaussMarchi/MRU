@@ -19,8 +19,7 @@ public:
         if(debug)
             {working=true; return;}
 
-        kernel.mode      = device->settings.template get<byte>("kernel_mode");
-        kernel.calibrate = device->settings.isEnabled("calibrate");
+        kernel.mode = device->settings.template get<byte>("kernel_mode");
         kernel.setup();
     }
 

@@ -1,275 +1,252 @@
-from Device.index import Device
-from Plotter.index import TimeGraph
-from Utils.classes import AsyncThreading, KeyboardListener
+from Device.index import discover
+from Plotter.index import Plotter
 from Utils.functions import sendEvent
+from collections import deque
+from statistics import median
 from time import time, sleep
-import numpy as np
 import pandas as pd
-import os, shutil, json
+import numpy as np
+from scipy.interpolate import make_smoothing_spline
+import os, json, datetime
 
-script_path = os.path.abspath(__file__)
-base_dir = os.path.dirname(script_path)
-os.chdir(base_dir)
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
+MRU_PORT   = None        # None PROCURA SOZINHO EM TODAS AS PORTAS E BAUDS; OU '/dev/ttyACM0', '/dev/ttyUSB1', 'COM5'
+TABLE_PORT = None        # None USA A PORTA MUDA QUE SOBRAR: A MESA SÓ FALA DEPOIS DE SOLTA
+PLOT       = True        # False SÓ GRAVA E MOSTRA O STATUS NO TERMINAL, PARA SESSÕES LONGAS
+OUTPUT     = 'output'    # UMA PASTA POR SESSÃO, NADA É SOBRESCRITO
 
-MRU   = ['tmp', 'pitch', 'roll', 'yaw', 'ax', 'ay', 'az', 'wx', 'wy', 'wz', 'h']    # printList() DO firmware EM HR/OR
-TABLE = ['board', 'pitch', 'roll']                                                   # print() DO Table.ino: [t, pitch, roll]
 
-MRU_PORT   = '/dev/ttyACM0'    # USB NATIVO DO ESP32-S3
-MRU_RATE   = 115200            # NO USB-CDC O VALOR É IGNORADO; PELA RS232 O firmware USA 9600
-TABLE_PORT = '/dev/ttyUSB0'    # CONVERSOR USB DO ESP32 DA MESA
-TABLE_RATE = 115200            # Table.ino: Serial.begin(115200)
+# UM APARELHO NA GRAVAÇÃO: O DIÁRIO EM DISCO, A TAXA, AS PERDAS PELO TEMPO DA AMOSTRA E A JANELA QUE A TELA MOSTRA
+class Stream:
+    def __init__(self, name, device, folder, window):
+        self.name     = name
+        self.device   = device
+        self.path     = f'{folder}/{name}.jsonl'
+        self.window   = window
+        self.buffer   = deque()
+        self.arrivals = deque()
+        self.steps    = deque(maxlen=50)
+        self.layouts  = {}
+        self.count    = 0
+        self.lost     = 0
+        self.first    = None
+        self.previous = None
 
-def setFolder(folder):
-    if os.path.exists(folder):
-        shutil.rmtree(folder)
-    os.makedirs(folder)
+    def start(self):
+        self.journal = open(self.path, 'a')
+        self.flushed = time()
+        self.device.start()
 
+    def update(self):
+        while self.device.packets:
+            host, (kind, layout, values) = self.device.packets.popleft()
+
+            if kind == 'text':
+                sendEvent(self.name, values)
+                continue
+
+            self.journal.write(json.dumps({'host': host, 'layout': layout, **values}) + '\n')
+            self.layouts[layout] = self.layouts.get(layout, 0) + 1
+            self.first = self.first or host
+            self.count += 1
+            self.arrivals.append(host)
+            self.buffer.append((host, values))
+            self.check(values.get('time'))
+
+        now = time()
+
+        while self.arrivals and now - self.arrivals[0] > 1.0:
+            self.arrivals.popleft()
+
+        while self.buffer and now - self.buffer[0][0] > self.window:
+            self.buffer.popleft()
+
+        if now - self.flushed > 1.0:    # NO MÁXIMO UM SEGUNDO SE PERDE SE O PC CAIR
+            self.journal.flush()
+            self.flushed = now
+
+    # PACOTE QUE FALTOU: SALTO NO TEMPO DA AMOSTRA MAIOR QUE 1,5 PERÍODO; TEMPO VOLTANDO É O APARELHO REINICIANDO
+    def check(self, stamp):
+        if stamp is None:
+            return
+
+        if self.previous is not None and stamp > self.previous:
+            step    = stamp - self.previous
+            nominal = median(self.steps) if self.steps else step
+
+            if step > 1.5*nominal:
+                self.lost += round(step/nominal) - 1
+            else:
+                self.steps.append(step)
+
+        self.previous = stamp
+
+    def getLayout(self):
+        return max(self.layouts, key=self.layouts.get) if self.layouts else None
+
+    def info(self):
+        return {'port': self.device.port, 'baud': self.device.baud, 'samples': self.count, 'lost': self.lost, 'bad_lines': self.device.errors, 'layouts': self.layouts}
+
+    def getStatus(self):
+        return f'{self.name} {self.device.port} · {self.getLayout()} · {len(self.arrivals)} Hz · {self.count} amostras · {self.lost} perdidas'
+
+    # O DIÁRIO NO RELÓGIO DO PC: O DO APARELHO DESLOCADO PELO MENOR ATRASO DE CHEGADA, UM DESLOCAMENTO POR REINÍCIO
+    def load(self):
+        frame = pd.read_json(self.path, lines=True)
+
+        if frame.empty:
+            return frame
+
+        if 'time' not in frame:
+            return frame.rename(columns={'host': 'time'})
+
+        segment       = (frame.time.diff() < 0).cumsum()
+        offset        = (frame.host - frame.time).groupby(segment).transform(lambda part: part.quantile(0.01))
+        frame['time'] = (frame.time + offset).fillna(frame.host)
+        return frame.drop(columns='host')
+
+    def stop(self):
+        self.device.stop()
+        self.journal.close()
+
+
+# O ENSAIO OU A MONITORAÇÃO: MRU SEMPRE, MESA QUANDO HÁ ENSAIO; SEGURA A MESA PARADA, SOLTA E NO FIM MONTA OS CSV DO Calibration
 class Monitor:
-    INDEPENDENT = True
-    NORMALIZE   = False
-    STILL       = 20.0    # s PARADO ANTES DE SOLTAR A MESA: É O TRECHO static QUE A CALIBRAÇÃO MEDE
-    TOLERANCE   = 0.2     # s: DISTÂNCIA MÁXIMA ENTRE A AMOSTRA DO MRU E A DA MESA NO CASAMENTO
-    STEADY      = 0.1     # graus DE EXCURSÃO DA MESA EM 1 s: ABAIXO DISSO A LINHA É static
+    STILL     = 20.0    # s PARADO ANTES DE SOLTAR A MESA: O TRECHO static QUE A CALIBRAÇÃO MEDE
+    TOLERANCE = 0.2     # s ENTRE A AMOSTRA DO MRU E A DA MESA NO CASAMENTO
+    STEADY    = 0.1     # graus DE EXCURSÃO DA MESA EM 1 s: ABAIXO DISSO A LINHA É static
+    WINDOW    = 20.0    # s NA TELA
+    ANSWER    = 3.0     # s ESPERANDO A MESA FALAR DEPOIS DE SOLTA
 
-    def __init__(self, targets=['pitchM']):
-        self.kb = KeyboardListener()
-        self.kb.start()
-        self.current = None
-        self.valuesM = []
-        self.valuesP = []
-        self.targets = targets
-        self.startProg = None
-        self.released = None
-        self.SAVE = True
-        self.stats = {}
+    def __init__(self, mru, table, output):
+        self.folder    = os.path.join(output, datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
+        self.target    = Stream('target', mru, self.folder, self.WINDOW)
+        self.reference = Stream('reference', table, self.folder, self.WINDOW) if table else None
+        self.streams   = [stream for stream in [self.target, self.reference] if stream]
+        self.released  = None
+        self.warnings  = []
 
-    def setup(self):
-        self.deviceM = Device(port=MRU_PORT, rate=MRU_RATE, keys=MRU)
-        self.deviceP = Device(port=TABLE_PORT, rate=TABLE_RATE, keys=TABLE)
-
-        self.deviceM.connect()
-        self.deviceP.connect()
+    def start(self):
+        os.makedirs(self.folder, exist_ok=True)
         self.startTime = time()
 
-        sleep(2.00)
-        self.check()
+        for stream in self.streams:
+            stream.start()
 
-        self.threadM = AsyncThreading(self.handleMeasure)
-        self.threadP = AsyncThreading(self.handlePlate)
+        sendEvent('event', f'gravando em {self.folder}')
 
-    # A MESA SÓ FALA DEPOIS DO PRIMEIRO BYTE, ENTÃO QUEM RESPONDE AO stream_start É O MRU
-    def check(self):
-        self.deviceM.send('$stream_start!')
-        sleep(2.00)
+    def update(self):
+        for stream in self.streams:
+            stream.update()
 
-        if self.deviceM.getList() is not None:
-            return sendEvent('event', f'MRU em {self.deviceM.port}, mesa em {self.deviceP.port}')
-
-        sendEvent('event', f'sem pacote de {len(MRU)} valores em {self.deviceM.port}: tentando a outra porta')
-        self.deviceM, self.deviceP = self.deviceP, self.deviceM
-        self.deviceM.keys, self.deviceP.keys = MRU, TABLE
-        self.deviceP.send('reset')    # O stream_start JÁ SOLTOU A MESA: VOLTA PARA ZERO E ESPERA O BYTE DE NOVO
-
-        self.deviceM.send('$stream_start!')
-        sleep(2.00)
-
-        if self.deviceM.getList() is None:
-            return sendEvent('error', 'nenhuma das portas respondeu com o pacote do MRU')
-
-        return sendEvent('event', f'cabos invertidos: MRU em {self.deviceM.port}, mesa em {self.deviceP.port}')
-
-    def handleMeasure(self):
-        if not self.deviceM.available():
-            return
-        
-        self.deviceM.last = self.deviceM.getList()
-
-    def handlePlate(self):
-        if not self.deviceP.available():
-            return
-        
-        self.deviceP.last = self.deviceP.getList()
-
-    def handle(self):
-        measure_working   = self.deviceM.last is not None
-        plate_working     = self.deviceP.last is not None
-
-        if self.INDEPENDENT and (not measure_working and not plate_working):
+        if self.reference is None or self.target.first is None:
             return
 
-        if not self.INDEPENDENT and (not measure_working or not plate_working):
-            return
-        
-        if self.startProg is None:
-            self.startProg = time()
+        now = time()
 
-        passed = time() - self.startProg
+        if self.released is None and now - self.target.first >= self.STILL:
+            self.reference.device.send('start')    # QUALQUER BYTE SOLTA A MESA; 'reset' É O ÚNICO COMANDO QUE ELA TRATA
+            self.released = now - self.startTime
+            sendEvent('event', f'mesa solta em {self.released:.1f} s')
 
-        if self.released is None and passed >= self.STILL:
-            self.released = passed
-            self.deviceP.send('start')    # QUALQUER BYTE SOLTA A MESA; 'reset' É O ÚNICO COMANDO QUE ELA TRATA
-            sendEvent('event', f'mesa liberada em {passed:.1f} s')
+        if self.released is not None and self.reference.count == 0 and now - self.startTime > self.released + self.ANSWER:
+            self.warn(f'a mesa em {self.reference.device.port} não respondeu depois de solta: a sessão segue só monitorando')
 
-        sendEvent('measure', ('working'   if measure_working else 'failed')   + f': {str(self.deviceM.last)[:100]}',   'green' if measure_working else 'red')
-        sendEvent('plate', ('working' if plate_working else 'failed') + f': {str(self.deviceP.last)[:100]}', 'green' if plate_working else 'red')
-        sendEvent('time', passed, 'blue')
-        print()
-        
-        if measure_working:
-            self.deviceM.last['time'] = passed
+        if self.target.getLayout() not in [None, 'scale']:
+            self.warn(f'o MRU está em {self.target.getLayout()}: para calibrar mande CF:device_mode$1! (ou CF:streamer_mode$2!) e grave de novo')
 
-        if plate_working:
-            self.deviceP.last['time'] = passed
-            
-        if self.current is None:
-            self.current = {target: 0.5 for target in self.targets}
-            
-        for target in self.targets:
-            val = None
-            if target.endswith('M') and measure_working:
-                val = self.deviceM.last.get(target[:-1])
-
-            if target.endswith('P') and plate_working:
-                val = self.deviceP.last.get(target[:-1])
-                
-            if val is not None:
-                if target not in self.stats:
-                    self.stats[target] = {'min': val, 'max': val}
-                
-                self.stats[target]['min'] = min(self.stats[target]['min'], val)
-                self.stats[target]['max'] = max(self.stats[target]['max'], val)
-                
-                vmin = self.stats[target]['min']
-                vmax = self.stats[target]['max']
-                
-                if self.NORMALIZE:
-                    if vmax - vmin == 0:
-                        norm_val = 0.5
-                    else:
-                        norm_val = (val - vmin) / (vmax - vmin)
-                        
-                    self.current[target] = norm_val
-                else:
-                    self.current[target] = val
-            
-        if measure_working:
-            self.valuesM.append(self.deviceM.last)
-            self.deviceM.last = None
-
-        if plate_working:
-            self.valuesP.append(self.deviceP.last)
-            self.deviceP.last = None
-
-    def get(self):
-        if self.current is None:
+    def warn(self, message):
+        if message in self.warnings:
             return
 
-        if self.kb.is_pressed('n'):
-            self.NORMALIZE = not self.NORMALIZE
-            self.reset()
-            print(f"\n[INFO] Normalization: {'ON' if self.NORMALIZE else 'OFF'}")
+        self.warnings.append(message)
+        sendEvent('error', message)
 
-        if self.kb.is_pressed('p'):
-            self.targets = ['pitchM']; self.reset()
+    def getStatus(self):
+        status = [stream.getStatus() for stream in self.streams]
 
-        if self.kb.is_pressed('r'):
-            self.targets = ['rollM']; self.reset()
+        if self.released is not None:
+            status.append(f'mesa solta em {self.released:.0f} s')
 
-        if self.kb.is_pressed('y'):
-            self.targets = ['yawM']; self.reset()
+        return '   |   '.join(status)
 
-        if self.kb.is_pressed('h'):
-            self.targets = ['hM']; self.reset()
+    def stop(self):
+        for stream in self.streams:
+            stream.stop()
 
-        if self.kb.is_pressed('k'):
-            self.targets = ['pitchM']; self.reset()
+    # FORMATO DO Calibration: UMA LINHA POR AMOSTRA DO MRU NA ESCALA, COM A MESA SUAVIZADA NO INSTANTE DELA
+    def merge(self, target, reference):
+        target = target[target.layout == 'scale'].drop(columns='layout').dropna(axis=1, how='all')
 
-        if self.kb.is_pressed('w'):
-            self.targets = ['wxM']; self.reset()
-
-        if self.kb.is_pressed('a'):
-            self.targets = ['axM']; self.reset()
-
-        if self.kb.is_pressed('o'):
-            self.targets = ['q0M']; self.reset()
-                    
-        return (time() - self.startTime, self.current)
-
-    def reset(self):
-        self.stats = {} # Limpa os stats para re-normalizar com a nova variavel
-        self.graph.need_reset = True
-        self.startTime = time()
-        self.current = None
-
-    def saveDevice(self, data, device, folder):
-        if not data:
-            return pd.DataFrame().to_csv(os.path.join(folder, device, 'data.csv'), index=False)
-        
-        keys = set()
-        for record in data:
-            keys.update(record.keys())
-
-        data = [{key: record.get(key, 0) for key in keys} for record in data]
-        df = pd.DataFrame(data)
-        df.to_csv(os.path.join(folder, device, 'data.csv'), index=False)
-            
-    # FORMATO QUE O Calibration ESPERA: UMA LINHA POR AMOSTRA DO MRU, COM A MESA SEGURADA NO INSTANTE MAIS PRÓXIMO
-    def merge(self):
-        if not self.valuesM or not self.valuesP:
+        if target.empty or len(reference) < 5:    # A SPLINE SUAVIZADA PEDE CINCO PONTOS
             return None
 
-        target = pd.DataFrame(self.valuesM).add_prefix('target_').rename(columns={'target_time': 'time'}).sort_values('time')
-        plate  = pd.DataFrame(self.valuesP).drop(columns='board').add_prefix('ref_').rename(columns={'ref_time': 'time'}).sort_values('time')
-        angles = ['ref_pitch', 'ref_roll']
+        target    = target.add_prefix('target_').rename(columns={'target_time': 'time'}).sort_values('time')
+        reference = reference[['time', 'pitch', 'roll']].add_prefix('ref_').rename(columns={'ref_time': 'time'}).sort_values('time').drop_duplicates('time')
+        angles    = ['ref_pitch', 'ref_roll']
 
-        data = pd.merge_asof(target, plate, on='time', direction='nearest', tolerance=self.TOLERANCE)
-        data[angles] = data[angles].bfill().ffill()    # ANTES DO PRIMEIRO PACOTE A MESA ESTÁ PARADA NA POSIÇÃO INICIAL
-        data['ref_yaw'] = 0.0                          # A MESA SÓ TEM OS EIXOS DE ROLAGEM E ARFAGEM
+        data            = pd.merge_asof(target, reference, on='time', direction='nearest', tolerance=self.TOLERANCE)
+        near            = data[angles].notna()
+        data[angles]    = np.c_[[make_smoothing_spline(reference.time, reference[angle])(data.time) for angle in angles]].T    # O Format E O 4 - Heave DERIVAM DUAS VEZES: PACOTE A 10 Hz EM DEGRAUS DE 0,025° VIRARIA PICO
+        data[angles]    = data[angles].where(near).bfill().ffill()    # ANTES DO PRIMEIRO PACOTE A MESA ESTÁ PARADA NA POSIÇÃO INICIAL
+        data['ref_yaw'] = 0.0                             # A MESA SÓ TEM OS EIXOS DE ROLAGEM E ARFAGEM
 
         window = max(int(round(1.0 / data.time.diff().median())), 1)
-        swing  = data[angles].rolling(window, min_periods=1)
+        swing  = data[angles].rolling(window, min_periods=1, center=True)    # PARADO ANTES E DEPOIS: A PARTIDA DA MESA TEM O PICO DO BRAÇO
         data['static'] = (swing.max() - swing.min()).max(axis=1) < self.STEADY
 
         columns = [column for column in data.columns if column.startswith(('target_', 'ref_'))]
         return data[['time', 'static'] + columns]
 
-    def save(self, folder='output'):
-        setFolder(os.path.join(folder, 'reference'))
-        setFolder(os.path.join(folder, 'target'))
+    def save(self):
+        frames = {stream.name: stream.load() for stream in self.streams}
+        start  = min([frame.time.min() for frame in frames.values() if not frame.empty] or [0])
 
-        self.saveDevice(self.valuesM, 'target', folder)
-        self.saveDevice(self.valuesP, 'reference', folder)
-        data = self.merge()
+        for name, frame in frames.items():
+            if not frame.empty:
+                frame['time'] -= start
+                frame.to_csv(f'{self.folder}/{name}.csv', index=False)
+
+        data = self.merge(frames['target'], frames['reference']) if self.reference and not frames['target'].empty else None
+
+        info = {
+            'description': 'target = MRU em teste, ref = mesa (TableMotor)',
+            'devices': {stream.name: stream.info() for stream in self.streams},
+            'still': self.STILL,
+            'released': self.released,
+            'calibration': data is not None,
+            'warnings': self.warnings
+        }
+
+        if data is not None:
+            data.to_csv(f'{self.folder}/data.csv', index=False)
+            info |= {'data': len(data), 'static': int(data.static.sum()), 'rate': round(1 / data.time.diff().median(), 2)}
+
+        with open(f'{self.folder}/info.json', 'w') as file:
+            file.write(json.dumps(info, indent=4))
+
+        for stream in self.streams:
+            os.remove(stream.path)
 
         if data is None:
-            return sendEvent('error', 'faltou pacote de um dos aparelhos: data.csv não foi gerado')
+            return sendEvent('event', f'{self.target.count} amostras do MRU em {self.folder}/target.csv (sem data.csv: falta mesa ou o MRU não estava na escala)')
 
-        data.to_csv(os.path.join(folder, 'data.csv'), index=False)
-
-        with open(os.path.join(folder, 'info.json'), 'w') as file:
-            file.write(json.dumps({
-                'description': 'target = MRU em teste, ref = mesa (TableMotor)',
-                'samples': {'target': len(self.valuesM), 'reference': len(self.valuesP), 'data': len(data)},
-                'static': int(data.static.sum()),
-                'rate': round(1 / data.time.diff().median(), 2),
-                'still': self.STILL
-            }, indent=4))
-
-        return sendEvent('event', f'{len(data)} linhas, {int(data.static.sum())} paradas, em {folder}/data.csv')
+        return sendEvent('event', f'{len(data)} linhas, {int(data.static.sum())} paradas, em {self.folder}/data.csv')
 
 
-if __name__ == '__main__':
-    monitor = Monitor()
-    monitor.setup()
-    thread = AsyncThreading(monitor.handle, interval=0.001)
+monitor = Monitor(*discover(MRU_PORT, TABLE_PORT), OUTPUT)
+monitor.start()
 
-    try:
-        graph = TimeGraph(callback=monitor.get, xLim=[0, 20])
-        monitor.graph = graph
-        graph.start()
-    except Exception as error:
-        print('error: ', error)
-    finally:      
-        if monitor.SAVE:
-            print('\nsalvando database')
-            monitor.save()
+try:
+    if PLOT:
+        Plotter(monitor).start()
+
+    while not PLOT:
+        monitor.update()
+        print(monitor.getStatus(), end='\r')
+        sleep(0.2)
+except KeyboardInterrupt:
+    print()
+finally:
+    monitor.stop()
+    monitor.save()

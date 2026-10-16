@@ -24,7 +24,7 @@ class KernelModelOrientation{
 	int16_t pitch, roll;
 	int16_t wx, wy, wz;
 	int16_t ax, ay, az;
-	float temperature;
+	int16_t temperature;    // C*10, O TIPO QUE O KERNEL MANDA
 
 	KernelModelOrientation(HardwareSerial* uart){
 		this->uart = uart;
@@ -57,7 +57,7 @@ class KernelModelOrientation{
 		ay = extract_i16(20); 
 		az = extract_i16(22); 
 
-		temperature = ((float) extract_i16(38)) / 10.0f; // Temperatura
+		temperature = extract_i16(38);
 		return true;
 	}
 

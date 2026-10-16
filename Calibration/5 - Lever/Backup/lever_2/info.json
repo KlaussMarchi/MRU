@@ -1,0 +1,35 @@
+{
+    "point":[
+        0.0,
+        0.0,
+        0.0
+    ],
+    "pivot":[
+        -0.1951779119,
+        -1.9386759643,
+        0.0568038046
+    ],
+    "validation":{
+        "piv\u00f4":{
+            "rms (mm)":11.1123596139,
+            "amplitude (mm)":0.0
+        },
+        "sensor":{
+            "rms (mm)":20.5131701735,
+            "amplitude (mm)":158.2121066275
+        },
+        "dobro do bra\u00e7o":{
+            "rms (mm)":36.3121019869,
+            "amplitude (mm)":316.424213255
+        }
+    },
+    "metrics":{
+        "rms":0.0205131702,
+        "rms_rate":0.050406898
+    },
+    "dataset":{
+        "path":"..\/Dataset\/test1\/results\/heave.csv",
+        "samples":1800,
+        "settle":20.0
+    }
+}

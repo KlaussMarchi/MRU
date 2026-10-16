@@ -23,7 +23,7 @@ class KernelModelQuaternion{
 	uint16_t yaw;
 	int16_t pitch, roll;
 	int16_t q0, q1, q2, q3;
-	float temperature;
+	int16_t temperature;    // C*10, O TIPO QUE O KERNEL MANDA
 
 	KernelModelQuaternion(HardwareSerial* uart){
 		this->uart = uart;
@@ -49,7 +49,7 @@ class KernelModelQuaternion{
 		q1 = extract_i16(14); 
 		q2 = extract_i16(16); 
 		q3 = extract_i16(18); 
-		temperature = ((float) extract_i16(38)) / 10.0f; // Temperatura
+		temperature = extract_i16(38);
 		return true;
 	}
 

@@ -23,6 +23,7 @@
 class Device{
   public:
 	bool multitask = true;
+	byte mode = NORMAL_MODE;
 	float frequency = 100.0;
 	unsigned long startTime;
 	const char* firmware;
@@ -57,6 +58,8 @@ class Device{
 		settings.import();
 
 		frequency = settings.template get<unsigned long>("frequency", 100);
+		mode      = settings.template get<byte>("device_mode");
+		Serial.println(mode == ACQUISITION_MODE ? "Device Mode: Acquisition" : "Device Mode: Normal");
 		telemetry.setup();
 		sensors.setup();
 		processing.setup();

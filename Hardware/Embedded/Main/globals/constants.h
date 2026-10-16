@@ -5,6 +5,14 @@
 #define QT_MODE 1
 #define OR_MODE 2
 
+#define CALIBRATED_MODE 0
+#define RAW_MODE        1
+#define SCALE_MODE      2
+
+#define NORMAL_MODE      0
+#define ACQUISITION_MODE 1
+#define ACQUISITION_BAUD 460800    // RS232 E RS422 NA AQUISICAO: 200 LINHAS/s DE ~90 BYTES OCUPAM 40%
+
 #define JSON_PROTOCOL 0
 #define LIST_PROTOCOL 1
 #define NMEA_PROTOCOL 2

@@ -1,0 +1,13 @@
+{
+    "strategy":"lever",
+    "backup":"5 - Lever\/Backup\/lever_2",
+    "point":[
+        0.0,
+        0.0,
+        0.0
+    ],
+    "metrics":{
+        "rms":0.0205131702,
+        "rms_rate":0.050406898
+    }
+}

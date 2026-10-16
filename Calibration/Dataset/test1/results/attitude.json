@@ -1,0 +1,26 @@
+{
+    "strategy":"kalman_fusion",
+    "backup":"3 - Attitude\/KalmanFusion\/Backup\/model_4",
+    "targets":[
+        "pitch",
+        "roll",
+        "yaw"
+    ],
+    "metrics":{
+        "pitch":{
+            "rmse":0.690865366,
+            "bias":0.468713772,
+            "corr":0.1883512835
+        },
+        "roll":{
+            "rmse":0.2188533136,
+            "bias":0.0050550354,
+            "corr":0.9996526694
+        },
+        "yaw":{
+            "rmse":2.1377598158,
+            "bias":-1.9325803326,
+            "corr":0.8019179433
+        }
+    }
+}

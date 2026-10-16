@@ -8,12 +8,19 @@ private:
 	Parent* device;
 
 public:
-	unsigned long startTime;
+	static constexpr const char* KEYS[2][20] = {
+		{"time", "tmp", "pitch", "roll", "yaw", "ax", "ay", "az", "wx", "wy", "wz", "h", "hr", "inc", "b_max", "c_max", "inc_max", "arf", "varf", "svarf"},
+		{"time", "tmp", "pitch", "roll", "yaw", "q0", "q1", "q2", "q3", "h"}    // QT_MODE
+	};
+
+	unsigned long startTime = 0;
+	unsigned long sent = 0;
 	bool active, autostart;
 	byte protocol = LIST_PROTOCOL;
+	byte mode = CALIBRATED_MODE;
 	int dt;
 
-	Streamer(Parent* dev): 
+	Streamer(Parent* dev):
 		device(dev){}
 
 	void setup() {
@@ -21,23 +28,48 @@ public:
 		Serial.println("Frequency Set To " + String(device->frequency) + " Hz (sample time " + String(dt) + "ms)");
 
 		protocol  = (byte) device->settings.template get<byte>("protocol");
+		mode      = (byte) device->settings.template get<byte>("streamer_mode");
 		autostart = device->settings.isEnabled("autostream");
 
+		if(device->mode == ACQUISITION_MODE){    // ENSAIO: TODO PACOTE DO KERNEL, SO NA ESCALA, EM LISTA, SEM ESPERAR COMANDO
+			mode      = SCALE_MODE;
+			protocol  = LIST_PROTOCOL;
+			autostart = true;
+		}
+
+		Serial.println("Streamer Mode: " + toString());
+
 		if(autostart)
-			active = true;
+			set(true);
 	}
 
 	void handle() {
 		static Listener timer = Listener(dt);
 
-		if(!active || !timer.ready())
+		if(!active || !ready(timer))
 			return;
 
+		double values[20];
+		values[0] = device->sensors.kernel.lastAckTime*1e-6 - startTime*1e-3;    // s DESDE O INICIO DO STREAM, NA AMOSTRA DO KERNEL E NAO NA HORA DA IMPRESSAO
+		const int length = 1 + ((mode == RAW_MODE) ? device->sensors.kernel.read(values + 1) : device->processing.read(values + 1));
+
 		switch(protocol){
-			case JSON_PROTOCOL: printJSON(); break;
-			case LIST_PROTOCOL: printList(); break;
-			case NMEA_PROTOCOL: printNMEA(); break;
+			case JSON_PROTOCOL: printJSON(values, length); break;
+			case LIST_PROTOCOL: printList(values, length); break;
+			case NMEA_PROTOCOL: printNMEA(values); break;
 		}
+	}
+
+	// NA AQUISICAO CADA PACOTE SAI UMA VEZ, NO RITMO DO KERNEL; NO NORMAL O TIMER DECIMA PARA A frequency
+	bool ready(Listener& timer){
+		if(device->mode != ACQUISITION_MODE)
+			return timer.ready();
+
+		if(device->processing.count == sent)
+			return false;
+
+		sent = device->processing.count;
+		return true;
 	}
 
 	void set(const bool state) {
@@ -48,103 +80,52 @@ public:
 		active    = state;
 	}
 
-	void printJSON() {
-		static char buffer[256];
-		const byte mode      = device->sensors.kernel.mode;
-		const bool calibrate = device->sensors.kernel.calibrate;
-		int n = 0;
+	String toString(){
+		if(mode == CALIBRATED_MODE) return "Calibrated Mode";
+		if(mode == RAW_MODE)        return "Raw Mode";
+		if(mode == SCALE_MODE)      return "Scale Mode";
+		return "Unknown Mode";
+	}
 
-		if(mode == HR_MODE && calibrate) {
-			n = snprintf(buffer, sizeof(buffer),
-				"{\"time\":%.3f,\"tmp\":%.3f,\"pitch\":%ld,\"roll\":%ld,\"yaw\":%ld,\"ax\":%ld,\"ay\":%ld,\"az\":%ld,\"wx\":%ld,\"wy\":%ld,\"wz\":%ld,\"h\":%.3f}",
-				(Time::get() - startTime) / 1000.00,
-				device->sensors.kernel.temperature,
-				(long) device->sensors.kernel.pitch_raw, (long) device->sensors.kernel.roll_raw, (long) device->sensors.kernel.yaw_raw,
-				(long) device->sensors.kernel.ax_raw,    (long) device->sensors.kernel.ay_raw,   (long) device->sensors.kernel.az_raw,
-				(long) device->sensors.kernel.wx_raw,    (long) device->sensors.kernel.wy_raw,   (long) device->sensors.kernel.wz_raw,
-				(float) device->sensors.kernel.heave
-			);
-		}
-		else if(mode == HR_MODE || mode == OR_MODE) {
-			n = snprintf(buffer, sizeof(buffer),
-				"{\"time\":%.3f,\"tmp\":%.3f,\"pitch\":%.3f,\"roll\":%.3f,\"yaw\":%.3f,\"ax\":%.3f,\"ay\":%.3f,\"az\":%.3f,\"wx\":%.3f,\"wy\":%.3f,\"wz\":%.3f,\"h\":%.3f}",
-				(Time::get() - startTime) / 1000.00,
-				device->sensors.kernel.temperature,
-				(float) device->processing.pitch, (float) device->processing.roll, (float) device->processing.yaw,
-				(float) device->processing.ax,    (float) device->processing.ay,   (float) device->processing.az,
-				(float) device->processing.wx,    (float) device->processing.wy,   (float) device->processing.wz,
-				(float) device->sensors.kernel.heave
-			);
-		} 
-		else if (mode == QT_MODE) {
-			n = snprintf(buffer, sizeof(buffer),
-				"{\"time\":%.3f,\"tmp\":%.3f,\"pitch\":%ld,\"roll\":%ld,\"yaw\":%ld,\"q0\":%ld,\"q1\":%ld,\"q2\":%ld,\"q3\":%ld,\"h\":%.3f}",
-				(Time::get() - startTime) / 1000.00,
-				device->sensors.kernel.temperature,
-				(long) device->sensors.kernel.pitch_raw, (long) device->sensors.kernel.roll_raw, (long) device->sensors.kernel.yaw_raw,
-				(long) device->sensors.kernel.q0_raw, 	 (long) device->sensors.kernel.q1_raw, 	 (long) device->sensors.kernel.q2_raw, (long) device->sensors.kernel.q3_raw,
-				(float) device->sensors.kernel.heave
-			);
-		}
+	// NO RAW_MODE O INTEIRO DO KERNEL SAI COMO VEIO; NOS OUTROS, TRES CASAS
+	int getDigits(){
+		return (mode == RAW_MODE) ? 0 : 3;
+	}
 
+	void printJSON(const double* values, const int length) {
+		static char buffer[512];
+		const char* const* keys = KEYS[device->sensors.kernel.mode == QT_MODE];
+		int n = snprintf(buffer, sizeof(buffer), "{\"time\":%.3f", values[0]);
+
+		for(int i = 1; i < length; i++)
+			n += snprintf(buffer + n, sizeof(buffer) - n, ",\"%s\":%.*f", keys[i], getDigits(), values[i]);
+
+		n += snprintf(buffer + n, sizeof(buffer) - n, "}");
 		device->telemetry.serial.uart->write(buffer, n);
 		device->telemetry.serial.uart->write('\n');
 	}
 
-	void printList(){
-		static char buffer[256];
-		const byte mode      = device->sensors.kernel.mode;
-		const bool calibrate = device->sensors.kernel.calibrate;
-		int n = 0;
+	void printList(const double* values, const int length){
+		static char buffer[320];
+		int n = snprintf(buffer, sizeof(buffer), "[%.3f", values[0]);
 
-		if(mode == HR_MODE && calibrate){
-			n = snprintf(buffer, sizeof(buffer),
-				"[%.3f,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%.3f]",
-				device->sensors.kernel.temperature,
-				(long) device->sensors.kernel.pitch_raw, (long) device->sensors.kernel.roll_raw, (long) device->sensors.kernel.yaw_raw,
-				(long) device->sensors.kernel.ax_raw, 	 (long) device->sensors.kernel.ay_raw,   (long) device->sensors.kernel.az_raw,
-				(long) device->sensors.kernel.wx_raw, 	 (long) device->sensors.kernel.wy_raw,   (long) device->sensors.kernel.wz_raw,
-				(float) device->sensors.kernel.heave
-			);
-		} 
-		else if(mode == HR_MODE || mode == OR_MODE){
-			n = snprintf(buffer, sizeof(buffer),
-				"[%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f]",
-				device->sensors.kernel.temperature,
-				(float) device->processing.pitch, (float) device->processing.roll, (float) device->processing.yaw,
-				(float) device->processing.ax,    (float) device->processing.ay,   (float) device->processing.az,
-				(float) device->processing.wx,    (float) device->processing.wy,   (float) device->processing.wz,
-				(float) device->sensors.kernel.heave
-			);
-		}
-		else if(mode == QT_MODE){
-			n = snprintf(buffer, sizeof(buffer),
-				"[%.3f,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%.3f]",
-				device->sensors.kernel.temperature,
-				(long) device->sensors.kernel.pitch_raw, (long) device->sensors.kernel.roll_raw, (long) device->sensors.kernel.yaw_raw,
-				(long) device->sensors.kernel.q0_raw,    (long) device->sensors.kernel.q1_raw,   (long) device->sensors.kernel.q2_raw, (long) device->sensors.kernel.q3_raw,
-				(float) device->sensors.kernel.heave
-			);
-		}
+		for(int i = 1; i < length; i++)
+			n += snprintf(buffer + n, sizeof(buffer) - n, ",%.*f", getDigits(), values[i]);
 
+		n += snprintf(buffer + n, sizeof(buffer) - n, "]");
 		device->telemetry.serial.uart->write(buffer, n);
 		device->telemetry.serial.uart->write('\n');
 	}
 
-	void printNMEA() {
+	void printNMEA(const double* values) {
 		static char sentence[80];
 		static char nmea[85];
-		const char* header = "GPPASHR";
+		const int heave = (device->sensors.kernel.mode == QT_MODE) ? 9 : 11;
+		const double fields[4] = {values[2], values[3], values[4], values[heave]};    // pitch, roll, yaw E heave
+		int n = snprintf(sentence, sizeof(sentence), "GPPASHR");
 
-		snprintf(
-			sentence, sizeof(sentence),
-			"%s,%.3f,%.3f,%.3f,%.3f",
-			header,
-			(float) device->processing.pitch,
-			(float) device->processing.roll,
-			(float) device->processing.yaw,
-			(float) device->sensors.kernel.heave
-		);
+		for(int i = 0; i < 4; i++)
+			n += snprintf(sentence + n, sizeof(sentence) - n, ",%.*f", getDigits(), fields[i]);
 
 		unsigned char checksum = 0;
 		size_t len = strlen(sentence);

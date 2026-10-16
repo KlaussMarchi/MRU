@@ -1,130 +1,158 @@
 #ifndef PROCESSING_H
 #define PROCESSING_H
 #include <Arduino.h>
-#include "config.h"
-#include "filters/butterworth/index.h"
-#include "filters/butterworth/config.h"
+#include "filters/index.h"
+#include "correction/index.h"
+#include "align/index.h"
+#include "attitude/config.h"
+#include "heave/index.h"
+#include "lever/index.h"
+#include "report/index.h"
 
 
-// O SINAL QUE O MRU ENTREGA: SENSORES FILTRADOS E ANGULOS DO MODELO QUE A CALIBRACAO ESCOLHEU
+// O SINAL QUE O MRU ENTREGA: O KERNEL NA ESCALA DO ICD E, NO MODO CALIBRADO, PRE-FILTRO, CORRECAO, ATITUDE, HEAVE, BRACO DE ALAVANCA E O RELATORIO DA NORMAM
 template <typename Parent> class Processing{
   private:
 	Parent* device;
 	int64_t lastPacket = 0;
 
-	void read(float* sensors){
-		sensors[0] = device->sensors.kernel.ax;
-		sensors[1] = device->sensors.kernel.ay;
-		sensors[2] = device->sensors.kernel.az;
-		sensors[3] = device->sensors.kernel.wx;
-		sensors[4] = device->sensors.kernel.wy;
-		sensors[5] = device->sensors.kernel.wz;
-	}
-
-	// PRIMEIRO PACOTE: OS FILTROS COMECAM NA LEITURA, SEM O TRANSITORIO DE PARTIDA DO ZERO
-	void start(){
-		float sensors[6];
-		read(sensors);
-
-		for(int i = 0; i < 6; i++)
-			filters[i].reset(sensors[i]);
-
-		model.reset();
-		mirror();
-	}
-
-	void update(const float dt){
-		float sensors[6], angles[3];
-		read(sensors);
-
-		angles[0] = device->sensors.kernel.pitch;
-		angles[1] = device->sensors.kernel.roll;
-		angles[2] = device->sensors.kernel.yaw;
-
-		ax = filters[0].compute(sensors[0]);
-		ay = filters[1].compute(sensors[1]);
-		az = filters[2].compute(sensors[2]);
-		wx = filters[3].compute(sensors[3]);
-		wy = filters[4].compute(sensors[4]);
-		wz = filters[5].compute(sensors[5]);
-
-		model.update(sensors, angles, dt);    // O MODELO VE O SINAL CRU, QUE E COMO ELE FOI AJUSTADO
-
-		pitch = model.pitch;
-		roll  = model.roll;
-		yaw   = model.yaw;
-	}
-
   public:
-	ButterworthFilter filters[6];    // ax, ay, az, wx, wy, wz
-	ProcessingModel model;
+	Filters filters;
+	Align align;
+	AttitudeModel attitude;
+	Heave heave;
+	Lever lever;
+	Report report;
 
+	float tmp;
 	float ax, ay, az;
 	float wx, wy, wz;
+	float q0, q1, q2, q3;
 	float pitch, roll, yaw;
+	float h = 0, hr = 0, inc = 0;
+	unsigned long count = 0;    // PACOTES PROCESSADOS: A AQUISICAO MANDA CADA UM UMA VEZ
 	bool active = false;
 
 	Processing(Parent* dev):
 		device(dev){}
 
 	void setup(){
-		const float dt = 1.0f / device->frequency;
+		const float dt = 1.0f / KernelSensor::RATE;    // OS ESTAGIOS ANDAM NA TAXA DO KERNEL, NAO NA DO STREAMER
 
-		for(int i = 0; i < 6; i++)
-			filters[i].setup(BUTTERWORTH_FC[i], dt);
+		filters.setup(dt);
+		attitude.setup(dt);
+		heave.setup();
+		lever.setup();
 
-		model.setup(dt);
-		active = (device->sensors.kernel.mode == HR_MODE) && !device->sensors.kernel.calibrate;
+		active = (device->telemetry.streamer.mode == CALIBRATED_MODE) && (device->sensors.kernel.mode != QT_MODE);
 
-		mirror();
+		if(active)
+			align.setup(device->sensors.kernel.alignment);
+
 		Serial.println("Processing: " + toString());
 	}
 
 	void handle(){
-		if(!active)
-			return mirror();
-
 		if(device->sensors.kernel.lastAckTime == lastPacket)    // SEM PACOTE NOVO: FILTRO NAO PODE COMER A MESMA AMOSTRA DUAS VEZES
 			return;
 
 		const bool first = (lastPacket == 0);
 		const float dt   = (device->sensors.kernel.lastAckTime - lastPacket) * 1e-6f;
 		lastPacket       = device->sensors.kernel.lastAckTime;
+		scale();
+		count++;
+
+		if(!active)
+			return;
 
 		if(first)
-			return start();
+			start();
 
-		update(dt);
+		update(first ? 0.0f : dt);
 	}
 
-	// SEM MODELO, EM AQUISICAO OU FORA DO MODO HR: SAI O QUE O SENSOR JA ENTREGA
-	void mirror(){
-		ax = device->sensors.kernel.ax;
-		ay = device->sensors.kernel.ay;
-		az = device->sensors.kernel.az;
+	// O PACOTE NA ESCALA DO ICD: m/s^2, graus/s, graus, QUATERNION UNITARIO E graus C
+	void scale(){
+		const KernelSensor& kernel = device->sensors.kernel;
+		const KernelScale& k       = KernelSensor::SCALE[kernel.mode];
 
-		wx = device->sensors.kernel.wx;
-		wy = device->sensors.kernel.wy;
-		wz = device->sensors.kernel.wz;
+		tmp = kernel.temperature * k.temperature;
+		ax  = kernel.ax * k.accel; ay = kernel.ay * k.accel; az = kernel.az * k.accel;
+		wx  = kernel.wx * k.gyro;  wy = kernel.wy * k.gyro;  wz = kernel.wz * k.gyro;
+		q0  = kernel.q0 * k.quat;  q1 = kernel.q1 * k.quat;  q2 = kernel.q2 * k.quat; q3 = kernel.q3 * k.quat;
 
-		pitch = device->sensors.kernel.pitch;
-		roll  = device->sensors.kernel.roll;
-		yaw   = device->sensors.kernel.yaw;
+		pitch = kernel.pitch * k.angle;
+		roll  = kernel.roll  * k.angle;
+		yaw   = kernel.yaw   * k.angle;
+		h     = 0; hr = 0; inc = 0;
+	}
+
+	// PRIMEIRO PACOTE: OS FILTROS COMECAM NA LEITURA E OS OUTROS ESTAGIOS RECOMECAM
+	void start(){
+		const float sensors[6] = {ax, ay, az, wx, wy, wz};
+
+		filters.reset(sensors);
+		attitude.reset();
+		heave.reset();
+		lever.reset();
+		report.reset();
+	}
+
+	void update(const float dt){
+		float sensors[6]      = {ax, ay, az, wx, wy, wz};
+		const float angles[3] = {pitch, roll, yaw};
+
+		filters.compute(sensors);
+		align.apply(sensors, tmp);    // A CORRECAO NOS EIXOS DO ALIGN DE AGORA
+		attitude.update(sensors, angles, dt);
+		heave.update(sensors, attitude.pitch, attitude.roll, dt);
+		lever.update(heave.heave, attitude.pitch, attitude.roll, dt);
+		report.update(attitude.roll, attitude.pitch, lever.heave, lever.rate, dt);
+
+		ax = sensors[0]; ay = sensors[1]; az = sensors[2];
+		wx = sensors[3]; wy = sensors[4]; wz = sensors[5];
+
+		pitch = attitude.pitch;
+		roll  = attitude.roll;
+		yaw   = attitude.yaw;
+		h     = lever.heave;
+		hr    = lever.rate;
+		inc   = report.inclination;
+	}
+
+	// CAMPOS NA ORDEM DO STREAMER: OS DO KERNEL NA ESCALA E, CALIBRADO, MAIS O QUE A NORMAM PEDE NO PONTO DE INTERESSE
+	int read(double* values) const {
+		values[0] = tmp;
+		values[1] = pitch; values[2] = roll; values[3] = yaw;
+
+		if(device->sensors.kernel.mode == QT_MODE){
+			values[4] = q0; values[5] = q1; values[6] = q2; values[7] = q3;
+			values[8] = h;
+			return 9;
+		}
+
+		values[4] = ax; values[5] = ay; values[6] = az;
+		values[7] = wx; values[8] = wy; values[9] = wz;
+		values[10] = h;
+
+		if(!active)
+			return 11;
+
+		values[11] = hr; values[12] = inc;
+		values[13] = report.B;   values[14] = report.C;    values[15] = report.Inc;
+		values[16] = report.Arf; values[17] = report.VArf; values[18] = report.SVArf;
+		return 19;
 	}
 
 	void reset(){
 		lastPacket = 0;
-		model.reset();
-
-		for(int i = 0; i < 6; i++)
-			filters[i].reset();
 	}
 
 	String toString(){
 		if(!active)
-			return "raw sensor";
+			return "kernel scale";
 
-		return model.toString() + " + butterworth";
+		return attitude.toString() + " + filters + correction" + (align.active ? " + align" : "") + " + heave + lever + report";
 	}
 };
 
