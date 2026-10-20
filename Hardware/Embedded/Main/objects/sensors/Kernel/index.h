@@ -9,13 +9,6 @@
 #include "quat/index.h"
 #include "orient/index.h"
 
-#define ALIGN_FORWARD     0
-#define ALIGN_DOWN        1  // cabeça pra cima (measure em pé) - com barriguinha
-#define ALIGN_UP          2  // cabeça pra baixo (cabo pra baixo)
-#define ALIGN_RESET       3
-#define ALIGN_UPSIDE_DOWN 4
-
-
 // FATORES DO ICD QUE LEVAM CADA CAMPO DO PACOTE A m/s^2, graus/s, graus, QUATERNION UNITARIO E graus C
 struct KernelScale{
 	float accel, gyro, angle, quat, temperature;

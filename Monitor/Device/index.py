@@ -3,25 +3,25 @@ from collections import deque
 from time import time, sleep
 from Utils.functions import sendEvent
 
-SCALE = ['time', 'tmp', 'pitch', 'roll', 'yaw', 'ax', 'ay', 'az', 'wx', 'wy', 'wz', 'h']
+SCALE = ['time', 'tmp', 'pitch', 'roll', 'yaw', 'ax', 'ay', 'az', 'wx', 'wy', 'wz', 'heave']
 
 # CAMPOS DE CADA LISTA PELO TAMANHO: OS LAYOUTS DO streamer DO firmware E O [t, pitch, roll] DO Table.ino
 LAYOUTS = {
     3:  ['time', 'pitch', 'roll'],
-    10: ['time', 'tmp', 'pitch', 'roll', 'yaw', 'q0', 'q1', 'q2', 'q3', 'h'],
+    10: ['time', 'tmp', 'pitch', 'roll', 'yaw', 'q0', 'q1', 'q2', 'q3', 'heave'],
     11: SCALE[1:],
     12: SCALE,
-    20: SCALE + ['hr', 'inc', 'b_max', 'c_max', 'inc_max', 'arf', 'varf', 'svarf']
+    13: SCALE + ['heave_rate']
 }
 
-NMEA   = ['pitch', 'roll', 'yaw', 'h']    # $GPPASHR DO streamer
+NMEA   = ['pitch', 'roll', 'yaw', 'heave']    # $GPPASHR DO streamer
 BAUDS  = [460800, 115200, 9600, 921600, 230400, 57600, 38400, 19200, 4800]    # AQUISIÇÃO, FÁBRICA E MODO NORMAL PRIMEIRO
 LISTEN = 1.5    # s OUVINDO CADA PORTA E BAUD NA DESCOBERTA: CABE O STREAM MAIS LENTO DO MODO NORMAL
 
 
 # O QUE O PACOTE É: SEM time É O FIRMWARE ANTIGO, ACELERAÇÃO NA CASA DE 1e6 É O g*1e6 DO RAW_MODE
 def getLayout(values):
-    if 'svarf' in values:
+    if 'heave_rate' in values:
         return 'calibrated'
 
     if 'q0' in values:

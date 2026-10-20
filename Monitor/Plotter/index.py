@@ -16,8 +16,7 @@ class Plotter:
         'y': ['yaw'],
         'a': ['ax', 'ay', 'az'],
         'w': ['wx', 'wy', 'wz'],
-        'h': ['h', 'hr'],
-        'i': ['inc', 'b_max', 'c_max', 'inc_max'],
+        'h': ['heave', 'heave_rate'],
         'o': ['q0', 'q1', 'q2', 'q3'],
         't': ['tmp']
     }
@@ -46,7 +45,7 @@ class Plotter:
             self.draw(self.axes[1], self.monitor.reference, ['pitch', 'roll'], 'Mesa de referência')
 
         self.figure.suptitle(self.monitor.getStatus(), fontsize=10)
-        self.figure.supxlabel('teclas: p r y pitch, roll, yaw · a aceleração · w giro · h heave · i NORMAM · o quaternion · t temperatura · q sai e salva', fontsize=9)
+        self.figure.supxlabel('teclas: p r y pitch, roll, yaw · a aceleração · w giro · h heave · o quaternion · t temperatura · q sai e salva', fontsize=9)
 
     def draw(self, axis, stream, keys, title):
         now  = time()

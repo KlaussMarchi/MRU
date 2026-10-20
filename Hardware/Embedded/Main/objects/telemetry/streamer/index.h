@@ -8,9 +8,9 @@ private:
 	Parent* device;
 
 public:
-	static constexpr const char* KEYS[2][20] = {
-		{"time", "tmp", "pitch", "roll", "yaw", "ax", "ay", "az", "wx", "wy", "wz", "h", "hr", "inc", "b_max", "c_max", "inc_max", "arf", "varf", "svarf"},
-		{"time", "tmp", "pitch", "roll", "yaw", "q0", "q1", "q2", "q3", "h"}    // QT_MODE
+	static constexpr const char* KEYS[2][13] = {
+		{"time", "tmp", "pitch", "roll", "yaw", "ax", "ay", "az", "wx", "wy", "wz", "heave", "heave_rate"},
+		{"time", "tmp", "pitch", "roll", "yaw", "q0", "q1", "q2", "q3", "heave"}    // QT_MODE
 	};
 
 	unsigned long startTime = 0;
@@ -49,7 +49,7 @@ public:
 		if(!active || !ready(timer))
 			return;
 
-		double values[20];
+		double values[13];
 		values[0] = device->sensors.kernel.lastAckTime*1e-6 - startTime*1e-3;    // s DESDE O INICIO DO STREAM, NA AMOSTRA DO KERNEL E NAO NA HORA DA IMPRESSAO
 		const int length = 1 + ((mode == RAW_MODE) ? device->sensors.kernel.read(values + 1) : device->processing.read(values + 1));
 
@@ -60,12 +60,12 @@ public:
 		}
 	}
 
-	// NA AQUISICAO CADA PACOTE SAI UMA VEZ, NO RITMO DO KERNEL; NO NORMAL O TIMER DECIMA PARA A frequency
+	// CADA PACOTE DO KERNEL SAI NO MAXIMO UMA VEZ (SEM PACOTE NOVO NAO HA O QUE ENVIAR); NO NORMAL O TIMER AINDA DECIMA PARA A frequency
 	bool ready(Listener& timer){
-		if(device->mode != ACQUISITION_MODE)
-			return timer.ready();
-
 		if(device->processing.count == sent)
+			return false;
+
+		if(device->mode != ACQUISITION_MODE && !timer.ready())
 			return false;
 
 		sent = device->processing.count;

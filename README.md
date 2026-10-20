@@ -1,14 +1,14 @@
 # MRU · firmware do ESP32-S3
 
 O MRU é um Kernel-120 da Inertial Labs lido por um ESP32-S3. O ESP passa cada amostra do Kernel por um pipeline de
-correção e entrega atitude, heave e o relatório da NORMAM por USB, RS232 ou RS422. Os parâmetros de cada etapa saem
+correção e entrega atitude, aceleração, giro, heave e taxa do heave por USB, RS232 ou RS422. Os parâmetros de cada etapa saem
 dos notebooks de `Calibration/` como arquivos `config.h`, compilados junto com o firmware.
 
 ![Pipeline](Documents/Pipeline.png)
 
 ```
 movimento → Kernel (2 kHz → LPF 66 Hz → média → 200 Hz) → escala → 1 pré-filtro → 2 correção → 3 atitude
-          → 4 heave → 5 braço → 6 NORMAM → saída (USB · RS232 · RS422)
+          → 4 heave → 5 braço → saída (USB · RS232 · RS422)
                ↑ config.h de cada etapa, gerados pelos notebooks de Calibration/
 ```
 
@@ -21,7 +21,6 @@ movimento → Kernel (2 kHz → LPF 66 Hz → média → 200 Hz) → escala → 
 | 3 · atitude | `attitude/` (o `config.h` escolhe o modelo) | `Calibration/3 - Attitude/<estratégia>/` (a última que rodou) |
 | 4 · heave | `heave/` | `Calibration/4 - Heave/1 - Model.ipynb` |
 | 5 · braço | `lever/` | `Calibration/5 - Lever/1 - Model.ipynb` |
-| 6 · NORMAM | `report/` | — (validado pelo `Calibration/Analysis.ipynb`) |
 | saída | `../telemetry/streamer/index.h` | — |
 
 **Do zero até o navio**
@@ -79,7 +78,7 @@ Kernel Mode: HR Mode
 Kernel Align: proa 0.0, pitch -90.0, roll 0.0     ← o que o Kernel aplica desde que ligou; nan se ele não respondeu
 pins tx=4 and rx=3 | 460800 bps | 200 Hz
 Align: ensaio 0 -90 0 | Kernel 0 -90 0 | sem rotacao
-Processing: kalman_fusion + filters + correction + heave + lever + report
+Processing: kalman_fusion + filters + correction + heave + lever
 Streamer Mode: Calibrated Mode
 ```
 
@@ -303,7 +302,7 @@ A aquisição grava o que o Kernel entrega, só convertido para unidades, com a 
 
 ```
 CF:device_mode$0!       ← volta ao normal (reinicia)
-CF:streamer_mode$0!     ← cadeia calibrada e relatório da NORMAM
+CF:streamer_mode$0!     ← cadeia calibrada: atitude, aceleração, giro, heave e taxa do heave
 CF:protocol$2!          ← 0 JSON · 1 LIST · 2 NMEA, o que o sistema do navio espera
 CF:frequency$10!        ← Hz do stream
 CF:baudrate$115200!     ← RS232 e RS422
@@ -315,8 +314,8 @@ O baud precisa caber no pacote. Com ~10 bits por byte, `baudrate ≥ 10 × bytes
 | Pacote | Bytes | 9600 aguenta | 115200 aguenta |
 |---|---|---|---|
 | NMEA `$GPPASHR` | ~45 | 20 Hz | 200 Hz |
-| LIST calibrado (20 campos) | ~170 | 5 Hz | 65 Hz |
-| JSON calibrado | ~330 | 2 Hz | 30 Hz |
+| LIST calibrado (13 campos) | ~90 | 10 Hz | 125 Hz |
+| JSON calibrado | ~175 | 5 Hz | 65 Hz |
 
 Três valores dependem da instalação e saem dos notebooks com o valor da mesa. Troque os três antes de embarcar:
 
@@ -335,9 +334,9 @@ Todo pacote começa pelo tempo da amostra do Kernel, em segundos desde o início
 
 | Modo | LIST (na ordem) |
 |---|---|
-| RAW · SCALE (HR/OR) | `time, tmp, pitch, roll, yaw, ax, ay, az, wx, wy, wz, h` |
-| CALIBRATED (HR/OR) | os 12 acima + `hr, inc, b_max, c_max, inc_max, arf, varf, svarf` |
-| QT | `time, tmp, pitch, roll, yaw, q0, q1, q2, q3, h` |
+| RAW · SCALE (HR/OR) | `time, tmp, pitch, roll, yaw, ax, ay, az, wx, wy, wz, heave` (`heave` fica em 0: não há heave sem a cadeia) |
+| CALIBRATED (HR/OR) | os 12 acima + `heave_rate` |
+| QT | `time, tmp, pitch, roll, yaw, q0, q1, q2, q3, heave` |
 
 - **JSON:** os mesmos campos, com esses nomes.
 - **NMEA:** `$GPPASHR,pitch,roll,yaw,heave*CS`.
@@ -349,12 +348,12 @@ Todo pacote começa pelo tempo da amostra do Kernel, em segundos desde o início
 | `ax ay az` | m/s², nos eixos do navio |
 | `wx wy wz` | °/s |
 | ângulos | ° |
-| `h` | m, positivo para baixo, no ponto de interesse |
-| `hr` | m/s |
+| `heave` | m, positivo para baixo, no ponto de interesse |
+| `heave_rate` | m/s, a derivada do `heave` |
 | `tmp` | °C |
 
-`b_max, c_max, inc_max, arf, varf, svarf` são as grandezas da NORMAM-27 (e a SVArf da NORMAM-223), calculadas sobre os
-últimos 20 minutos e atualizadas a cada segundo.
+As grandezas das NORMAM (B, C, inclinação, Arf, VArf, SVArf, em janela de 20 minutos) saem destes campos no sistema
+que recebe o pacote: o MRU entrega o sinal no ponto de interesse e não guarda a janela.
 
 
 ## 8. Diagnóstico e monitoração
@@ -368,12 +367,12 @@ Todo pacote começa pelo tempo da amostra do Kernel, em segundos desde o início
 | as configurações | `$settings!` ou `ID:chave$` |
 
 **Só monitorar.** Rode o mesmo `cd Monitor && python index.py` sem a mesa ligada. Ele aceita o MRU em qualquer modo e
-protocolo (LIST de 12, 20 ou 10 campos, JSON ou NMEA) e em qualquer baud da lista (460800, 115200, 9600, 921600,
+protocolo (LIST de 12, 13 ou 10 campos, JSON ou NMEA) e em qualquer baud da lista (460800, 115200, 9600, 921600,
 230400, 57600, 38400, 19200, 4800), e grava `target.csv` na pasta da sessão.
 
 - **Portas fixas:** preencha `MRU_PORT` e `TABLE_PORT` no topo do `Monitor/index.py`.
 - **Sessões longas:** `PLOT = False` grava sem abrir janela.
-- **Teclas da janela:** `p r y` pitch, roll e yaw · `a` aceleração · `w` giro · `h` heave · `i` NORMAM ·
+- **Teclas da janela:** `p r y` pitch, roll e yaw · `a` aceleração · `w` giro · `h` heave ·
   `o` quaternion · `t` temperatura · `q` sai e salva.
 
 

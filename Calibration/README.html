@@ -1,0 +1,520 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<meta name="description" content="Calibração do MRU — arquivos, fluxo de dados e funcionamento dos algoritmos do MRU.">
+<title>Calibração do MRU · Documentação MRU</title>
+<style>
+:root {
+  --paper:#ffffff; --canvas:#eef2f2; --ink:#19313b; --muted:#546b73;
+  --accent:#08776b; --accent-soft:#e7f4ef; --line:#dce5e5;
+  --code:#112c38; --gold:#a96b17; --radius:14px;
+}
+* { box-sizing:border-box }
+html { scroll-behavior:smooth; scroll-padding-top:28px }
+body { margin:0; background:var(--canvas); color:var(--ink);
+  font:15px/1.75 -apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif }
+a { color:var(--accent); text-decoration-thickness:1px; text-underline-offset:3px }
+a:hover { color:#034e46 }
+button,a { -webkit-tap-highlight-color:transparent }
+:focus-visible { outline:3px solid #c58c32; outline-offset:4px }
+.skip { position:absolute; left:16px; top:-100px; background:white; padding:8px 16px; z-index:5 }
+.skip:focus { top:12px }
+.topbar { border-top:5px solid var(--accent); background:var(--paper); border-bottom:1px solid var(--line) }
+.topbar-inner { max-width:1512px; margin:auto; padding:17px 36px;
+  display:flex; align-items:center; justify-content:space-between; gap:20px }
+.brand { display:flex; align-items:center; gap:12px; font-weight:800; letter-spacing:1px; color:var(--ink); text-decoration:none }
+.brand-mark { display:grid; place-items:center; width:34px; height:34px; border-radius:8px; background:var(--accent); color:white;
+  font-size:12px; letter-spacing:0 }
+.topbar-label { font-size:11px; font-weight:700; letter-spacing:1.8px; text-transform:uppercase; color:var(--muted) }
+.layout { max-width:1512px; margin:0 auto; padding:32px 36px 48px;
+  display:grid; grid-template-columns:236px minmax(0,1fr); gap:32px; align-items:start }
+.sidebar { position:sticky; top:24px; max-height:calc(100vh - 48px); overflow-y:auto;
+  scrollbar-width:thin; padding:8px 14px 16px 0 }
+.nav-label { display:block; color:var(--muted); font-size:10px; font-weight:800; letter-spacing:1.8px;
+  text-transform:uppercase; margin:0 0 12px 12px }
+.toc { display:flex; flex-direction:column; gap:3px }
+.toc a { display:flex; gap:10px; color:var(--muted); text-decoration:none; font-size:12px; line-height:1.5;
+  padding:8px 10px; border-left:2px solid transparent; border-radius:0 7px 7px 0 }
+.toc a:hover,.toc a[aria-current="location"] { color:var(--accent); background:var(--accent-soft); border-left-color:var(--accent) }
+.toc-number { flex:0 0 18px; color:#829598; font-size:10px; line-height:1.9; font-variant-numeric:tabular-nums }
+.toc a.sub { padding-left:24px; font-size:11px }
+.nav-related { border-top:1px solid var(--line); margin:20px 0 0 12px; padding-top:18px; font-size:12px }
+.nav-related a { display:block; margin-top:6px; font-weight:600 }
+main { min-width:0; background:var(--paper); border:1px solid var(--line); border-radius:var(--radius); overflow:hidden;
+  box-shadow:0 7px 28px #183b3e05 }
+.hero { padding:38px 40px 32px; border-bottom:1px solid var(--line);
+  background:linear-gradient(120deg,#f4faf7 0%,white 75%); position:relative }
+.eyebrow { display:flex; align-items:center; gap:9px; font-size:10px; letter-spacing:2px; text-transform:uppercase;
+  color:var(--accent); font-weight:800; margin-bottom:13px }
+.eyebrow::before { content:""; width:7px; height:7px; border-radius:50%; background:var(--accent) }
+h1 { font-size:clamp(29px,3.5vw,43px); line-height:1.17; letter-spacing:-1.5px; margin:0 0 16px; font-weight:800 }
+.deck { color:var(--muted); max-width:760px; line-height:1.8; margin:0; font-size:15px }
+.deck strong { color:var(--ink) }
+.actions { display:flex; gap:10px; flex-wrap:wrap; margin-top:24px }
+.button { border:1px solid var(--line); border-radius:7px; padding:8px 13px; color:var(--ink); text-decoration:none;
+  font-family:inherit; font-size:12px; font-weight:600; line-height:1.5; background:white; cursor:pointer }
+.button:hover { background:var(--accent-soft); border-color:#b9d8cf; color:var(--accent) }
+.button.primary { background:var(--accent); border-color:var(--accent); color:white }
+.prose { padding:10px 40px 36px; overflow-wrap:break-word }
+.prose p { margin:18px 0 }
+.prose h2,.prose h3 { scroll-margin-top:24px; color:var(--ink); line-height:1.4; }
+.prose h2 { font-size:22px; letter-spacing:-.5px; margin:42px 0 18px; padding-top:25px; border-top:1px solid var(--line) }
+.prose h2:first-of-type { border-top:0; padding-top:0; margin-top:30px }
+.prose h3 { font-size:19px; margin:32px 0 15px; padding:13px 17px; border-left:3px solid var(--accent);
+  border-radius:0 7px 7px 0; background:#f1f7f5; letter-spacing:-.25px }
+.prose ul,.prose ol { padding-left:24px; margin:16px 0 }
+.prose li { padding-left:3px; margin:9px 0 }
+.prose li::marker { color:var(--accent); font-weight:700 }
+.prose strong { font-weight:700 }
+code { font: .87em/1.5 "SFMono-Regular",Consolas,"Liberation Mono",monospace; background:#edf2f3; color:#234651;
+  border-radius:4px; padding:2px 5px; overflow-wrap:anywhere }
+pre { background:var(--code); color:#e2f0f2; border:1px solid #173c49; border-radius:10px;
+  padding:21px 22px; overflow:auto; margin:22px 0; line-height:1.7; tab-size:4; scrollbar-width:thin }
+pre code { padding:0; background:none; color:inherit; border-radius:0; font-size:12px; white-space:pre; overflow-wrap:normal }
+.table-wrap { overflow-x:auto; border:1px solid var(--line); border-radius:10px; margin:22px 0;
+  scrollbar-width:thin; background:white }
+table { width:100%; border-collapse:collapse; text-align:left; font-size:13px; line-height:1.7 }
+th { background:#e9f2ef; color:#24544c; font-weight:700; font-size:11px; letter-spacing:.3px; padding:13px 15px;
+  border-bottom:1px solid #ccdfd8; vertical-align:top }
+td { padding:15px; border-bottom:1px solid var(--line); vertical-align:top }
+tbody tr:last-child td { border-bottom:0 }
+tbody tr:nth-child(even) { background:#f9fbfb }
+tbody tr:hover { background:#f0f7f4 }
+td:first-child { font-weight:500; min-width:125px }
+td code,th code { font-size:11px; background:#eaf0f1 }
+table.wide { min-width:790px }
+table.wide th:first-child { width:21% }
+table.wide th:nth-child(2) { width:16% }
+table.wide th:nth-child(3) { width:37% }
+table.wide th:last-child { width:26% }
+.doc-footer { padding:22px 40px; border-top:1px solid var(--line); background:#fafcfc;
+  font-size:12px; color:var(--muted); display:flex; flex-wrap:wrap; justify-content:space-between; gap:12px }
+.doc-footer a { font-weight:600 }
+@media (max-width:1100px) {
+  .layout { grid-template-columns:205px minmax(0,1fr); padding:24px; gap:24px }
+  .hero { padding:30px } .prose { padding:6px 30px 28px } .doc-footer { padding:20px 30px }
+}
+@media (max-width:780px) {
+  .topbar-inner { padding:14px 20px } .topbar-label { font-size:9px; letter-spacing:1px }
+  .layout { display:block; padding:16px 12px 28px }
+  .sidebar { position:static; max-height:none; padding:0; margin-bottom:16px; border:1px solid var(--line);
+    border-radius:10px; background:white }
+  .sidebar details { padding:12px 16px }
+  .sidebar summary { cursor:pointer; font-size:12px; color:var(--accent); font-weight:700 }
+  .sidebar details:not([open]) .nav-label { display:none }
+  .sidebar details[open] .nav-label { margin-top:18px }
+  .toc { max-height:260px; overflow:auto }
+  .nav-related { display:none }
+  .hero { padding:26px 22px } h1 { letter-spacing:-1px }
+  .deck { font-size:14px } .prose { padding:4px 20px 26px; font-size:14px }
+  .prose h2 { font-size:20px; margin-top:32px } .prose h3 { font-size:17px }
+  pre { padding:17px; border-radius:8px } pre code { font-size:11px }
+  .table-wrap { margin:18px 0 } table:not(.wide) { min-width:540px }
+  .doc-footer { padding:18px 22px }
+}
+@media (min-width:781px) { .sidebar summary { display:none } }
+@media (prefers-reduced-motion:reduce) { html { scroll-behavior:auto } }
+@media print {
+  @page { size:A4; margin:14mm }
+  body { background:white; color:#111; font-size:10pt; line-height:1.55 }
+  .topbar,.sidebar,.actions,.skip,.doc-footer { display:none !important }
+  .layout { display:block; padding:0; max-width:none }
+  main { border:0; border-radius:0; box-shadow:none; overflow:visible }
+  .hero { padding:0 0 16px; background:white }
+  h1 { font-size:26pt } .eyebrow { font-size:8pt } .deck { font-size:10pt }
+  .prose { padding:0; font-size:10pt }
+  .prose h2 { font-size:15pt; padding-top:14px; margin-top:24px; break-after:avoid }
+  .prose h3 { font-size:12pt; break-after:avoid; background:#f4f6f6 }
+  .table-wrap { overflow:visible; border-radius:0 }
+  table,table.wide,table:not(.wide) { min-width:0; font-size:8pt; width:100%; table-layout:fixed }
+  th { font-size:8pt } th,td { padding:7px; min-width:0; overflow-wrap:anywhere }
+  thead { display:table-header-group } tr { break-inside:avoid }
+  td code,th code { font-size:7.5pt }
+  pre { background:#f1f4f4; border-color:#d6dede; color:#111; overflow:visible; padding:12px }
+  pre code { font-size:7pt; white-space:pre-wrap; overflow-wrap:anywhere }
+  a { color:#175c54; text-decoration:none }
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#conteudo">Ir para o conteúdo</a>
+<header class="topbar"><div class="topbar-inner">
+<a class="brand" href="#inicio" aria-label="MRU — início"><span class="brand-mark">M</span> MRU</a>
+<span class="topbar-label">Documentação técnica</span>
+</div></header>
+<div class="layout">
+<aside class="sidebar" aria-label="Navegação do documento">
+<details open><summary>Navegar pelas seções</summary>
+<span class="nav-label">Neste documento</span>
+<nav class="toc" aria-label="Índice"><a class="" href="#visao-geral"><span class="toc-number" aria-hidden="true">01</span><span>Visão geral</span></a><a class="" href="#onde-ficam-os-arquivos"><span class="toc-number" aria-hidden="true">02</span><span>Onde ficam os arquivos</span></a><a class="" href="#o-que-executar-o-que-muda-e-para-onde-vai"><span class="toc-number" aria-hidden="true">03</span><span>O que executar, o que muda e para onde vai</span></a><a class="" href="#como-cada-etapa-funciona-por-dentro"><span class="toc-number" aria-hidden="true">04</span><span>Como cada etapa funciona por dentro</span></a><a class="sub" href="#0-format-preparar-uma-comparacao-valida"><span class="toc-number" aria-hidden="true">05</span><span>0 · Format — preparar uma comparação válida</span></a><a class="sub" href="#1-filters-quais-filtros-existem-e-como-sao-escolhidos"><span class="toc-number" aria-hidden="true">06</span><span>1 · Filters — quais filtros existem e como são escolhidos</span></a><a class="sub" href="#2-correction-montagem-escala-vies-e-temperatura"><span class="toc-number" aria-hidden="true">07</span><span>2 · Correction — montagem, escala, viés e temperatura</span></a><a class="sub" href="#3-attitude-tres-maneiras-de-obter-a-orientacao"><span class="toc-number" aria-hidden="true">08</span><span>3 · Attitude — três maneiras de obter a orientação</span></a><a class="sub" href="#4-heave-integrar-sem-deixar-o-erro-crescer-indefinidamente"><span class="toc-number" aria-hidden="true">09</span><span>4 · Heave — integrar sem deixar o erro crescer indefinidamente</span></a><a class="sub" href="#5-lever-calcular-o-movimento-no-helideque"><span class="toc-number" aria-hidden="true">10</span><span>5 · Lever — calcular o movimento no helideque</span></a><a class="sub" href="#6-analysis-transformar-diferencas-em-metricas"><span class="toc-number" aria-hidden="true">11</span><span>6 · Analysis — transformar diferenças em métricas</span></a><a class="sub" href="#7-certificate-comparar-com-os-requisitos-e-montar-o-pdf"><span class="toc-number" aria-hidden="true">12</span><span>7 · Certificate — comparar com os requisitos e montar o PDF</span></a><a class="" href="#como-iniciar-um-ensaio"><span class="toc-number" aria-hidden="true">13</span><span>Como iniciar um ensaio</span></a><a class="" href="#como-o-ajuste-chega-ao-equipamento"><span class="toc-number" aria-hidden="true">14</span><span>Como o ajuste chega ao equipamento</span></a></nav>
+</details>
+<div class="nav-related">Continue a leitura<a href="../Hardware/Embedded/Main/README.html">Firmware · ESP32-S3 ↗</a></div>
+</aside>
+<main id="inicio">
+<header class="hero">
+<div class="eyebrow">Calibração · processamento offline</div>
+<h1>Calibração do MRU</h1>
+<p class="deck">O pipeline usa um ensaio com o <strong>MRU e uma mesa de referência</strong> para ajustar as medições e avaliar o erro. Ao final, entrega <strong>parâmetros para o firmware</strong> e <strong>um certificado em PDF</strong>.</p>
+<div class="actions">
+<button class="button primary" type="button" data-print>Imprimir / salvar PDF</button>
+<a class="button" href="README.md">Abrir Markdown</a>
+<a class="button" href="../Hardware/Embedded/Main/README.html">Firmware · ESP32-S3 ↗</a>
+</div>
+</header>
+<article class="prose" id="conteudo" aria-label="Calibração do MRU">
+
+
+<p>Cada notebook (<code>.ipynb</code>) lê uma tabela de medições (<code>.csv</code>), realiza uma etapa do processamento e salva o resultado para a próxima. Cada linha do CSV representa um instante do ensaio.</p>
+<h2 id="visao-geral">Visão geral</h2>
+<pre aria-label="Código ou diagrama; role horizontalmente se necessário" tabindex="0"><code class="language-text">PREPARAR          TRATAR OS SENSORES          CALCULAR O MOVIMENTO          AVALIAR
+
+Format ─────────► Filters ──► Correction ───► Attitude ──► Heave ──► Lever ──► Analysis ──► Certificate
+organizar         reduzir     corrigir        orientação   subida/   movimento   medir       emitir
+o ensaio          ruído       as leituras                  descida   no ponto    o erro      o PDF
+                                                          do MRU    escolhido
+</code></pre>
+<p>Essa é a <strong>ordem de execução</strong>. Algumas etapas também leem arquivos anteriores, como mostra a tabela abaixo.</p>
+<h2 id="onde-ficam-os-arquivos">Onde ficam os arquivos</h2>
+<p>O campo <code>test</code> do <a href="info.json"><code>info.json</code></a> seleciona o ensaio. Para <code>"test": 1</code>, a estrutura de dados fica assim após executar o pipeline:</p>
+<pre aria-label="Código ou diagrama; role horizontalmente se necessário" tabindex="0"><code class="language-text">Calibration/
+├── info.json                         ← ensaio selecionado, identificação do MRU e gravidade
+├── Dataset/
+│   ├── Format.ipynb                  ← prepara a gravação
+│   └── test1/
+│       ├── info.json                 ← montagem do Kernel no ensaio e remapeamento opcional dos eixos
+│       ├── files/
+│       │   └── data.csv              ← gravação original do Monitor
+│       └── results/
+│           ├── dataset.csv           ← gravação organizada e alinhada no tempo
+│           ├── filtered.csv          ← sensores filtrados
+│           ├── corrected.csv         ← sensores corrigidos nos eixos do navio
+│           ├── attitude.csv          ← ângulos de orientação e referência
+│           ├── heave.csv             ← movimento vertical no sensor
+│           ├── lever.csv             ← movimento vertical no ponto escolhido
+│           └── *.json                ← registros dos ajustes usados nas etapas 1 a 5
+└── Certificate/
+    ├── results/&lt;variável&gt;/           ← métricas em JSON e gráficos dos ângulos
+    └── release/certificate.pdf       ← documento final
+</code></pre>
+<h2 id="o-que-executar-o-que-muda-e-para-onde-vai">O que executar, o que muda e para onde vai</h2>
+<p>Os caminhos dos notebooks partem desta pasta, <code>Calibration/</code>. Os CSV da tabela ficam em <code>Dataset/testN/results/</code>, exceto a gravação original, em <code>Dataset/testN/files/data.csv</code>.</p>
+<div aria-label="Tabela 1 — role horizontalmente se necessário" class="table-wrap" role="region" tabindex="0"><table class="wide">
+<thead>
+<tr>
+<th scope="col">Etapa e notebook</th>
+<th scope="col">O que lê</th>
+<th scope="col">O que faz com os dados</th>
+<th scope="col">O que entrega → próximo uso</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>0 · Preparação</strong><br/><code>Dataset/Format.ipynb</code></td>
+<td><code>files/data.csv</code></td>
+<td>Organiza os eixos e os instantes de amostragem, sem preencher falhas da gravação. Compensa o atraso entre MRU e referência para comparar o mesmo movimento no mesmo instante. Calcula também a velocidade de rotação da referência a partir de seus ângulos.</td>
+<td><strong><code>dataset.csv</code></strong>: ensaio preparado para os cálculos → Filters.</td>
+</tr>
+<tr>
+<td><strong>1 · Filtragem</strong><br/><code>1 - Filters/1 - Model.ipynb</code></td>
+<td><code>dataset.csv</code></td>
+<td>Escolhe um filtro por eixo do acelerômetro e giroscópio para reduzir pequenas oscilações de ruído. Considera também o atraso e a deformação que o filtro pode causar no movimento medido.</td>
+<td><strong><code>filtered.csv</code></strong>: sensores filtrados, com a versão sem filtro preservada em <code>_raw</code> → Correction.</td>
+</tr>
+<tr>
+<td><strong>2 · Correção</strong><br/><code>2 - Correction/1 - Model.ipynb</code></td>
+<td><code>filtered.csv</code></td>
+<td>Corrige erros persistentes de leitura: desvio de zero, escala e desalinhamento dos eixos. Ajusta o efeito da temperatura quando o ensaio permite. Calcula o ajuste sobre os sensores sem filtro e aplica às versões filtrada e sem filtro.</td>
+<td><strong><code>corrected.csv</code></strong>: aceleração e giro corrigidos nos eixos do navio → Attitude, Heave, Lever e Analysis.</td>
+</tr>
+<tr>
+<td><strong>3 · Atitude</strong><br/><code>3 - Attitude/&lt;estratégia&gt;/</code></td>
+<td><code>corrected.csv</code></td>
+<td>Calcula ou calibra a orientação: <strong>roll</strong> é a inclinação lateral; <strong>pitch</strong>, a inclinação de proa/popa; <strong>yaw</strong>, a direção da proa. As estratégias disponíveis estão na tabela seguinte.</td>
+<td><strong><code>attitude.csv</code></strong>: ângulos estimados e referência, conforme as saídas da estratégia → Heave e Analysis.</td>
+</tr>
+<tr>
+<td><strong>4 · Heave</strong><br/><code>4 - Heave/1 - Model.ipynb</code></td>
+<td><code>corrected.csv</code><br/>+ <code>attitude.csv</code></td>
+<td>Usa a orientação para encontrar a aceleração vertical e descontar a gravidade. Transforma aceleração em velocidade e depois em deslocamento, com filtros para limitar o acúmulo de erro. Ajusta o cálculo contra a referência geométrica do ensaio.</td>
+<td><strong><code>heave.csv</code></strong>: subida/descida no local do MRU, em metros, com referência e termos auxiliares <code>band_x/y/z</code> → Lever.</td>
+</tr>
+<tr>
+<td><strong>5 · Braço de alavanca</strong><br/><code>5 - Lever/1 - Model.ipynb</code></td>
+<td><code>heave.csv</code><br/>+ ângulos da referência em <code>corrected.csv</code></td>
+<td>Calcula o movimento vertical em outro local, como o centro do helideque, usando a distância desse ponto ao MRU. Calcula também <code>hr</code>, a velocidade vertical no ponto, em m/s.</td>
+<td><strong><code>lever.csv</code></strong>: heave e <code>hr</code> no ponto escolhido, com suas referências → Analysis.</td>
+</tr>
+<tr>
+<td><strong>6 · Avaliação</strong><br/><code>Analysis.ipynb</code></td>
+<td><code>corrected.csv</code><br/>+ <code>attitude.csv</code><br/>+ <code>lever.csv</code></td>
+<td>Reúne os resultados pelo tempo e mede o erro dos ângulos e do movimento vertical contra a referência, em repouso e em movimento. Para aceleração e giro, calcula métricas de ruído.</td>
+<td><strong><code>Certificate/results/&lt;variável&gt;/metrics.json</code></strong> e gráficos dos ângulos → Certificate.</td>
+</tr>
+<tr>
+<td><strong>7 · Certificado</strong><br/><code>Certificate/1 - Certificate.ipynb</code></td>
+<td>Métricas, gráficos e identificação do ensaio</td>
+<td>Compara os resultados com os limites definidos no notebook e monta o documento com aprovação/reprovação. Atualmente, o PDF avalia roll/pitch e ruído dos sensores.</td>
+<td><strong><code>Certificate/release/certificate.pdf</code></strong> → documento final. As métricas de heave e <code>hr</code> ficam nos JSON.</td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="como-cada-etapa-funciona-por-dentro">Como cada etapa funciona por dentro</h2>
+<p>Nas explicações abaixo, <strong>RMS/RMSE</strong> é uma medida do tamanho do erro: calcula a raiz da média dos erros ao quadrado. Quanto menor, melhor; erros grandes pesam mais.</p>
+<h3 id="0-format-preparar-uma-comparacao-valida">0 · Format — preparar uma comparação válida</h3>
+<p>Antes de ajustar qualquer modelo, o notebook precisa garantir que MRU e referência descrevam o mesmo instante e os eixos esperados:</p>
+<ol>
+<li><strong>Eixos:</strong> lê aceleração, giro, ângulos e temperatura do MRU. Aplica as trocas de eixo e sinal descritas em <code>axes</code>, quando existem.</li>
+<li><strong>Tempo:</strong> estima o intervalo entre amostras pela mediana e monta uma grade regular. Usa a leitura mais próxima de cada instante, com tolerância de meio intervalo; trechos sem amostra permanecem como lacunas.</li>
+<li><strong>Giro da referência:</strong> a mesa fornece ângulos. O notebook usa uma <strong>spline cúbica</strong>, uma curva suave por trechos, para derivá-los e calcular a velocidade angular do corpo. Faz isso separadamente em cada trecho contínuo.</li>
+<li><strong>Atraso:</strong> usa <strong>correlação cruzada</strong> entre os módulos das velocidades angulares do MRU e da referência durante o movimento. Desloca as colunas do MRU pelo atraso encontrado, sem atravessar lacunas.</li>
+</ol>
+<p>Por exemplo, se o MRU registrar o pico do balanço duas amostras depois da referência, esse deslocamento precisa ser compensado antes de calcular a correção. O resultado é <code>dataset.csv</code>.</p>
+<h3 id="1-filters-quais-filtros-existem-e-como-sao-escolhidos">1 · Filters — quais filtros existem e como são escolhidos</h3>
+<p>São avaliados <strong>três filtros para cada um dos seis sinais</strong>: <code>ax</code>, <code>ay</code>, <code>az</code>, <code>wx</code>, <code>wy</code> e <code>wz</code>. Todos são passa-baixa: preservam variações lentas e atenuam componentes rápidas. O desafio é retirar ruído sem apagar ou atrasar o movimento.</p>
+<div aria-label="Tabela 2 — role horizontalmente se necessário" class="table-wrap" role="region" tabindex="0"><table>
+<thead>
+<tr>
+<th scope="col">Filtro no código</th>
+<th scope="col">Princípio</th>
+<th scope="col">Parâmetro ajustado</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>LowPassFilter</code> / <code>low_pass</code></td>
+<td>Passa-baixa de <strong>quatro polos reais iguais</strong>. Aplica uma resposta de quarta ordem, discretizada por Tustin para operar amostra por amostra.</td>
+<td>Frequência dos polos <code>Fc</code>, em Hz. Ela não é diretamente o corte de −3 dB; no modelo contínuo, esse corte é aproximadamente <code>0,435 × Fc</code>.</td>
+</tr>
+<tr>
+<td><code>ButterworthFilter</code> / <code>butterworth</code></td>
+<td>Passa-baixa de <strong>segunda ordem</strong>, com resposta de amplitude plana na faixa preservada. Usa Tustin com ajuste da frequência de corte.</td>
+<td>Corte de −3 dB, em Hz; internamente convertido para uma fração da frequência de Nyquist, metade da taxa de amostragem.</td>
+</tr>
+<tr>
+<td><code>ExponentialFilter</code> / <code>exponential</code></td>
+<td><strong>Média exponencial:</strong> a saída combina a leitura atual com a saída anterior: <code>y = α·x + (1−α)·y_anterior</code>. <code>α</code> pequeno suaviza mais; próximo de 1 acompanha a leitura quase sem filtragem.</td>
+<td>Uma frequência equivalente, convertida em <code>α = 1 − exp(−2π·fc·dt)</code>.</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Papel do “genético”.</strong> O notebook chama <code>NatureSelector('genetic', ...)</code>. No <a href="1 - Filters/Nature/index.py">seletor atual</a>, esse nome aponta para a classe <strong>CMA-ES</strong>, implementada em <a href="1 - Filters/Nature/Models/Genetic/index.py">Models/Genetic/index.py</a>. Trata-se de uma estratégia evolutiva: gera uma população de parâmetros candidatos, avalia os resultados e adapta a distribuição dos próximos candidatos em direção às melhores regiões. Quando a busca estagna, pode reiniciar com uma população maior.</p>
+<p><strong>O otimizador escolhe os parâmetros; o filtro escolhido processa as amostras.</strong> O ESP32 recebe o tipo de filtro e a frequência ajustada; a busca evolutiva acontece no computador durante a calibração.</p>
+<p>A escolha segue este processo:</p>
+<ol>
+<li><strong>Estimar movimento e ruído:</strong> o método de <strong>Welch</strong> mede como a energia do sinal se distribui pelas frequências no trecho em movimento. O código assume que o balanço ocupa poucas frequências; usa a mediana do espectro como piso de ruído e o excedente como estimativa do movimento.</li>
+<li><strong>Avaliar cada candidato:</strong> calcula <code>ε</code>, o erro RMS estimado após filtrar, dividido pelo erro estimado do sinal sem filtro. A conta penaliza tanto o ruído que sobrou quanto a parte do movimento que o filtro atenuou ou atrasou. É um critério espectral baseado nessa estimativa, não uma comparação direta com a mesa.</li>
+<li><strong>Buscar a frequência:</strong> a CMA-ES varia <code>log10(fc)</code>, permitindo explorar frequências pequenas e grandes. A configuração atual usa população inicial de <strong>30</strong>, <code>generations = 150</code> — orçamento de até <strong>4.500 avaliações por execução</strong> — e <strong>5 execuções</strong>, com sementes 42 a 46, para cada combinação de filtro e eixo.</li>
+<li><strong>Escolher por eixo:</strong> entre os três filtros ajustados, fica o de menor <code>ε</code>. São <strong>18 buscas</strong>, cada uma repetida cinco vezes. <code>ε &lt; 1</code> indica melhora estimada; próximo de 1, pouco ganho; acima de 1, piora estimada. A média exponencial pode chegar a <code>α ≈ 1</code>, praticamente deixando o sinal passar.</li>
+</ol>
+<p>O vencedor de cada eixo gera <code>filtered.csv</code>. Os sinais anteriores ficam em <code>_raw</code>, e <code>filters.json</code> registra a escolha. Embora <code>Nature/</code> também ofereça PSO, DE, LSHADE e LSRTDE, o notebook atual seleciona a CMA-ES pelo nome <code>genetic</code>.</p>
+<h3 id="2-correction-montagem-escala-vies-e-temperatura">2 · Correction — montagem, escala, viés e temperatura</h3>
+<p>Uma leitura pode estar suave e continuar errada. Esta etapa procura corrigir esse erro persistente:</p>
+<ol>
+<li><strong>Construir o valor esperado:</strong> para o acelerômetro, usa a gravidade projetada pela orientação da referência <strong>nos trechos parados</strong>, quando não há aceleração do balanço. Para o giroscópio, usa a velocidade angular da referência ao longo do ensaio.</li>
+<li><strong>Descobrir a montagem:</strong> resolve o <strong>problema de Wahba por SVD</strong>, encontrando a rotação que melhor alinha os vetores medidos aos esperados.</li>
+<li><strong>Ajustar a correção:</strong> resolve mínimos quadrados com <strong>regularização ridge</strong>, usando <code>x_corrigido = M·x + c + k·(T−T0)</code>. A matriz <code>M</code> ajusta montagem, escala e mistura entre eixos; <code>c</code> é o desvio de zero; <code>k</code> descreve o efeito da temperatura.</li>
+<li><strong>Evitar ajustes sem informação:</strong> a regularização mantém a matriz próxima da montagem quando o ensaio movimenta pouco determinado eixo. O termo térmico só é ajustado quando as amostras usadas cobrem pelo menos <strong>10 °C</strong> de variação.</li>
+</ol>
+<p>O ajuste usa os sinais <code>_raw</code> para que o atraso do filtro não seja absorvido pela correção. Depois aplica a mesma transformação aos sinais filtrados e sem filtro, gerando <code>corrected.csv</code>.</p>
+<p>Também exporta o <code>align</code> do ensaio para o firmware adaptar a correção a uma mudança de montagem. Essa adaptação depende do <code>align</code> registrado e de uma montagem estimada próxima de uma troca de eixos com sinais.</p>
+<h3 id="3-attitude-tres-maneiras-de-obter-a-orientacao">3 · Attitude — três maneiras de obter a orientação</h3>
+<p>Escolha uma estratégia dentro de <code>3 - Attitude/</code>:</p>
+<div aria-label="Tabela 3 — role horizontalmente se necessário" class="table-wrap" role="region" tabindex="0"><table>
+<thead>
+<tr>
+<th scope="col">Pasta</th>
+<th scope="col">Como obtém a orientação</th>
+<th scope="col">Ordem dos notebooks</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>KalmanFusion/</code></td>
+<td>Combina o giro medido pelo giroscópio com a informação de inclinação do acelerômetro.</td>
+<td><code>1 - Model.ipynb</code></td>
+</tr>
+<tr>
+<td><code>LinearFit/</code></td>
+<td>Ajusta os ângulos que o próprio Kernel entrega para aproximá-los da referência.</td>
+<td><code>1 - Model.ipynb</code></td>
+</tr>
+<tr>
+<td><code>MachineLearning/</code></td>
+<td>Aprende a relação entre uma sequência recente de medições dos sensores e os ângulos da referência.</td>
+<td><code>1 - Processing.ipynb</code> → <code>2 - Model.ipynb</code> → <code>3 - Compare.ipynb</code></td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>KalmanFusion — combinar sensores com um modelo físico.</strong> Usa um <strong>Kalman de estado de erro (ESKF)</strong> com seis componentes: três erros de orientação e três desvios do giroscópio. A orientação é representada internamente por quaternion.</p>
+<ul>
+<li>O giroscópio propaga a orientação entre amostras; o acelerômetro fornece uma referência de inclinação pela direção da gravidade.</li>
+<li>O filtro reduz a confiança no acelerômetro quando sua medida se afasta da gravidade e compensa a aceleração causada pela distância entre o sensor e o centro de rotação.</li>
+<li>Ao detectar repouso pelas próprias medições, aplica <strong>ZARU</strong>, uma atualização de taxa angular zero para estimar o desvio do giroscópio. Inclui ainda correção de <em>coning</em>, para mudanças do eixo de rotação entre amostras.</li>
+<li>A <strong>CMA-ES</strong>, também chamada por <code>genetic</code>, ajusta os pesos de ruído, a rejeição de acelerações, o vetor do centro de rotação até o sensor e a fase de integração do giro. Minimiza a <strong>soma do RMSE de pitch e roll</strong> contra a referência. A configuração atual usa população inicial 15, orçamento <code>15 × 200 = 3.000</code> avaliações e uma execução.</li>
+</ul>
+<p>O acelerômetro informa inclinação, mas não determina sozinho a direção absoluta da proa. No notebook, a proa inicial vem da referência quando não é fornecida; no firmware, o parâmetro exportado como <code>NAN</code> faz usar a proa inicial do Kernel.</p>
+<p><strong>LinearFit — calibrar os ângulos já calculados pelo Kernel.</strong> Ajusta por mínimos quadrados a relação <code>ângulos_corrigidos = M·ângulos_Kernel + B</code>. O notebook atual usa <strong><code>fuse=False</code></strong>: cada ângulo recebe sua própria escala e desvio, sem misturar os outros eixos. Ajusta apenas o trecho em movimento e avalia com <strong>cinco grupos de validação cruzada</strong>, formados por blocos contíguos intercalados. Depois aplica a correção à série inteira, incluindo o repouso.</p>
+<p>A classe também suporta <code>fuse=True</code>, que usa uma matriz completa para combinar os três ângulos. Apesar de o texto do notebook mencionar uma seleção automática entre as duas versões, as células atuais executam somente o ajuste por eixo.</p>
+<p><strong>MachineLearning — aprender a partir de uma janela de sensores.</strong></p>
+<div aria-label="Tabela 4 — role horizontalmente se necessário" class="table-wrap" role="region" tabindex="0"><table>
+<thead>
+<tr>
+<th scope="col">Notebook</th>
+<th scope="col">O que acontece internamente</th>
+<th scope="col">Resultado</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>1 - Processing.ipynb</code></td>
+<td>Organiza as amostras no intervalo <code>dt</code> e coloca a leitura atual e as anteriores de cada sensor em uma linha, sem atravessar lacunas. A configuração atual usa <strong>30 instantes a cada 0,1 s</strong>, com pitch e roll da referência como respostas esperadas.</td>
+<td><code>Backup/model.csv</code>: entradas temporais e ângulos para treino.</td>
+</tr>
+<tr>
+<td><code>2 - Model.ipynb</code></td>
+<td>Instancia a família escolhida em <code>info.json</code>, busca hiperparâmetros com <strong>RandomizedSearchCV</strong> e avalia com blocos de validação. Mede R², R² ajustado, RMSE e MAE. Depois treina o modelo final com os dados disponíveis.</td>
+<td><code>Backup/model_N/model.pkl</code> e <code>info.json</code>: modelo treinado e avaliação.</td>
+</tr>
+<tr>
+<td><code>3 - Compare.ipynb</code></td>
+<td>Compara registros do mesmo ensaio e das mesmas saídas. Dentro da família configurada, escolhe o maior <strong>R² ajustado</strong>, aplica o modelo e exporta as previsões.</td>
+<td><code>attitude.csv</code>, registro da escolha e parâmetros do firmware.</td>
+</tr>
+</tbody>
+</table></div>
+<p>O seletor oferece regressão linear, Ridge, Lasso, Elastic Net, KNN, SVR, Random Forest, Gradient Boosting e árvore de decisão; a configuração atual seleciona <strong>regressão linear</strong>. A exportação C++ existente espera um modelo linear com padronização, coeficientes e intercepto: os demais modelos do catálogo não têm todos um exportador correspondente.</p>
+<p><strong>As estratégias são alternativas: a última exportada define <code>attitude.csv</code> e o modelo do firmware.</strong> Depois de trocar a estratégia, refaça Heave → Lever → Analysis → Certificate.</p>
+<h3 id="4-heave-integrar-sem-deixar-o-erro-crescer-indefinidamente">4 · Heave — integrar sem deixar o erro crescer indefinidamente</h3>
+<p>Esta etapa usa a aceleração de <code>corrected.csv</code> e roll/pitch de <code>attitude.csv</code>, unidos por <code>time</code>:</p>
+<ol>
+<li><strong>Encontrar a vertical:</strong> gira a força medida para o referencial de navegação e compensa a gravidade. Nesta convenção, o eixo vertical aponta para baixo e a conta soma <code>g</code>. A componente vertical depende de roll e pitch, sem depender de yaw.</li>
+<li><strong>Integrar duas vezes:</strong> aceleração vira velocidade e depois deslocamento. Usa <strong>duas seções de segunda ordem em cascata</strong>, que funcionam como integradores na faixa de interesse e rejeitam componentes constantes e muito lentas. Isso limita o crescimento de posição causado por pequenos desvios do sensor.</li>
+<li><strong>Construir a referência geométrica:</strong> estima por mínimos quadrados o vetor do pivô ao sensor, usando as acelerações de rotação. Com a orientação da referência, calcula quanto esse ponto sobe e desce. Retira uma média móvel de <strong>10 s</strong> para separar oscilação de tendência lenta.</li>
+<li><strong>Escolher período e amortecimento:</strong> testa uma <strong>grade de 24 combinações</strong>: períodos de <code>0,5; 1; 1,5; 2; 3; 5 s</code> e amortecimentos de <code>0,5; 0,7; 1; 1,4</code>. Escolhe o menor RMS no movimento, excluindo os primeiros <strong>20 s após seu início</strong>. Aqui o ajuste é por varredura da grade.</li>
+</ol>
+<p>O período define a frequência das seções por <code>ωc = 2π/(10·Th)</code>; o amortecimento controla sua resposta. Lacunas maiores que <strong>0,5 s</strong> reiniciam as seções. O heave representa a oscilação vertical na faixa filtrada, não uma altitude absoluta.</p>
+<p><code>heave.csv</code> salva heave estimado, referência e <code>band_x/y/z</code>: as contribuições da orientação já passadas pelo filtro, preparadas para a translação da etapa seguinte.</p>
+<h3 id="5-lever-calcular-o-movimento-no-helideque">5 · Lever — calcular o movimento no helideque</h3>
+<p>Você informa <code>POINT = [dx, dy, dz]</code>, em metros, <strong>do MRU até o ponto desejado</strong>, nos eixos do navio. Esse vetor vem da instalação; o notebook não procura a posição do helideque por otimização.</p>
+<p>Quando o navio inclina, pontos distantes do sensor têm outro deslocamento vertical. O código soma essa contribuição ao heave do MRU, mantendo a mesma filtragem:</p>
+<pre aria-label="Código ou diagrama; role horizontalmente se necessário" tabindex="0"><code class="language-text">heave_no_ponto = heave_no_MRU + dx·band_x + dy·band_y + dz·band_z
+</code></pre>
+<p>Para conferir a geometria, testa o pivô fixo, o próprio sensor e um ponto com o dobro do braço. Os ângulos da referência, lidos de <code>corrected.csv</code>, servem para calcular o movimento esperado desses pontos e comparar.</p>
+<p>Por fim, calcula <code>hr = variação_do_heave / intervalo_de_tempo</code>, com zero na partida e após lacunas. <code>lever.csv</code> entrega heave em metros e velocidade vertical em m/s, ambos no ponto escolhido. Com <code>POINT = [0, 0, 0]</code>, o ponto é o próprio MRU.</p>
+<h3 id="6-analysis-transformar-diferencas-em-metricas">6 · Analysis — transformar diferenças em métricas</h3>
+<p>Une <code>corrected.csv</code>, <code>attitude.csv</code> e <code>lever.csv</code> pelos instantes em comum. A coluna <code>static</code> separa repouso de movimento; para as variáveis com referência, o erro é <code>estimado − referência</code>.</p>
+<div aria-label="Tabela 5 — role horizontalmente se necessário" class="table-wrap" role="region" tabindex="0"><table>
+<thead>
+<tr>
+<th scope="col">Métrica calculada</th>
+<th scope="col">O que permite observar</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>std_stat</code> e <code>std_raw</code></td>
+<td>Oscilação em repouso, depois e antes do filtro. Nos dois casos, os sensores já passaram pela correção.</td>
+</tr>
+<tr>
+<td><code>rms_stat</code> e <code>rms_dyn</code></td>
+<td>Tamanho do erro contra a referência, separado entre repouso e movimento.</td>
+</tr>
+<tr>
+<td><code>rmse</code> e <code>mae</code></td>
+<td>Erro quadrático e erro absoluto médio na série comparada.</td>
+</tr>
+<tr>
+<td><code>r2</code></td>
+<td>Quanto a estimativa acompanha a variação da referência.</td>
+</tr>
+</tbody>
+</table></div>
+<p>Aceleração e giro recebem as métricas de ruído; os ângulos, heave e <code>hr</code> também recebem as métricas de erro quando têm referência. Cada variável ganha um <code>metrics.json</code>; os ângulos ganham ainda <code>ref_vs_model.png</code> e <code>error.png</code>.</p>
+<h3 id="7-certificate-comparar-com-os-requisitos-e-montar-o-pdf">7 · Certificate — comparar com os requisitos e montar o PDF</h3>
+<p>Lê os JSON e gráficos gerados pelo Analysis. Para cada requisito, compara o valor medido com o limite; quando a linha cobre vários eixos, o <strong>pior valor</strong> determina o status. Os requisitos de ruído usam desvio padrão, enquanto os de roll/pitch usam erros RMS.</p>
+<p>Os limites atuais no notebook são <strong>0,20° de RMS estático e 0,50° de RMS dinâmico</strong> para roll/pitch, <strong>0,30°/s de ruído</strong> para o giroscópio e <strong>0,05 m/s² de ruído</strong> para o acelerômetro.</p>
+<p>Há também um requisito de <code>rms_scale_factor</code> configurado, mas a implementação atual de Analysis não exporta essa métrica; o certificado omite requisitos sem valores. Embora o texto explicativo do Analysis mencione precisão e deriva, essas métricas também não são calculadas pela classe atual. O PDF apresenta os resultados disponíveis em <code>Certificate/results/</code>.</p>
+<h2 id="como-iniciar-um-ensaio">Como iniciar um ensaio</h2>
+<ol>
+<li>Grave MRU e mesa com <a href="../Monitor/index.py"><code>Monitor/index.py</code></a>, usando o MRU em aquisição (<code>CF:device_mode$1!</code>). Inclua repouso e movimento. O Monitor salva <code>Monitor/output/&lt;data_hora&gt;/data.csv</code>, com tempo, indicação de repouso (<code>static</code>), MRU (<code>target_*</code>) e referência (<code>ref_*</code>).</li>
+<li>Copie <code>data.csv</code> para <code>Dataset/testN/files/</code> e selecione esse número em <code>Calibration/info.json</code>. Confira também <code>id</code>, a identificação do MRU, e <code>gravity</code>, a gravidade local em m/s².</li>
+<li>Em <code>Dataset/testN/info.json</code>, registre <code>align</code>: os ângulos configurados no Kernel durante o ensaio, em graus, na ordem <code>[proa, pitch, roll]</code>. O campo opcional <code>axes</code> remapeia dados de formatos antigos.</li>
+<li>Execute os notebooks na ordem da tabela, com as células de cima para baixo e o diretório de trabalho na pasta de cada notebook.</li>
+</ol>
+<h2 id="como-o-ajuste-chega-ao-equipamento">Como o ajuste chega ao equipamento</h2>
+<p>Os CSV guardam o resultado calculado sobre o ensaio. Os <strong><code>config.h</code> guardam os parâmetros que o MRU usará nas novas medições</strong>. As células de exportação escrevem diretamente em <code>../Hardware/Embedded/Main/objects/processing/</code>:</p>
+<div aria-label="Tabela 6 — role horizontalmente se necessário" class="table-wrap" role="region" tabindex="0"><table>
+<thead>
+<tr>
+<th scope="col">Gerado por</th>
+<th scope="col">Arquivo no firmware</th>
+<th scope="col">Conteúdo</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Filters</td>
+<td><code>filters/config.h</code></td>
+<td>Tipo e frequência de corte do filtro por eixo.</td>
+</tr>
+<tr>
+<td>Correction</td>
+<td><code>correction/config.h</code> e <code>align/config.h</code></td>
+<td>Correção das leituras e montagem do ensaio para adaptar a correção quando o align muda.</td>
+</tr>
+<tr>
+<td>Attitude</td>
+<td><code>attitude/config.h</code> e <code>attitude/&lt;kalman, linear ou machine&gt;/config.h</code></td>
+<td>Seleção da estratégia e parâmetros do modelo escolhido.</td>
+</tr>
+<tr>
+<td>Heave</td>
+<td><code>heave/config.h</code></td>
+<td>Parâmetros do cálculo de movimento vertical.</td>
+</tr>
+<tr>
+<td>Lever</td>
+<td><code>lever/config.h</code></td>
+<td>Posição do ponto de interesse em relação ao MRU.</td>
+</tr>
+</tbody>
+</table></div>
+<p>Depois de exportar, <strong>recompile e grave o firmware</strong> para aplicar os ajustes. Os registros <code>filters.json</code>, <code>correction.json</code>, <code>attitude.json</code>, <code>heave.json</code> e <code>lever.json</code>, no <code>results/</code> do ensaio, identificam os ajustes usados e seus backups.</p>
+<p>Ao alterar uma etapa, execute novamente todas as que dependem dela. O Analysis recria <code>Certificate/results/</code>, e o certificado sobrescreve o PDF anterior.</p>
+<p>O <a href="../Documents/Pipeline.png">diagrama geral do MRU</a> contextualiza o sistema. O bloco NORMAM mostrado na imagem não está presente no processamento atual; o certificado usa os requisitos definidos no próprio notebook.</p>
+</article>
+<footer class="doc-footer"><span>MRU / Calibration</span>
+<a href="#inicio">Voltar ao início ↑</a></footer>
+</main>
+</div>
+<script>
+const menu = document.querySelector('.sidebar details');
+const media = matchMedia('(min-width: 781px)');
+function adaptMenu() { menu.open = media.matches; }
+adaptMenu();
+media.addEventListener('change', adaptMenu);
+document.querySelector('[data-print]').addEventListener('click', () => window.print());
+const links = [...document.querySelectorAll('.toc a')];
+const headings = links.map(link => document.getElementById(link.hash.slice(1)));
+function markSection() {
+  let current = headings[0];
+  for (const heading of headings) {
+    if (heading.getBoundingClientRect().top <= 110) current = heading;
+  }
+  for (const link of links) {
+    if (current && link.hash === '#' + current.id) link.setAttribute('aria-current', 'location');
+    else link.removeAttribute('aria-current');
+  }
+}
+let ticking = false;
+addEventListener('scroll', () => {
+  if (!ticking) requestAnimationFrame(() => { markSection(); ticking = false; });
+  ticking = true;
+}, {passive:true});
+markSection();
+</script>
+</body>
+</html>

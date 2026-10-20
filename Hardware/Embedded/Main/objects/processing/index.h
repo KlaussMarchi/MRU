@@ -7,10 +7,9 @@
 #include "attitude/config.h"
 #include "heave/index.h"
 #include "lever/index.h"
-#include "report/index.h"
 
 
-// O SINAL QUE O MRU ENTREGA: O KERNEL NA ESCALA DO ICD E, NO MODO CALIBRADO, PRE-FILTRO, CORRECAO, ATITUDE, HEAVE, BRACO DE ALAVANCA E O RELATORIO DA NORMAM
+// O SINAL QUE O MRU ENTREGA: O KERNEL NA ESCALA DO ICD E, NO MODO CALIBRADO, PRE-FILTRO, CORRECAO, ATITUDE, HEAVE E BRACO DE ALAVANCA
 template <typename Parent> class Processing{
   private:
 	Parent* device;
@@ -22,14 +21,13 @@ template <typename Parent> class Processing{
 	AttitudeModel attitude;
 	Heave heave;
 	Lever lever;
-	Report report;
 
 	float tmp;
 	float ax, ay, az;
 	float wx, wy, wz;
 	float q0, q1, q2, q3;
 	float pitch, roll, yaw;
-	float h = 0, hr = 0, inc = 0;
+	float h = 0, hr = 0;
 	unsigned long count = 0;    // PACOTES PROCESSADOS: A AQUISICAO MANDA CADA UM UMA VEZ
 	bool active = false;
 
@@ -84,7 +82,7 @@ template <typename Parent> class Processing{
 		pitch = kernel.pitch * k.angle;
 		roll  = kernel.roll  * k.angle;
 		yaw   = kernel.yaw   * k.angle;
-		h     = 0; hr = 0; inc = 0;
+		h     = 0; hr = 0;
 	}
 
 	// PRIMEIRO PACOTE: OS FILTROS COMECAM NA LEITURA E OS OUTROS ESTAGIOS RECOMECAM
@@ -95,7 +93,6 @@ template <typename Parent> class Processing{
 		attitude.reset();
 		heave.reset();
 		lever.reset();
-		report.reset();
 	}
 
 	void update(const float dt){
@@ -107,7 +104,6 @@ template <typename Parent> class Processing{
 		attitude.update(sensors, angles, dt);
 		heave.update(sensors, attitude.pitch, attitude.roll, dt);
 		lever.update(heave.heave, attitude.pitch, attitude.roll, dt);
-		report.update(attitude.roll, attitude.pitch, lever.heave, lever.rate, dt);
 
 		ax = sensors[0]; ay = sensors[1]; az = sensors[2];
 		wx = sensors[3]; wy = sensors[4]; wz = sensors[5];
@@ -117,10 +113,9 @@ template <typename Parent> class Processing{
 		yaw   = attitude.yaw;
 		h     = lever.heave;
 		hr    = lever.rate;
-		inc   = report.inclination;
 	}
 
-	// CAMPOS NA ORDEM DO STREAMER: OS DO KERNEL NA ESCALA E, CALIBRADO, MAIS O QUE A NORMAM PEDE NO PONTO DE INTERESSE
+	// CAMPOS NA ORDEM DO STREAMER: OS DO KERNEL NA ESCALA E, CALIBRADO, MAIS O HEAVE E A TAXA DELE NO PONTO DE INTERESSE
 	int read(double* values) const {
 		values[0] = tmp;
 		values[1] = pitch; values[2] = roll; values[3] = yaw;
@@ -138,10 +133,8 @@ template <typename Parent> class Processing{
 		if(!active)
 			return 11;
 
-		values[11] = hr; values[12] = inc;
-		values[13] = report.B;   values[14] = report.C;    values[15] = report.Inc;
-		values[16] = report.Arf; values[17] = report.VArf; values[18] = report.SVArf;
-		return 19;
+		values[11] = hr;
+		return 12;
 	}
 
 	void reset(){
@@ -152,7 +145,7 @@ template <typename Parent> class Processing{
 		if(!active)
 			return "kernel scale";
 
-		return attitude.toString() + " + filters + correction" + (align.active ? " + align" : "") + " + heave + lever + report";
+		return attitude.toString() + " + filters + correction" + (align.active ? " + align" : "") + " + heave + lever";
 	}
 };
 

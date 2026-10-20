@@ -1,0 +1,816 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<meta name="description" content="Firmware do MRU · ESP32-S3 — arquivos, fluxo de dados e funcionamento dos algoritmos do MRU.">
+<title>Firmware do MRU · ESP32-S3 · Documentação MRU</title>
+<style>
+:root {
+  --paper:#ffffff; --canvas:#eef2f2; --ink:#19313b; --muted:#546b73;
+  --accent:#08776b; --accent-soft:#e7f4ef; --line:#dce5e5;
+  --code:#112c38; --gold:#a96b17; --radius:14px;
+}
+* { box-sizing:border-box }
+html { scroll-behavior:smooth; scroll-padding-top:28px }
+body { margin:0; background:var(--canvas); color:var(--ink);
+  font:15px/1.75 -apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif }
+a { color:var(--accent); text-decoration-thickness:1px; text-underline-offset:3px }
+a:hover { color:#034e46 }
+button,a { -webkit-tap-highlight-color:transparent }
+:focus-visible { outline:3px solid #c58c32; outline-offset:4px }
+.skip { position:absolute; left:16px; top:-100px; background:white; padding:8px 16px; z-index:5 }
+.skip:focus { top:12px }
+.topbar { border-top:5px solid var(--accent); background:var(--paper); border-bottom:1px solid var(--line) }
+.topbar-inner { max-width:1512px; margin:auto; padding:17px 36px;
+  display:flex; align-items:center; justify-content:space-between; gap:20px }
+.brand { display:flex; align-items:center; gap:12px; font-weight:800; letter-spacing:1px; color:var(--ink); text-decoration:none }
+.brand-mark { display:grid; place-items:center; width:34px; height:34px; border-radius:8px; background:var(--accent); color:white;
+  font-size:12px; letter-spacing:0 }
+.topbar-label { font-size:11px; font-weight:700; letter-spacing:1.8px; text-transform:uppercase; color:var(--muted) }
+.layout { max-width:1512px; margin:0 auto; padding:32px 36px 48px;
+  display:grid; grid-template-columns:236px minmax(0,1fr); gap:32px; align-items:start }
+.sidebar { position:sticky; top:24px; max-height:calc(100vh - 48px); overflow-y:auto;
+  scrollbar-width:thin; padding:8px 14px 16px 0 }
+.nav-label { display:block; color:var(--muted); font-size:10px; font-weight:800; letter-spacing:1.8px;
+  text-transform:uppercase; margin:0 0 12px 12px }
+.toc { display:flex; flex-direction:column; gap:3px }
+.toc a { display:flex; gap:10px; color:var(--muted); text-decoration:none; font-size:12px; line-height:1.5;
+  padding:8px 10px; border-left:2px solid transparent; border-radius:0 7px 7px 0 }
+.toc a:hover,.toc a[aria-current="location"] { color:var(--accent); background:var(--accent-soft); border-left-color:var(--accent) }
+.toc-number { flex:0 0 18px; color:#829598; font-size:10px; line-height:1.9; font-variant-numeric:tabular-nums }
+.toc a.sub { padding-left:24px; font-size:11px }
+.nav-related { border-top:1px solid var(--line); margin:20px 0 0 12px; padding-top:18px; font-size:12px }
+.nav-related a { display:block; margin-top:6px; font-weight:600 }
+main { min-width:0; background:var(--paper); border:1px solid var(--line); border-radius:var(--radius); overflow:hidden;
+  box-shadow:0 7px 28px #183b3e05 }
+.hero { padding:38px 40px 32px; border-bottom:1px solid var(--line);
+  background:linear-gradient(120deg,#f4faf7 0%,white 75%); position:relative }
+.eyebrow { display:flex; align-items:center; gap:9px; font-size:10px; letter-spacing:2px; text-transform:uppercase;
+  color:var(--accent); font-weight:800; margin-bottom:13px }
+.eyebrow::before { content:""; width:7px; height:7px; border-radius:50%; background:var(--accent) }
+h1 { font-size:clamp(29px,3.5vw,43px); line-height:1.17; letter-spacing:-1.5px; margin:0 0 16px; font-weight:800 }
+.deck { color:var(--muted); max-width:760px; line-height:1.8; margin:0; font-size:15px }
+.deck strong { color:var(--ink) }
+.actions { display:flex; gap:10px; flex-wrap:wrap; margin-top:24px }
+.button { border:1px solid var(--line); border-radius:7px; padding:8px 13px; color:var(--ink); text-decoration:none;
+  font-family:inherit; font-size:12px; font-weight:600; line-height:1.5; background:white; cursor:pointer }
+.button:hover { background:var(--accent-soft); border-color:#b9d8cf; color:var(--accent) }
+.button.primary { background:var(--accent); border-color:var(--accent); color:white }
+.prose { padding:10px 40px 36px; overflow-wrap:break-word }
+.prose p { margin:18px 0 }
+.prose h2,.prose h3 { scroll-margin-top:24px; color:var(--ink); line-height:1.4; }
+.prose h2 { font-size:22px; letter-spacing:-.5px; margin:42px 0 18px; padding-top:25px; border-top:1px solid var(--line) }
+.prose h2:first-of-type { border-top:0; padding-top:0; margin-top:30px }
+.prose h3 { font-size:19px; margin:32px 0 15px; padding:13px 17px; border-left:3px solid var(--accent);
+  border-radius:0 7px 7px 0; background:#f1f7f5; letter-spacing:-.25px }
+.prose ul,.prose ol { padding-left:24px; margin:16px 0 }
+.prose li { padding-left:3px; margin:9px 0 }
+.prose li::marker { color:var(--accent); font-weight:700 }
+.prose strong { font-weight:700 }
+code { font: .87em/1.5 "SFMono-Regular",Consolas,"Liberation Mono",monospace; background:#edf2f3; color:#234651;
+  border-radius:4px; padding:2px 5px; overflow-wrap:anywhere }
+pre { background:var(--code); color:#e2f0f2; border:1px solid #173c49; border-radius:10px;
+  padding:21px 22px; overflow:auto; margin:22px 0; line-height:1.7; tab-size:4; scrollbar-width:thin }
+pre code { padding:0; background:none; color:inherit; border-radius:0; font-size:12px; white-space:pre; overflow-wrap:normal }
+.table-wrap { overflow-x:auto; border:1px solid var(--line); border-radius:10px; margin:22px 0;
+  scrollbar-width:thin; background:white }
+table { width:100%; border-collapse:collapse; text-align:left; font-size:13px; line-height:1.7 }
+th { background:#e9f2ef; color:#24544c; font-weight:700; font-size:11px; letter-spacing:.3px; padding:13px 15px;
+  border-bottom:1px solid #ccdfd8; vertical-align:top }
+td { padding:15px; border-bottom:1px solid var(--line); vertical-align:top }
+tbody tr:last-child td { border-bottom:0 }
+tbody tr:nth-child(even) { background:#f9fbfb }
+tbody tr:hover { background:#f0f7f4 }
+td:first-child { font-weight:500; min-width:125px }
+td code,th code { font-size:11px; background:#eaf0f1 }
+table.wide { min-width:790px }
+table.wide th:first-child { width:21% }
+table.wide th:nth-child(2) { width:16% }
+table.wide th:nth-child(3) { width:37% }
+table.wide th:last-child { width:26% }
+.doc-footer { padding:22px 40px; border-top:1px solid var(--line); background:#fafcfc;
+  font-size:12px; color:var(--muted); display:flex; flex-wrap:wrap; justify-content:space-between; gap:12px }
+.doc-footer a { font-weight:600 }
+@media (max-width:1100px) {
+  .layout { grid-template-columns:205px minmax(0,1fr); padding:24px; gap:24px }
+  .hero { padding:30px } .prose { padding:6px 30px 28px } .doc-footer { padding:20px 30px }
+}
+@media (max-width:780px) {
+  .topbar-inner { padding:14px 20px } .topbar-label { font-size:9px; letter-spacing:1px }
+  .layout { display:block; padding:16px 12px 28px }
+  .sidebar { position:static; max-height:none; padding:0; margin-bottom:16px; border:1px solid var(--line);
+    border-radius:10px; background:white }
+  .sidebar details { padding:12px 16px }
+  .sidebar summary { cursor:pointer; font-size:12px; color:var(--accent); font-weight:700 }
+  .sidebar details:not([open]) .nav-label { display:none }
+  .sidebar details[open] .nav-label { margin-top:18px }
+  .toc { max-height:260px; overflow:auto }
+  .nav-related { display:none }
+  .hero { padding:26px 22px } h1 { letter-spacing:-1px }
+  .deck { font-size:14px } .prose { padding:4px 20px 26px; font-size:14px }
+  .prose h2 { font-size:20px; margin-top:32px } .prose h3 { font-size:17px }
+  pre { padding:17px; border-radius:8px } pre code { font-size:11px }
+  .table-wrap { margin:18px 0 } table:not(.wide) { min-width:540px }
+  .doc-footer { padding:18px 22px }
+}
+@media (min-width:781px) { .sidebar summary { display:none } }
+@media (prefers-reduced-motion:reduce) { html { scroll-behavior:auto } }
+@media print {
+  @page { size:A4; margin:14mm }
+  body { background:white; color:#111; font-size:10pt; line-height:1.55 }
+  .topbar,.sidebar,.actions,.skip,.doc-footer { display:none !important }
+  .layout { display:block; padding:0; max-width:none }
+  main { border:0; border-radius:0; box-shadow:none; overflow:visible }
+  .hero { padding:0 0 16px; background:white }
+  h1 { font-size:26pt } .eyebrow { font-size:8pt } .deck { font-size:10pt }
+  .prose { padding:0; font-size:10pt }
+  .prose h2 { font-size:15pt; padding-top:14px; margin-top:24px; break-after:avoid }
+  .prose h3 { font-size:12pt; break-after:avoid; background:#f4f6f6 }
+  .table-wrap { overflow:visible; border-radius:0 }
+  table,table.wide,table:not(.wide) { min-width:0; font-size:8pt; width:100%; table-layout:fixed }
+  th { font-size:8pt } th,td { padding:7px; min-width:0; overflow-wrap:anywhere }
+  thead { display:table-header-group } tr { break-inside:avoid }
+  td code,th code { font-size:7.5pt }
+  pre { background:#f1f4f4; border-color:#d6dede; color:#111; overflow:visible; padding:12px }
+  pre code { font-size:7pt; white-space:pre-wrap; overflow-wrap:anywhere }
+  a { color:#175c54; text-decoration:none }
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#conteudo">Ir para o conteúdo</a>
+<header class="topbar"><div class="topbar-inner">
+<a class="brand" href="#inicio" aria-label="MRU — início"><span class="brand-mark">M</span> MRU</a>
+<span class="topbar-label">Documentação técnica</span>
+</div></header>
+<div class="layout">
+<aside class="sidebar" aria-label="Navegação do documento">
+<details open><summary>Navegar pelas seções</summary>
+<span class="nav-label">Neste documento</span>
+<nav class="toc" aria-label="Índice"><a class="" href="#visao-geral"><span class="toc-number" aria-hidden="true">01</span><span>Visão geral</span></a><a class="" href="#estrutura-de-arquivos"><span class="toc-number" aria-hidden="true">02</span><span>Estrutura de arquivos</span></a><a class="" href="#o-que-acontece-ao-ligar"><span class="toc-number" aria-hidden="true">03</span><span>O que acontece ao ligar</span></a><a class="" href="#como-uma-amostra-atravessa-o-firmware"><span class="toc-number" aria-hidden="true">04</span><span>Como uma amostra atravessa o firmware</span></a><a class="sub" href="#1-kernel-conexao-pacote-e-escala"><span class="toc-number" aria-hidden="true">05</span><span>1 · Kernel — conexão, pacote e escala</span></a><a class="sub" href="#2-filters-aplicar-os-filtros-escolhidos-na-calibracao"><span class="toc-number" aria-hidden="true">06</span><span>2 · Filters — aplicar os filtros escolhidos na calibração</span></a><a class="sub" href="#3-correction-e-align-corrigir-a-leitura-no-referencial-certo"><span class="toc-number" aria-hidden="true">07</span><span>3 · Correction e Align — corrigir a leitura no referencial certo</span></a><a class="sub" href="#4-attitude-o-modelo-escolhido-em-tempo-de-compilacao"><span class="toc-number" aria-hidden="true">08</span><span>4 · Attitude — o modelo escolhido em tempo de compilação</span></a><a class="sub" href="#5-heave-aceleracao-vertical-para-deslocamento"><span class="toc-number" aria-hidden="true">09</span><span>5 · Heave — aceleração vertical para deslocamento</span></a><a class="sub" href="#6-lever-movimento-no-ponto-de-interesse"><span class="toc-number" aria-hidden="true">10</span><span>6 · Lever — movimento no ponto de interesse</span></a><a class="sub" href="#7-telemetria-origem-formato-e-frequencia"><span class="toc-number" aria-hidden="true">11</span><span>7 · Telemetria — origem, formato e frequência</span></a><a class="" href="#campos-transmitidos"><span class="toc-number" aria-hidden="true">12</span><span>Campos transmitidos</span></a><a class="" href="#portas-comandos-e-configuracoes"><span class="toc-number" aria-hidden="true">13</span><span>Portas, comandos e configurações</span></a><a class="" href="#montagem-e-presets-de-align"><span class="toc-number" aria-hidden="true">14</span><span>Montagem e presets de align</span></a><a class="" href="#parametros-que-vem-da-calibracao"><span class="toc-number" aria-hidden="true">15</span><span>Parâmetros que vêm da calibração</span></a><a class="" href="#compilacao-e-gravacao"><span class="toc-number" aria-hidden="true">16</span><span>Compilação e gravação</span></a><a class="" href="#componentes-utilitarios-e-atualizacao"><span class="toc-number" aria-hidden="true">17</span><span>Componentes, utilitários e atualização</span></a><a class="" href="#comportamentos-importantes-para-interpretar-os-resultados"><span class="toc-number" aria-hidden="true">18</span><span>Comportamentos importantes para interpretar os resultados</span></a></nav>
+</details>
+<div class="nav-related">Continue a leitura<a href="../../../Calibration/README.html">Pipeline de calibração ↗</a></div>
+</aside>
+<main id="inicio">
+<header class="hero">
+<div class="eyebrow">Firmware · processamento embarcado</div>
+<h1>Firmware do MRU · ESP32-S3</h1>
+<p class="deck">Este firmware recebe as medições do <strong>Kernel-120</strong>, aplica os ajustes produzidos pela calibração e transmite orientação, aceleração, giro e movimento vertical por <strong>USB, RS232 ou RS422</strong>. O ponto de entrada é <a href="Main.ino"><code>Main.ino</code></a>, que identifica a versão atual como <code>v1.0.7</code>.</p>
+<div class="actions">
+<button class="button primary" type="button" data-print>Imprimir / salvar PDF</button>
+<a class="button" href="README.md">Abrir Markdown</a>
+<a class="button" href="../../../Calibration/README.html">Pipeline de calibração ↗</a>
+</div>
+</header>
+<article class="prose" id="conteudo" aria-label="Firmware do MRU · ESP32-S3">
+
+
+<p>O <a href="../../../Calibration/README.html">pipeline de calibração</a> escolhe filtros e ajusta modelos no computador. Aqui, o ESP32 executa esses modelos sobre as novas amostras, usando os parâmetros compilados em <code>config.h</code>.</p>
+<h2 id="visao-geral">Visão geral</h2>
+<pre aria-label="Código ou diagrama; role horizontalmente se necessário" tabindex="0"><code class="language-text">Kernel-120 → UART1 → decodificação → escala → filtros → correção → atitude → heave → braço
+                                                                                     │
+                                                                                     ▼
+                                                                          JSON · LIST · NMEA
+                                                                                     │
+                                                                                     ▼
+                                                                            USB · RS232 · RS422
+
+Computador → comandos pela serial → configurações persistentes / controle do stream
+Calibration → config.h → compilação do firmware → parâmetros usados no processamento
+</code></pre>
+<p>Esse é o caminho calibrado. Os modos RAW e SCALE permitem observar as medições anteriores à calibração.</p>
+<h2 id="estrutura-de-arquivos">Estrutura de arquivos</h2>
+<pre aria-label="Código ou diagrama; role horizontalmente se necessário" tabindex="0"><code class="language-text">Main/
+├── Main.ino                         ← setup() e loop() do Arduino
+├── device/
+│   ├── index.h                     ← reúne e inicializa os módulos
+│   ├── settings/index.h            ← configurações persistentes
+│   └── tasks/index.h               ← laços de processamento e comunicação
+├── globals/
+│   ├── constants.h                 ← números que identificam modos e protocolos
+│   └── functions.h                 ← função de exemplo, sem papel na cadeia de medição
+├── objects/
+│   ├── sensors/
+│   │   ├── index.h                 ← gerencia o sensor
+│   │   └── Kernel/
+│   │       ├── index.h             ← conexão, configuração e recepção do Kernel
+│   │       ├── HR/index.h          ← pacote de alta resolução
+│   │       ├── quat/index.h        ← pacote de quaternion
+│   │       └── orient/index.h      ← pacote de orientação
+│   ├── processing/
+│   │   ├── index.h                 ← executa a sequência de cálculo
+│   │   ├── filters/                ← passa-baixa de cada eixo
+│   │   ├── correction/             ← matriz, viés e temperatura
+│   │   ├── align/                  ← adapta a correção ao align atual
+│   │   ├── attitude/
+│   │   │   ├── config.h            ← seleciona o modelo compilado
+│   │   │   ├── kalman/             ← fusão de acelerômetro e giroscópio
+│   │   │   ├── linear/             ← correção linear dos ângulos do Kernel
+│   │   │   └── machine/            ← regressão sobre uma janela de sensores
+│   │   ├── heave/                  ← movimento vertical do sensor
+│   │   └── lever/                  ← movimento vertical no ponto de interesse
+│   ├── telemetry/
+│   │   ├── index.h                 ← coordena comandos, respostas e transmissão
+│   │   ├── serial/index.h          ← portas USB, RS232 e RS422
+│   │   ├── protocol/index.h        ← interpretação dos comandos
+│   │   └── streamer/index.h        ← formato e cadência das amostras transmitidas
+│   ├── components/                 ← LEDs e encoder
+│   └── updater/index.h             ← atualização do firmware pela serial
+├── utils/                          ← texto, JSON, relógios e estruturas auxiliares
+└── build/                          ← artefatos de compilação, quando gerados
+</code></pre>
+<p>Nas pastas de processamento, <strong><code>index.h</code> implementa o algoritmo e <code>config.h</code> fornece seus parâmetros</strong>. Os arquivos <code>.h</code> contêm boa parte da implementação; o <code>Main.ino</code> apenas monta e inicia o dispositivo.</p>
+<h2 id="o-que-acontece-ao-ligar">O que acontece ao ligar</h2>
+<div aria-label="Tabela 1 — role horizontalmente se necessário" class="table-wrap" role="region" tabindex="0"><table class="wide">
+<thead>
+<tr>
+<th scope="col">Ordem</th>
+<th scope="col">Arquivo e chamada</th>
+<th scope="col">O que faz</th>
+<th scope="col">Resultado</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>1 · Entrada</strong></td>
+<td><code>Main.ino</code> → <code>setup()</code></td>
+<td>Desliga o encoder, habilita LEDs e multitarefa, mantém o sensor real ativo e inicia <code>Serial</code> a 115200.</td>
+<td>Chama <code>device.setup()</code>.</td>
+</tr>
+<tr>
+<td><strong>2 · Dispositivo</strong></td>
+<td><code>device/index.h</code> → <code>Device::setup()</code></td>
+<td>Gera a identificação a partir do MAC do ESP32, mostra a versão, inicia componentes e carrega as configurações.</td>
+<td>Define modo de operação e frequência de transmissão.</td>
+</tr>
+<tr>
+<td><strong>3 · Comunicação</strong></td>
+<td><code>objects/telemetry/index.h</code> → <code>setup()</code></td>
+<td>Abre RS232/RS422 e configura formato, origem dos dados e início automático do stream.</td>
+<td>Comunicação pronta, ainda antes da aquisição do sensor.</td>
+</tr>
+<tr>
+<td><strong>4 · Sensor</strong></td>
+<td><code>objects/sensors/Kernel/index.h</code> → <code>setup()</code></td>
+<td>Procura o Kernel, configura sua saída, lê o align e solicita o pacote HR, QT ou OR.</td>
+<td>Recepção dos pacotes binários.</td>
+</tr>
+<tr>
+<td><strong>5 · Processamento</strong></td>
+<td><code>objects/processing/index.h</code> → <code>setup()</code></td>
+<td>Monta os filtros, inicializa atitude, heave e braço, e prepara a adaptação de montagem.</td>
+<td>Estados e coeficientes prontos para as amostras.</td>
+</tr>
+<tr>
+<td><strong>6 · Execução contínua</strong></td>
+<td><code>Main.ino</code> → <code>loop()</code> → <code>tasks.handle()</code></td>
+<td>Inicia os laços que mantêm sensor, cálculos, LEDs e telemetria funcionando.</td>
+<td>O MRU passa a receber, processar e transmitir.</td>
+</tr>
+</tbody>
+</table></div>
+<p>Com <code>multitask = true</code>, <code>thread0()</code> executa <strong>sensores → processamento → componentes</strong>; uma tarefa FreeRTOS criada e fixada no núcleo 1 executa <code>thread1()</code>, responsável pela telemetria. O código não fixa explicitamente o núcleo do laço original. Com multitarefa desabilitada, os dois caminhos são chamados sequencialmente.</p>
+<h2 id="como-uma-amostra-atravessa-o-firmware">Como uma amostra atravessa o firmware</h2>
+<p>Os arquivos abaixo ficam em <code>objects/</code>. As setas representam dados mantidos em memória: o firmware não cria os CSV usados na calibração.</p>
+<div aria-label="Tabela 2 — role horizontalmente se necessário" class="table-wrap" role="region" tabindex="0"><table class="wide">
+<thead>
+<tr>
+<th scope="col">Etapa e arquivo</th>
+<th scope="col">Entrada</th>
+<th scope="col">Operação</th>
+<th scope="col">Saída → destino</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Recepção</strong> · <code>sensors/Kernel/index.h</code> e decodificador do modo</td>
+<td>Bytes da UART1</td>
+<td>Localiza <code>AA 55</code>, reúne o pacote e verifica a soma de controle. Extrai os campos e registra o instante de início do pacote recebido pelo ESP32.</td>
+<td>Inteiros do Kernel e <code>lastAckTime</code> → Processing.</td>
+</tr>
+<tr>
+<td><strong>Escala</strong> · <code>processing/index.h</code> → <code>scale()</code></td>
+<td>Inteiros e modo HR/QT/OR</td>
+<td>Multiplica cada campo pelo fator de conversão correspondente.</td>
+<td>m/s², °/s, graus, °C e quaternion quando disponível → saída SCALE ou cadeia calibrada.</td>
+</tr>
+<tr>
+<td><strong>Pré-filtro</strong> · <code>processing/filters/index.h</code></td>
+<td>Seis sinais em escala física</td>
+<td>Aplica o filtro escolhido para cada eixo do acelerômetro e giroscópio.</td>
+<td>Sensores filtrados → Align/Correction.</td>
+</tr>
+<tr>
+<td><strong>Correção</strong> · <code>processing/align/index.h</code> + <code>correction/index.h</code></td>
+<td>Sensores filtrados e temperatura</td>
+<td>Adapta os eixos quando o align mudou e aplica matriz, viés e termo térmico.</td>
+<td>Sensores corrigidos nos eixos do navio → Attitude e Heave.</td>
+</tr>
+<tr>
+<td><strong>Atitude</strong> · <code>processing/attitude/&lt;modelo&gt;/index.h</code></td>
+<td>Sensores corrigidos e ângulos originais do Kernel</td>
+<td>Executa o modelo selecionado em <code>attitude/config.h</code>.</td>
+<td>Pitch, roll e yaw → Heave, Lever e saída.</td>
+</tr>
+<tr>
+<td><strong>Heave</strong> · <code>processing/heave/index.h</code></td>
+<td>Aceleração corrigida, pitch, roll e intervalo de tempo</td>
+<td>Encontra a aceleração vertical, compensa a gravidade e integra com rejeição de deriva.</td>
+<td>Heave no sensor, em metros → Lever.</td>
+</tr>
+<tr>
+<td><strong>Braço</strong> · <code>processing/lever/index.h</code></td>
+<td>Heave, inclinação e vetor até o ponto desejado</td>
+<td>Acrescenta o deslocamento vertical devido à distância entre sensor e ponto; calcula sua velocidade vertical.</td>
+<td>Heave e <code>heave_rate</code> no ponto → Streamer.</td>
+</tr>
+<tr>
+<td><strong>Transmissão</strong> · <code>telemetry/streamer/index.h</code></td>
+<td>Estado mais recente e contador do processamento</td>
+<td>Escolhe os campos, verifica a cadência, formata e escreve na porta ativa.</td>
+<td>Uma mensagem JSON, LIST ou NMEA → computador ou sistema do navio.</td>
+</tr>
+</tbody>
+</table></div>
+<p><code>Processing::handle()</code> verifica se <code>lastAckTime</code> mudou, evitando processar novamente a mesma amostra. O intervalo usado por atitude e heave vem da diferença entre esses instantes; os coeficientes dos pré-filtros são calculados para a taxa nominal do Kernel.</p>
+<h3 id="1-kernel-conexao-pacote-e-escala">1 · Kernel — conexão, pacote e escala</h3>
+<p>O driver usa <strong>UART1, TX 4 e RX 3</strong>. No boot, procura resposta em 460800, 115200, 230400 e 921600 baud. Quando encontra o sensor, verifica os parâmetros e grava os que diferem da configuração desejada:</p>
+<div aria-label="Tabela 3 — role horizontalmente se necessário" class="table-wrap" role="region" tabindex="0"><table>
+<thead>
+<tr>
+<th scope="col">Parâmetro do Kernel</th>
+<th scope="col">Valor solicitado</th>
+<th scope="col">Motivo</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Baud</td>
+<td>460800</td>
+<td>Transportar os pacotes na taxa configurada.</td>
+</tr>
+<tr>
+<td>Taxa de saída</td>
+<td>200 Hz</td>
+<td>Fornecer uma amostra nominal a cada 5 ms.</td>
+</tr>
+<tr>
+<td>Variante de saída</td>
+<td>Média das amostras internas</td>
+<td>Reduzir a taxa interna de 2 kHz por média.</td>
+</tr>
+<tr>
+<td>Passa-baixa interno</td>
+<td>66 Hz</td>
+<td>Atenuar componentes rápidas antes da saída reduzida.</td>
+</tr>
+</tbody>
+</table></div>
+<p>O firmware também lê os três ângulos de <code>Alignment_Angles</code>. Para aplicar mudanças persistentes do Kernel, siga o procedimento de desligar e ligar o MRU descrito no <a href="../../../README.md">guia geral</a>; reiniciar somente o ESP32 não corta a alimentação do sensor.</p>
+<div aria-label="Tabela 4 — role horizontalmente se necessário" class="table-wrap" role="region" tabindex="0"><table class="wide">
+<thead>
+<tr>
+<th scope="col">Modo do Kernel</th>
+<th scope="col">Decodificador</th>
+<th scope="col">Conteúdo utilizado</th>
+<th scope="col">Escala aplicada pelo firmware</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>HR · 0</strong></td>
+<td><code>HR/index.h</code> · 60 bytes</td>
+<td>Ângulos, aceleração, giro e temperatura.</td>
+<td>Aceleração: <code>9,8106 × 10⁻⁶</code>; giro: <code>10⁻⁵</code>; ângulos: <code>10⁻³</code>; temperatura: <code>0,1</code>.</td>
+</tr>
+<tr>
+<td><strong>QT · 1</strong></td>
+<td><code>quat/index.h</code> · 42 bytes</td>
+<td>Ângulos, quaternion e temperatura.</td>
+<td>Ângulos: <code>10⁻²</code>; quaternion: <code>10⁻⁴</code>; temperatura: <code>0,1</code>.</td>
+</tr>
+<tr>
+<td><strong>OR · 2</strong></td>
+<td><code>orient/index.h</code> · 42 bytes</td>
+<td>Ângulos, aceleração, giro e temperatura, com menor resolução.</td>
+<td>Aceleração: <code>9,8106 / 4000</code>; giro: <code>0,02</code>; ângulos: <code>10⁻²</code>; temperatura: <code>0,1</code>.</td>
+</tr>
+</tbody>
+</table></div>
+<p>Os fatores multiplicam o inteiro recebido. A aceleração resultante fica em m/s², o giro em °/s e os ângulos em graus. O valor <code>9,8106</code> pertence à conversão da escala do Kernel; a gravidade local dos modelos vem dos arquivos exportados pela calibração.</p>
+<p>O modo <strong>QT não fornece aceleração e giro</strong>, portanto desabilita a cadeia calibrada. O heave transmitido nesse caminho é zero.</p>
+<h3 id="2-filters-aplicar-os-filtros-escolhidos-na-calibracao">2 · Filters — aplicar os filtros escolhidos na calibração</h3>
+<p><code>filters/config.h</code> informa <code>FILTERS_TYPE[6]</code> e <code>FILTERS_FC[6]</code>, na ordem <code>ax, ay, az, wx, wy, wz</code>. <code>Filters::setup()</code> converte esses parâmetros em coeficientes digitais.</p>
+<div aria-label="Tabela 5 — role horizontalmente se necessário" class="table-wrap" role="region" tabindex="0"><table>
+<thead>
+<tr>
+<th scope="col">Tipo</th>
+<th scope="col">Como funciona no ESP32</th>
+<th scope="col">Efeito do parâmetro</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Butterworth de segunda ordem</strong></td>
+<td>Uma seção recursiva combina a entrada atual, duas entradas anteriores e duas saídas anteriores. Usa Tustin com ajuste da frequência.</td>
+<td><code>fc</code> define o corte de −3 dB.</td>
+</tr>
+<tr>
+<td><strong>Passa-baixa de quatro polos</strong></td>
+<td>Quatro seções de primeira ordem em cascata, com polos iguais e transformação de Tustin.</td>
+<td><code>fc</code> define a frequência dos polos; o corte de −3 dB do modelo contínuo é aproximadamente <code>0,435 × fc</code>.</td>
+</tr>
+<tr>
+<td><strong>Média exponencial</strong></td>
+<td><code>y = α·x + (1−α)·y_anterior</code>, com <code>α = 1−exp(−2π·fc·dt)</code>.</td>
+<td>Frequência menor suaviza mais; <code>α</code> próximo de 1 deixa a leitura quase intacta.</td>
+</tr>
+</tbody>
+</table></div>
+<p>Os estados começam com a primeira leitura, evitando um salto artificial causado por iniciar em zero. Os seis eixos podem usar filtros e frequências diferentes.</p>
+<p>Na calibração, a chamada <code>genetic</code> executa <strong>CMA-ES</strong> para escolher os parâmetros. <strong>O firmware aplica o resultado dessa busca</strong>: não executa otimização evolutiva. A filtragem acontece antes de o Streamer reduzir a taxa de saída.</p>
+<h3 id="3-correction-e-align-corrigir-a-leitura-no-referencial-certo">3 · Correction e Align — corrigir a leitura no referencial certo</h3>
+<p><code>correction/index.h</code> aplica, separadamente ao acelerômetro e ao giroscópio:</p>
+<pre aria-label="Código ou diagrama; role horizontalmente se necessário" tabindex="0"><code class="language-text">x_corrigido = M·x + c + k·(T−T0)
+</code></pre>
+<p><code>M</code> reúne montagem, escala e mistura entre eixos; <code>c</code> é o desvio de zero; <code>k</code> é o efeito térmico por grau em relação a <code>T0</code>. Esses números foram ajustados nos notebooks, por Wahba/SVD e mínimos quadrados com regularização.</p>
+<p><code>Align::apply()</code> envolve essa correção. Se a montagem atual difere da usada no ensaio, primeiro leva a entrada aos eixos da calibração, aplica <code>correct()</code> e gira a saída para os eixos atuais do navio. A rotação depende do align lido do Kernel e de <code>ALIGN_CALIBRATION</code>/<code>ALIGN_FRAME</code>.</p>
+<p>Com align igual ou informação indisponível (<code>NAN</code>), a correção continua sendo aplicada, mas sem essa rotação adicional. A mensagem de boot informa <code>sem rotacao</code> ou <code>correcao girada</code>.</p>
+<h3 id="4-attitude-o-modelo-escolhido-em-tempo-de-compilacao">4 · Attitude — o modelo escolhido em tempo de compilação</h3>
+<p><a href="objects/processing/attitude/config.h"><code>objects/processing/attitude/config.h</code></a> inclui um modelo e define o apelido <code>AttitudeModel</code>. Na configuração atual, ele seleciona <strong><code>KalmanModel</code></strong>. Para trocar de estratégia, exporte a desejada no pipeline de calibração e recompile.</p>
+<div aria-label="Tabela 6 — role horizontalmente se necessário" class="table-wrap" role="region" tabindex="0"><table>
+<thead>
+<tr>
+<th scope="col">Modelo</th>
+<th scope="col">Entrada efetivamente usada</th>
+<th scope="col">Princípio e comportamento</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Kalman</strong> · <code>kalman/index.h</code></td>
+<td>Aceleração e giro corrigidos; proa inicial configurada ou do Kernel.</td>
+<td>Propaga a orientação com o giroscópio e corrige a inclinação pela gravidade observada no acelerômetro. Estima também o desvio do giro.</td>
+</tr>
+<tr>
+<td><strong>Linear</strong> · <code>linear/index.h</code></td>
+<td>Ângulos originais do Kernel.</td>
+<td>Calcula <code>ângulos = M·ângulos_Kernel + B</code>. A matriz permite ajustar escala, desvio e acoplamento, conforme os coeficientes exportados.</td>
+</tr>
+<tr>
+<td><strong>Machine</strong> · <code>machine/index.h</code></td>
+<td>Janela temporal de sensores corrigidos.</td>
+<td>Padroniza as entradas com média/desvio do treino e aplica os coeficientes de uma regressão. Atualiza a janela no período <code>MACHINE_PERIOD</code>.</td>
+</tr>
+</tbody>
+</table></div>
+<p>O Kalman é um <strong>filtro multiplicativo de estado de erro com seis componentes</strong>: três erros de orientação e três desvios do giroscópio. A orientação nominal usa quaternion. A cada atualização:</p>
+<ol>
+<li>Converte o giro para radianos/s, estima a aceleração angular e desconta do acelerômetro a aceleração causada pelo braço <code>KALMAN_LEVER</code>.</li>
+<li>Propaga o quaternion com o giro corrigido. Usa ajuste de fase e correção de <em>coning</em> para a mudança do eixo de rotação entre amostras.</li>
+<li>Compara a direção medida pelo acelerômetro com a gravidade prevista. Reduz a confiança nessa medida quando seu módulo se afasta da gravidade.</li>
+<li>Ao detectar repouso, aplica <strong>ZARU</strong>: a taxa verdadeira deve ser zero, então a leitura ajuda a corrigir o desvio do giroscópio. Os limiares são <code>|norma(aceleração) − g| &lt; 0,20 m/s²</code> e norma do giro inferior a <code>1°/s</code>.</li>
+<li>Atualiza a incerteza com a forma de Joseph e converte o quaternion para pitch, roll e yaw, preservando a continuidade dos ângulos.</li>
+</ol>
+<p>O acelerômetro não determina a proa absoluta. O início usa <code>KALMAN_HEADING</code>, ou o yaw do Kernel quando esse parâmetro é <code>NAN</code>. A primeira amostra preserva os ângulos do Kernel enquanto o histórico é iniciado.</p>
+<p>No modelo Machine, os ângulos do Kernel também são usados enquanto a janela ainda não está completa e para saídas não previstas pelo modelo. A implementação embarcada é uma regressão com coeficientes; não é um executor genérico de todos os modelos disponíveis no seletor Python.</p>
+<h3 id="5-heave-aceleracao-vertical-para-deslocamento">5 · Heave — aceleração vertical para deslocamento</h3>
+<p>O acelerômetro mede força específica nos eixos do corpo. <code>vertical()</code> usa pitch e roll para encontrar sua componente vertical; a soma com <code>HEAVE_GRAVITY</code> retira a contribuição da gravidade, na convenção adotada.</p>
+<p>A classe <code>Heave</code> passa essa aceleração por <strong>duas seções de segunda ordem em cascata</strong>: uma produz velocidade, a outra deslocamento. As seções integram na faixa de interesse e rejeitam componentes constantes e muito lentas, reduzindo a deriva que cresceria ao integrar um pequeno desvio.</p>
+<p><code>HEAVE_PERIOD</code> define <code>ωc = 2π/(10·Th)</code> e <code>HEAVE_DAMPING</code> define o amortecimento. O cálculo usa estados em <code>double</code>. Na primeira amostra, ou após um intervalo maior que <strong>0,5 s</strong>, as seções reiniciam em regime para a entrada recebida.</p>
+<p>O resultado é <strong>heave no sensor, em metros, positivo para baixo</strong>. Representa movimento oscilatório na faixa filtrada, não altitude absoluta.</p>
+<h3 id="6-lever-movimento-no-ponto-de-interesse">6 · Lever — movimento no ponto de interesse</h3>
+<p><code>LEVER_POINT = [x, y, z]</code> representa o vetor <strong>do MRU até o ponto desejado</strong>, em metros, nos eixos do navio. Pode ser, por exemplo, o centro do helideque.</p>
+<p><code>Lever::update()</code> projeta esse vetor na vertical usando a inclinação atual. Passa o deslocamento pelas mesmas duas seções, agora usando suas saídas passa-alta, e soma ao heave do sensor. Assim, a contribuição geométrica tem a mesma filtragem do heave.</p>
+<p>A velocidade <code>heave_rate</code> é a diferença entre o heave atual e o anterior, dividida pelo intervalo de tempo. Vale zero no primeiro passo e após lacunas maiores que 0,5 s. <strong>Heave e velocidade são positivos para baixo.</strong> Com vetor nulo, o ponto coincide com o sensor.</p>
+<p><code>KALMAN_LEVER</code> e <code>LEVER_POINT</code> têm funções distintas: o primeiro vai do <strong>centro de rotação ao sensor</strong> e corrige acelerações; o segundo vai do <strong>sensor ao ponto de saída</strong> e transporta o heave.</p>
+<h3 id="7-telemetria-origem-formato-e-frequencia">7 · Telemetria — origem, formato e frequência</h3>
+<p>Há três seleções independentes:</p>
+<div aria-label="Tabela 7 — role horizontalmente se necessário" class="table-wrap" role="region" tabindex="0"><table>
+<thead>
+<tr>
+<th scope="col">Configuração</th>
+<th scope="col">Valores</th>
+<th scope="col">O que controla</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>device_mode</code></td>
+<td><code>0</code> NORMAL · <code>1</code> ACQUISITION</td>
+<td>O modo de operação geral. Aquisição força SCALE, LIST e início automático; RS232/RS422 usam 460800 baud.</td>
+</tr>
+<tr>
+<td><code>streamer_mode</code></td>
+<td><code>0</code> CALIBRATED · <code>1</code> RAW · <code>2</code> SCALE</td>
+<td>A origem dos valores transmitidos.</td>
+</tr>
+<tr>
+<td><code>protocol</code></td>
+<td><code>0</code> JSON · <code>1</code> LIST · <code>2</code> NMEA</td>
+<td>A representação textual de cada mensagem.</td>
+</tr>
+<tr>
+<td><code>kernel_mode</code></td>
+<td><code>0</code> HR · <code>1</code> QT · <code>2</code> OR</td>
+<td>O pacote binário solicitado ao Kernel.</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>RAW</strong> lê diretamente os inteiros do Kernel. <strong>SCALE</strong> transmite esses campos convertidos para unidades físicas. <strong>CALIBRATED</strong> transmite a saída da cadeia de processamento, desde que o Kernel esteja em HR ou OR.</p>
+<p>O processamento segue as amostras recebidas. No modo normal, <code>frequency</code> controla a cadência de transmissão, com temporização em milissegundos; não muda a configuração de 200 Hz do Kernel. O Streamer só envia quando o contador de processamento mudou. Em aquisição, elimina o intervalo adicional e tenta transmitir cada novo estado processado.</p>
+<h2 id="campos-transmitidos">Campos transmitidos</h2>
+<div aria-label="Tabela 8 — role horizontalmente se necessário" class="table-wrap" role="region" tabindex="0"><table>
+<thead>
+<tr>
+<th scope="col">Situação</th>
+<th scope="col">Ordem dos campos em JSON/LIST</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>HR/OR calibrado · <strong>13 campos</strong></td>
+<td><code>time, tmp, pitch, roll, yaw, ax, ay, az, wx, wy, wz, heave, heave_rate</code></td>
+</tr>
+<tr>
+<td>HR/OR RAW ou SCALE · <strong>12 campos</strong></td>
+<td><code>time, tmp, pitch, roll, yaw, ax, ay, az, wx, wy, wz, heave</code></td>
+</tr>
+<tr>
+<td>QT · <strong>10 campos</strong></td>
+<td><code>time, tmp, pitch, roll, yaw, q0, q1, q2, q3, heave</code></td>
+</tr>
+</tbody>
+</table></div>
+<p>JSON usa nomes; LIST usa uma lista entre colchetes na mesma ordem. RAW imprime os campos do sensor como inteiros; os demais modos usam três casas decimais. <code>time</code> é sempre apresentado em segundos com três casas e se refere à recepção do pacote no ESP32, relativa ao início do stream. RAW/SCALE mantêm heave em zero.</p>
+<p>O formato chamado NMEA no código contém <strong>quatro campos</strong>:</p>
+<pre aria-label="Código ou diagrama; role horizontalmente se necessário" tabindex="0"><code class="language-text">$GPPASHR,pitch,roll,yaw,heave*checksum
+</code></pre>
+<p>O checksum é o XOR dos caracteres entre <code>$</code> e <code>*</code>, e a linha termina em CRLF. Use esse layout ao integrar o equipamento: o nome da sentença, sozinho, não descreve seus campos.</p>
+<h2 id="portas-comandos-e-configuracoes">Portas, comandos e configurações</h2>
+<div aria-label="Tabela 9 — role horizontalmente se necessário" class="table-wrap" role="region" tabindex="0"><table class="wide">
+<thead>
+<tr>
+<th scope="col">Ligação</th>
+<th scope="col">Interface</th>
+<th scope="col">Pinos do ESP32</th>
+<th scope="col">Velocidade</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Console/telemetria USB</td>
+<td><code>Serial</code> por USB CDC</td>
+<td>USB nativo</td>
+<td>Inicializado com 115200.</td>
+</tr>
+<tr>
+<td>Kernel-120</td>
+<td>UART1</td>
+<td>TX 4 · RX 3</td>
+<td>Alvo de 460800.</td>
+</tr>
+<tr>
+<td>RS232</td>
+<td>UART0</td>
+<td>TX 11 · RX 10</td>
+<td><code>baudrate</code>, padrão 9600; aquisição: 460800.</td>
+</tr>
+<tr>
+<td>RS422</td>
+<td>UART2</td>
+<td>TX 12 · RX 13</td>
+<td>Igual ao RS232.</td>
+</tr>
+<tr>
+<td>LEDs</td>
+<td>GPIO</td>
+<td>1 e 2</td>
+<td>Estado do sensor e da comunicação.</td>
+</tr>
+</tbody>
+</table></div>
+<p><code>serial/index.h</code> seleciona a porta que recebe o comando; respostas e stream passam a usar essa porta. A porta inicial é RS232. O código exige <strong>USB CDC On Boot habilitado</strong> para a UART0 ficar disponível ao RS232.</p>
+<div aria-label="Tabela 10 — role horizontalmente se necessário" class="table-wrap" role="region" tabindex="0"><table>
+<thead>
+<tr>
+<th scope="col">Comando</th>
+<th scope="col">Efeito</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>$stream_start!</code> / <code>$stream_stop!</code></td>
+<td>Inicia ou interrompe a transmissão.</td>
+</tr>
+<tr>
+<td><code>$settings!</code></td>
+<td>Mostra as configurações persistidas.</td>
+</tr>
+<tr>
+<td><code>ID:chave$</code></td>
+<td>Consulta um valor salvo; resposta no formato <code>$valor!</code>.</td>
+</tr>
+<tr>
+<td><code>CF:chave$valor!</code></td>
+<td>Salva uma configuração e reinicia o ESP32.</td>
+</tr>
+<tr>
+<td><code>$calibrate!</code></td>
+<td>Informa o processamento ativo; não executa uma nova calibração.</td>
+</tr>
+<tr>
+<td><code>$check_sensor!</code></td>
+<td>Informa <code>OK</code> ou <code>NOT WORKING</code>, conforme o estado do driver.</td>
+</tr>
+<tr>
+<td><code>$firmware!</code></td>
+<td>Informa a versão.</td>
+</tr>
+<tr>
+<td><code>$align:N!</code></td>
+<td>Grava no Kernel o preset de montagem <code>N</code> e reinicia os estados do processamento.</td>
+</tr>
+<tr>
+<td><code>MICRS</code></td>
+<td>Reinicia o ESP32.</td>
+</tr>
+<tr>
+<td><code>$ERASE!</code></td>
+<td>Restaura configurações padrão e reinicia.</td>
+</tr>
+<tr>
+<td><code>updt</code></td>
+<td>Entra no recebimento de uma atualização de firmware.</td>
+</tr>
+</tbody>
+</table></div>
+<p><code>device/settings/index.h</code> guarda as opções via <code>utils/json/index.h</code>, em <code>Preferences</code>, como um JSON persistido na flash do ESP32. Os padrões efetivos são modo normal, Kernel HR, saída calibrada, protocolo JSON, <code>autostream</code> desligado, frequência de 100 Hz e baud de 9600. Frequência e baud usam valores de fallback quando ainda não estão salvos.</p>
+<p>Para gravar um ensaio, envie <code>CF:device_mode$1!</code>. Para voltar ao uso calibrado, envie os comandos abaixo <strong>um por vez, aguardando o reinício</strong>:</p>
+<pre aria-label="Código ou diagrama; role horizontalmente se necessário" tabindex="0"><code class="language-text">CF:device_mode$0!
+CF:streamer_mode$0!
+CF:protocol$1!
+CF:frequency$10!
+CF:baudrate$115200!
+CF:autostream$1!
+</code></pre>
+<p>O exemplo escolhe LIST a 10 Hz. Os comandos <code>CF:</code> alteram a operação; os coeficientes de calibração continuam vindo dos <code>config.h</code>.</p>
+<h2 id="montagem-e-presets-de-align">Montagem e presets de align</h2>
+<div aria-label="Tabela 11 — role horizontalmente se necessário" class="table-wrap" role="region" tabindex="0"><table>
+<thead>
+<tr>
+<th scope="col">Preset <code>N</code></th>
+<th scope="col">Proa · pitch · roll gravados no Kernel</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>0</code> ou <code>3</code></td>
+<td><code>0° · 0° · 0°</code></td>
+</tr>
+<tr>
+<td><code>1</code></td>
+<td><code>0° · −90° · 0°</code></td>
+</tr>
+<tr>
+<td><code>2</code></td>
+<td><code>0° · +90° · 0°</code></td>
+</tr>
+<tr>
+<td><code>4</code></td>
+<td><code>180° · 0° · 180°</code></td>
+</tr>
+</tbody>
+</table></div>
+<p>Escolha o preset correspondente à montagem física, desligue e ligue o MRU e confira a linha <code>Kernel Align</code> no boot. O <a href="../../../README.md">guia de instalação</a> descreve as posições e os sentidos dos eixos. A referência do ensaio deve estar registrada em <code>Calibration/Dataset/testN/info.json</code> antes de exportar Correction.</p>
+<h2 id="parametros-que-vem-da-calibracao">Parâmetros que vêm da calibração</h2>
+<div aria-label="Tabela 12 — role horizontalmente se necessário" class="table-wrap" role="region" tabindex="0"><table>
+<thead>
+<tr>
+<th scope="col">Notebook em <code>Calibration/</code></th>
+<th scope="col">Arquivo gerado em <code>objects/processing/</code></th>
+<th scope="col">O que o firmware recebe</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>1 - Filters/1 - Model.ipynb</code></td>
+<td><code>filters/config.h</code></td>
+<td>Tipo e frequência do filtro por eixo.</td>
+</tr>
+<tr>
+<td><code>2 - Correction/1 - Model.ipynb</code></td>
+<td><code>correction/config.h</code> e <code>align/config.h</code></td>
+<td>Matrizes, vieses, coeficientes térmicos e montagem do ensaio.</td>
+</tr>
+<tr>
+<td>Estratégia de <code>3 - Attitude/</code></td>
+<td><code>attitude/config.h</code> e configuração do modelo</td>
+<td>Modelo ativo e seus parâmetros.</td>
+</tr>
+<tr>
+<td><code>4 - Heave/1 - Model.ipynb</code></td>
+<td><code>heave/config.h</code></td>
+<td>Período, amortecimento e gravidade local.</td>
+</tr>
+<tr>
+<td><code>5 - Lever/1 - Model.ipynb</code></td>
+<td><code>lever/config.h</code></td>
+<td>Vetor até o ponto de interesse.</td>
+</tr>
+</tbody>
+</table></div>
+<p>Uma nova exportação substitui esses arquivos. <strong>Recompile e grave o firmware para usar os novos parâmetros.</strong> Na instalação, confira principalmente <code>HEAVE_PERIOD</code>, <code>KALMAN_LEVER</code> e <code>LEVER_POINT</code>: os valores ajustados na mesa descrevem aquele ensaio e sua geometria.</p>
+<h2 id="compilacao-e-gravacao">Compilação e gravação</h2>
+<p>Abra <code>Main.ino</code> no ambiente Arduino com suporte a ESP32-S3 e <strong>ArduinoJson 7</strong>. Use a placa <strong>ESP32-S3 Dev Module</strong>, <strong>USB CDC On Boot = Enabled</strong> e uma tabela de partições com suporte a atualização OTA se for usar o atualizador serial.</p>
+<p>Com <code>arduino-cli</code> já configurado, execute a partir da raiz do repositório MRU, ajustando a porta do equipamento:</p>
+<pre aria-label="Código ou diagrama; role horizontalmente se necessário" tabindex="0"><code class="language-bash">arduino-cli compile --fqbn esp32:esp32:esp32s3:CDCOnBoot=cdc --export-binaries Hardware/Embedded/Main
+arduino-cli upload --fqbn esp32:esp32:esp32s3:CDCOnBoot=cdc -p /dev/ttyACM0 Hardware/Embedded/Main
+</code></pre>
+<p>No boot, confira modo do dispositivo, baud e modo do Kernel, align, modelo de processamento e modo do Streamer. O <a href="../../../README.md">README geral</a> reúne a configuração de placa e o procedimento operacional do projeto.</p>
+<h2 id="componentes-utilitarios-e-atualizacao">Componentes, utilitários e atualização</h2>
+<div aria-label="Tabela 13 — role horizontalmente se necessário" class="table-wrap" role="region" tabindex="0"><table>
+<thead>
+<tr>
+<th scope="col">Arquivo/pasta</th>
+<th scope="col">Papel</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>components/leds/index.h</code></td>
+<td>Controla os tempos ligado/desligado dos LEDs. LED 1 alterna a cada 0,5 s com Kernel funcionando; LED 2 alterna a cada 0,2 s com stream ativo.</td>
+</tr>
+<tr>
+<td><code>components/encoder/</code></td>
+<td>Conta pulsos por interrupção e converte para ângulo. Está desabilitado no <code>Main.ino</code>; seus pinos 10/11 são usados pelo RS232.</td>
+</tr>
+<tr>
+<td><code>utils/time/</code> e <code>utils/listener/</code></td>
+<td>Fornecem relógios e verificações periódicas sem usar um atraso fixo em cada iteração.</td>
+</tr>
+<tr>
+<td><code>utils/text/</code></td>
+<td>Buffers de texto usados na leitura e interpretação dos comandos.</td>
+</tr>
+<tr>
+<td><code>utils/json/</code></td>
+<td>Serialização com ArduinoJson e persistência com Preferences.</td>
+</tr>
+<tr>
+<td><code>utils/array/</code></td>
+<td>Vetor circular, estatísticas e persistência auxiliares. Não executa a filtragem principal.</td>
+</tr>
+<tr>
+<td><code>utils/notes/</code></td>
+<td>Utilitário de arquivos em LittleFS, sem integração na cadeia ativa de <code>Device</code>.</td>
+</tr>
+<tr>
+<td><code>objects/updater/index.h</code></td>
+<td>Recebe o binário codificado em base64 pela porta ativa e o grava com a biblioteca <code>Update</code>.</td>
+</tr>
+</tbody>
+</table></div>
+<p>O atualizador começa com <code>updt</code>, responde <code>__STARTING_UPDATE__</code> e espera blocos no formato <code>$base64!</code>. Cada escrita produz <code>__WRITTEN__</code>; dez segundos sem dados encerram a recepção, e uma finalização bem-sucedida reinicia o ESP32. É uma transferência serial, sem etapa de download pela rede.</p>
+<h2 id="comportamentos-importantes-para-interpretar-os-resultados">Comportamentos importantes para interpretar os resultados</h2>
+<ul>
+<li><strong>As tarefas compartilham o estado mais recente.</strong> A implementação não possui uma fila de amostras entre recepção, processamento e transmissão. Se várias amostras chegarem antes do consumo, estados intermediários podem não ser processados ou enviados; aquisição não constitui garantia de gravação sem perdas.</li>
+<li><strong>As lacunas recebem tratamentos diferentes.</strong> O Kalman limita o passo de propagação e aumenta a incerteza de inclinação quando o intervalo supera três períodos nominais; Heave e Lever reiniciam suas seções acima de 0,5 s.</li>
+<li><strong>O estado <code>working</code> não é um teste de atualização contínua.</strong> O driver o altera ao decodificar pacotes, mas o silêncio da UART não o limpa por tempo de inatividade. <code>$check_sensor!</code> e LED 1 devem ser interpretados junto com a chegada de novas amostras.</li>
+<li><strong>O código atual não inclui a etapa de relatório NORMAM do diagrama antigo.</strong> A cadeia entrega medições e movimento no ponto de interesse; a avaliação e o certificado descritos no pipeline ficam no computador.</li>
+</ul>
+</article>
+<footer class="doc-footer"><span>MRU / Hardware/Embedded/Main</span>
+<a href="#inicio">Voltar ao início ↑</a></footer>
+</main>
+</div>
+<script>
+const menu = document.querySelector('.sidebar details');
+const media = matchMedia('(min-width: 781px)');
+function adaptMenu() { menu.open = media.matches; }
+adaptMenu();
+media.addEventListener('change', adaptMenu);
+document.querySelector('[data-print]').addEventListener('click', () => window.print());
+const links = [...document.querySelectorAll('.toc a')];
+const headings = links.map(link => document.getElementById(link.hash.slice(1)));
+function markSection() {
+  let current = headings[0];
+  for (const heading of headings) {
+    if (heading.getBoundingClientRect().top <= 110) current = heading;
+  }
+  for (const link of links) {
+    if (current && link.hash === '#' + current.id) link.setAttribute('aria-current', 'location');
+    else link.removeAttribute('aria-current');
+  }
+}
+let ticking = false;
+addEventListener('scroll', () => {
+  if (!ticking) requestAnimationFrame(() => { markSection(); ticking = false; });
+  ticking = true;
+}, {passive:true});
+markSection();
+</script>
+</body>
+</html>

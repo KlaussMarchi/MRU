@@ -1,6 +1,6 @@
 {
     "strategy":"filters",
-    "backup":"1 - Filters\/Backup\/filters_3",
+    "backup":"1 - Filters\/Backup\/filters_1",
     "filters":{
         "ax":{
             "name":"exponential",
