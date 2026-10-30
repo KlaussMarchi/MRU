@@ -1,0 +1,204 @@
+.SideBarContainer {
+    display: flex;
+    flex-direction: column;
+    width: 13.6rem;
+    min-width: 13.6rem;
+    height: 100vh;
+    background: #fff;
+    border-right: 1px solid var(--line);
+    padding: 1.1rem .75rem .9rem .75rem;
+    gap: 1.2rem;
+}
+
+.SideBarContainer .Brand {
+    display: flex;
+    align-items: center;
+    gap: .65rem;
+    padding: 0 .45rem;
+}
+
+.SideBarContainer .Brand svg {
+    flex-shrink: 0;
+}
+
+.SideBarContainer .Name {
+    font-weight: 700;
+    font-size: .98rem;
+    letter-spacing: -.01em;
+    line-height: 1.15;
+    white-space: nowrap;
+}
+
+.SideBarContainer .Name span {
+    display: block;
+    font-weight: 500;
+    font-size: .72rem;
+    color: var(--muted);
+    letter-spacing: 0;
+}
+
+.SideBarContainer .Items {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.SideBarContainer .Group {
+    display: flex;
+    flex-direction: column;
+    gap: .12rem;
+}
+
+.SideBarContainer .GroupLabel {
+    font-size: .64rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--faint);
+    padding: 0 .75rem .3rem .75rem;
+}
+
+.SideBarContainer .Item {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    padding: .55rem .75rem;
+    border-radius: 9px;
+    color: var(--text);
+    text-decoration: none;
+    font-size: .86rem;
+    font-weight: 500;
+    transition: background .15s, color .15s;
+    border: none;
+    background: none;
+    cursor: pointer;
+    width: 100%;
+    text-align: left;
+}
+
+.SideBarContainer .Item:hover {
+    background: var(--soft);
+    color: var(--ink);
+}
+
+.SideBarContainer .Item.active {
+    background: var(--accent-soft);
+    color: var(--accent-strong);
+    font-weight: 650;
+}
+
+.SideBarContainer .Icon {
+    width: 1rem;
+    height: 1rem;
+    flex-shrink: 0;
+    opacity: .85;
+}
+
+.SideBarContainer .Bottom {
+    margin-top: auto;
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+}
+
+.SideBarContainer .Links {
+    display: flex;
+    flex-direction: column;
+    gap: .45rem;
+    background: var(--canvas);
+    border-radius: 11px;
+    padding: .6rem .7rem;
+}
+
+.SideBarContainer .Link {
+    display: flex;
+    align-items: center;
+    gap: .55rem;
+    color: #c0c6d0;
+    min-width: 0;
+}
+
+.SideBarContainer .Link.ok { color: #17a364; }
+.SideBarContainer .Link.warn { color: #e29a12; }
+.SideBarContainer .Link.bad { color: var(--red); }
+
+.SideBarContainer .LinkText {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    line-height: 1.25;
+}
+
+.SideBarContainer .LinkText b {
+    font-size: .76rem;
+    color: var(--ink);
+    font-weight: 600;
+}
+
+.SideBarContainer .LinkText span {
+    font-size: .7rem;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.SideBarContainer .Recording {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    justify-content: center;
+    background: var(--red);
+    color: #fff;
+    border-radius: 9px;
+    padding: .45rem;
+    font-size: .78rem;
+    font-weight: 650;
+    text-decoration: none;
+}
+
+.SideBarContainer .Fullscreen {
+    color: var(--muted);
+}
+
+.SideBarContainer .Version {
+    text-align: center;
+    font-size: .7rem;
+    color: var(--faint);
+}
+
+@media (max-width: 1180px) {
+    .SideBarContainer {
+        width: 4.3rem;
+        min-width: 4.3rem;
+        padding: 1rem .55rem;
+        align-items: center;
+    }
+
+    .SideBarContainer .Name, .SideBarContainer .Item span, .SideBarContainer .GroupLabel, .SideBarContainer .LinkText, .SideBarContainer .Recording span:last-child, .SideBarContainer .Version {
+        display: none;
+    }
+
+    .SideBarContainer .Brand {
+        padding: 0;
+    }
+
+    .SideBarContainer .Items {
+        gap: .9rem;
+    }
+
+    .SideBarContainer .Group + .Group {
+        border-top: 1px solid var(--line);
+        padding-top: .9rem;
+    }
+
+    .SideBarContainer .Item {
+        justify-content: center;
+        padding: .65rem;
+    }
+
+    .SideBarContainer .Links {
+        padding: .55rem;
+        align-items: center;
+    }
+}

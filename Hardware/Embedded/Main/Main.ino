@@ -1,5 +1,5 @@
 #include "device/index.h"
-Device device{"v1.0.7"};
+Device device{"v1.0.8"};
 
 
 void setup(){
@@ -9,6 +9,7 @@ void setup(){
 	device.sensors.debug = false;
 
 	Serial.begin(115200);
+	Serial.setTxTimeoutMs(0);    // USB PLUGADO SEM NINGUÉM LENDO: O LOG SE PERDE EM VEZ DE SEGURAR A TELEMETRIA DO RS232/RS422
 	delay(1500);
 
 	Serial.println("Serial Setup Complete... Starting Program");

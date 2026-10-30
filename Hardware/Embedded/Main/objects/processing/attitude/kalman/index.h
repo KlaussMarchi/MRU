@@ -4,8 +4,22 @@
 #include "config.h"
 
 
+// RUIDOS, PORTA DO ACELEROMETRO, FASE DO GIRO, PROA INICIAL E BRACO: OS KALMAN_* DA CALIBRACAO
+struct KalmanParams{
+	float gravity;
+	float gyroNoise;
+	float biasNoise;
+	float accelNoise;
+	float zuptNoise;
+	float accelGate;
+	float gyroPhase;
+	float heading;
+	float lever[3];
+};
+
+
 // MEKF DE SEIS ESTADOS (ATITUDE E BIAS DO GIRO) SOBRE OS SENSORES JA CORRIGIDOS, ESPELHO DO KalmanFilter DO Calibration/3 - Attitude/KalmanFusion
-class KalmanModel{
+class KalmanModel : public Attitude{
   private:
 	static constexpr float TILT_P0     = 1.0f;         // (rad^2) ATITUDE INICIAL DESCONHECIDA: DEIXA O ACCEL PUXAR
 	static constexpr float BIAS_P0     = 1e-4f;        // (rad/s)^2 BIAS TIPICO DE UM MEMS JA COMPENSADO
@@ -18,6 +32,7 @@ class KalmanModel{
 	float gyroPrev[3];
 	float nominal;
 	bool  started, primed;
+	const KalmanParams* params;
 
 	void quatMul(const float* q1, const float* q2, float* out){
 		out[0] = q1[0]*q2[0] - q1[1]*q2[1] - q1[2]*q2[2] - q1[3]*q2[3];
@@ -120,9 +135,9 @@ class KalmanModel{
 					T[i][j] += F[i][k]*P[k][j];
 			}
 
-		const float qq = KALMAN_GYRO_NOISE*dtQ + KALMAN_BIAS_NOISE*dtQ*dtQ*dtQ/3;
-		const float qc = -KALMAN_BIAS_NOISE*dtQ*dtQ/2;
-		const float qb = KALMAN_BIAS_NOISE*dtQ;
+		const float qq = params->gyroNoise*dtQ + params->biasNoise*dtQ*dtQ*dtQ/3;
+		const float qc = -params->biasNoise*dtQ*dtQ/2;
+		const float qb = params->biasNoise*dtQ;
 
 		for(int i = 0; i < 6; i++)
 			for(int j = 0; j < 6; j++){
@@ -254,14 +269,13 @@ class KalmanModel{
 	}
 
   public:
-	float pitch, roll, yaw;
-
-	void setup(const float dt){
+	void setup(const float dt, const KalmanParams& kalmanParams){
 		nominal = dt;
+		params  = &kalmanParams;
 		reset();
 	}
 
-	void update(const float* sensors, const float* angles, const float dt){
+	void update(const float* sensors, const float* angles, const float dt) override {
 		float accel[3] = {sensors[0], sensors[1], sensors[2]};
 		float gyro[3]  = {(float) radians(sensors[3]), (float) radians(sensors[4]), (float) radians(sensors[5])};
 
@@ -283,7 +297,7 @@ class KalmanModel{
 
 		for(int i = 0; i < 3; i++){
 			alpha[i] = (!gap && dt > 0) ? (gyro[i] - gyroPrev[i])/dt : 0.0f;
-			rate[i]  = (!gap) ? gyro[i] - KALMAN_GYRO_PHASE*(gyro[i] - gyroPrev[i]) : gyro[i];
+			rate[i]  = (!gap) ? gyro[i] - params->gyroPhase*(gyro[i] - gyroPrev[i]) : gyro[i];
 			cone[i]  = (!gap) ? (gyroPrev[(i+1)%3]*gyro[(i+2)%3] - gyroPrev[(i+2)%3]*gyro[(i+1)%3])*step*step/12 : 0.0f;    // SOME QUANDO O EIXO NAO MUDA
 		}
 
@@ -299,7 +313,7 @@ class KalmanModel{
 				for(int k = 0; k < 3; k++)
 					square += S[i][k]*S[k][j];
 
-				lever[i] += (square + A[i][j]) * KALMAN_LEVER[j];
+				lever[i] += (square + A[i][j]) * params->lever[j];
 			}
 
 			accel[i] -= lever[i];
@@ -316,7 +330,7 @@ class KalmanModel{
 				for(int i = 0; i < 3; i++)
 					up[i] = accel[i]/norm;
 
-			level(up, isnan(KALMAN_HEADING) ? angles[2] : KALMAN_HEADING);
+			level(up, isnan(params->heading) ? angles[2] : params->heading);
 			started = true;
 		}
 
@@ -343,11 +357,11 @@ class KalmanModel{
 				for(int j = 0; j < 3; j++)
 					H[i][j] = hs[i][j];
 
-			const float ratio = (norm - KALMAN_GRAVITY)/KALMAN_GRAVITY;
-			correct(H, innovation, KALMAN_ACCEL_NOISE * (1 + KALMAN_ACCEL_GATE*ratio*ratio));
+			const float ratio = (norm - params->gravity)/params->gravity;
+			correct(H, innovation, params->accelNoise * (1 + params->accelGate*ratio*ratio));
 		}
 
-		if(fabsf(norm - KALMAN_GRAVITY) < STILL_ACCEL && span < STILL_GYRO){
+		if(fabsf(norm - params->gravity) < STILL_ACCEL && span < STILL_GYRO){
 			float H[3][6] = {}, innovation[3];
 
 			for(int i = 0; i < 3; i++){
@@ -355,13 +369,13 @@ class KalmanModel{
 				innovation[i] = gyro[i] - b[i];
 			}
 
-			correct(H, innovation, KALMAN_ZUPT_NOISE);
+			correct(H, innovation, params->zuptNoise);
 		}
 
 		euler();
 	}
 
-	void reset(){
+	void reset() override {
 		memset(P, 0, sizeof(P));
 		memset(b, 0, sizeof(b));
 		memset(gyroPrev, 0, sizeof(gyroPrev));
@@ -379,7 +393,7 @@ class KalmanModel{
 		primed  = false;
 	}
 
-	String toString(){
+	String toString() override {
 		return String(KALMAN_NAME);
 	}
 };

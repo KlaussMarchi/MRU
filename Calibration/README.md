@@ -91,8 +91,8 @@ A escolha segue este processo:
 
 1. **Estimar movimento e ruído:** o método de **Welch** mede como a energia do sinal se distribui pelas frequências no trecho em movimento. O código assume que o balanço ocupa poucas frequências; usa a mediana do espectro como piso de ruído e o excedente como estimativa do movimento.
 2. **Avaliar cada candidato:** calcula `ε`, o erro RMS estimado após filtrar, dividido pelo erro estimado do sinal sem filtro. A conta penaliza tanto o ruído que sobrou quanto a parte do movimento que o filtro atenuou ou atrasou. É um critério espectral baseado nessa estimativa, não uma comparação direta com a mesa.
-3. **Buscar a frequência:** a CMA-ES varia `log10(fc)`, permitindo explorar frequências pequenas e grandes. A configuração atual usa população inicial de **30**, `generations = 150` — orçamento de até **4.500 avaliações por execução** — e **5 execuções**, com sementes 42 a 46, para cada combinação de filtro e eixo.
-4. **Escolher por eixo:** entre os três filtros ajustados, fica o de menor `ε`. São **18 buscas**, cada uma repetida cinco vezes. `ε < 1` indica melhora estimada; próximo de 1, pouco ganho; acima de 1, piora estimada. A média exponencial pode chegar a `α ≈ 1`, praticamente deixando o sinal passar.
+3. **Buscar a frequência:** a CMA-ES varia `log10(fc)`, permitindo explorar frequências pequenas e grandes. O espectro de Welch de cada eixo é calculado uma vez, fora da busca. A configuração atual usa população inicial de **8**, até **40 gerações** com parada depois de **10 gerações sem melhora** (`patience`) e **2 execuções**, com sementes 42 e 43, para cada combinação de filtro e eixo. A busca é de uma dimensão: esse orçamento, 1/50 do antigo (30 × 150 × 5), dá o mesmo mínimo da varredura densa nas 18 buscas, e a etapa cai de ~15 min para segundos a 200 Hz.
+4. **Escolher por eixo:** entre os três filtros ajustados, fica o de menor `ε`. São **18 buscas**, cada uma repetida duas vezes. `ε < 1` indica melhora estimada; próximo de 1, pouco ganho; acima de 1, piora estimada. A média exponencial pode chegar a `α ≈ 1`, praticamente deixando o sinal passar.
 
 O vencedor de cada eixo gera `filtered.csv`. Os sinais anteriores ficam em `_raw`, e `filters.json` registra a escolha. Embora `Nature/` também ofereça PSO, DE, LSHADE e LSRTDE, o notebook atual seleciona a CMA-ES pelo nome `genetic`.
 
@@ -124,7 +124,7 @@ Escolha uma estratégia dentro de `3 - Attitude/`:
 - O giroscópio propaga a orientação entre amostras; o acelerômetro fornece uma referência de inclinação pela direção da gravidade.
 - O filtro reduz a confiança no acelerômetro quando sua medida se afasta da gravidade e compensa a aceleração causada pela distância entre o sensor e o centro de rotação.
 - Ao detectar repouso pelas próprias medições, aplica **ZARU**, uma atualização de taxa angular zero para estimar o desvio do giroscópio. Inclui ainda correção de *coning*, para mudanças do eixo de rotação entre amostras.
-- A **CMA-ES**, também chamada por `genetic`, ajusta os pesos de ruído, a rejeição de acelerações, o vetor do centro de rotação até o sensor e a fase de integração do giro. Minimiza a **soma do RMSE de pitch e roll** contra a referência. A configuração atual usa população inicial 15, orçamento `15 × 200 = 3.000` avaliações e uma execução.
+- A **CMA-ES**, também chamada por `genetic`, ajusta os pesos de ruído, a rejeição de acelerações, o vetor do centro de rotação até o sensor e a fase de integração do giro. Minimiza a **soma do RMSE de pitch e roll** contra a referência. A configuração atual usa população inicial 15, orçamento `15 × 200 = 3.000` avaliações e uma execução. O laço do filtro, amostra a amostra, é compilado pelo `numba` (`getQuats`): as contas são as mesmas da versão em numpy (diferença de ~1e-12°), mas cada passada a 200 Hz leva ~0,3 s em vez de ~4 s, e a busca inteira cai de ~1 h para ~4 min.
 
 O acelerômetro informa inclinação, mas não determina sozinho a direção absoluta da proa. No notebook, a proa inicial vem da referência quando não é fornecida; no firmware, o parâmetro exportado como `NAN` faz usar a proa inicial do Kernel.
 
@@ -194,7 +194,7 @@ Há também um requisito de `rms_scale_factor` configurado, mas a implementaçã
 
 **Como iniciar um ensaio**
 
-1. Grave MRU e mesa com [`Monitor/index.py`](../Monitor/index.py), usando o MRU em aquisição (`CF:device_mode$1!`). Inclua repouso e movimento. O Monitor salva `Monitor/output/<data_hora>/data.csv`, com tempo, indicação de repouso (`static`), MRU (`target_*`) e referência (`ref_*`).
+1. Grave MRU e mesa com o app [MRU Monitor](../Monitor/README.md) (tela Aquisição, modo "Para calibração"). Inclua repouso e movimento. O app salva `Monitor/Data/Sessions/<data_hora>/data.csv`, com tempo, indicação de repouso (`static`), MRU (`target_*`) e referência (`ref_*`); sem a mesa, a referência em debug usa os ângulos do próprio MRU filtrados e o `info.json` traz `reference: debug`.
 2. Copie `data.csv` para `Dataset/testN/files/` e selecione esse número em `Calibration/info.json`. Confira também `id`, a identificação do MRU, e `gravity`, a gravidade local em m/s².
 3. Em `Dataset/testN/info.json`, registre `align`: os ângulos configurados no Kernel durante o ensaio, em graus, na ordem `[proa, pitch, roll]`. O campo opcional `axes` remapeia dados de formatos antigos.
 4. Execute os notebooks na ordem da tabela, com as células de cima para baixo e o diretório de trabalho na pasta de cada notebook.
@@ -215,4 +215,4 @@ Depois de exportar, **recompile e grave o firmware** para aplicar os ajustes. Os
 
 Ao alterar uma etapa, execute novamente todas as que dependem dela. O Analysis recria `Certificate/results/`, e o certificado sobrescreve o PDF anterior.
 
-O [diagrama geral do MRU](../Documents/Pipeline.png) contextualiza o sistema. O bloco NORMAM mostrado na imagem não está presente no processamento atual; o certificado usa os requisitos definidos no próprio notebook.
+O [diagrama geral do MRU](../Documents/pipeline.png) contextualiza o sistema. O certificado usa os requisitos definidos no próprio notebook.

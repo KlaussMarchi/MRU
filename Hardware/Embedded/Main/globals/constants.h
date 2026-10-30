@@ -8,7 +8,7 @@
 // CF:streamer_mode$x! (quais dados o streamer lê e envia: do processing calibrado, do kernel cru ou do kernel em escala)
 #define CALIBRATED_MODE 0          // a gente calcula tudo e envia: filtros, correção, atitude, heave e taxa do heave
 #define RAW_MODE        1          // só envia o que é enviado kernel (sem nenhum processamento) no tipo original (inteiros, temperatura em C*10)
-#define SCALE_MODE      2          // campos do kernel convertidos para unidades físicas (m/s², graus/s, graus, °C), sem calibração
+#define SCALE_MODE      2          // campos do kernel convertidos para unidades físicas (m/s², graus/s, graus, °C), sem calibração; heave e taxa do heave saem da aceleração e do pitch/roll do próprio kernel, nos mesmos campos do calibrado
 
 // CF:protocol$x! (formato de cada amostra que o streamer imprime na serial)
 #define JSON_PROTOCOL 0            // envia os dados do MRU no formato JSON {"time": 1.2, "ax": 2.1, "wy": 3.3, ....}
@@ -26,6 +26,16 @@
 #define ALIGN_UP          2        // cabeça pra baixo (cabo pra baixo) (pitch +90)
 #define ALIGN_RESET       3        // alinhamento zerado 0/0/0, igual ao FORWARD, para limpar uma montagem anterior
 #define ALIGN_UPSIDE_DOWN 4        // kernel de cabeça pra baixo: proa e roll girados 180 graus
+
+// CF:output$x! (porta em que o stream sai ao ligar; um comando recebido por outra porta muda o destino)
+#define USB_PORT   1               // USB nativo do ESP32-S3
+#define RS422_PORT 2               // UART2
+#define RS232_PORT 3               // UART0, o padrão
+
+// CL:ATTITUDE_MODEL$x! (modelo de atitude da cadeia calibrada, gravado com a calibração pela serial)
+#define KALMAN_MODEL  0            // fusão de acelerômetro e giroscópio
+#define LINEAR_MODEL  1            // ajuste linear dos ângulos do kernel
+#define MACHINE_MODEL 2            // regressão sobre a janela de sensores
 
 
 #define ACQUISITION_BAUD 460800    // RS232 e RS422 na aquisição: 200 linhas/s de ~90 bytes ocupam 40%

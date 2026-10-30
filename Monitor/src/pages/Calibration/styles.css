@@ -1,0 +1,100 @@
+.CalibrationPage .PageBody {
+    grid-template-columns: minmax(14rem, 17rem) minmax(0, 1fr) minmax(17rem, 21rem);
+    grid-template-rows: minmax(0, 1fr) auto;
+    grid-template-areas: 'sessions preview library' 'sessions pipeline library';
+}
+
+.CalibrationSessions {
+    grid-area: sessions;
+}
+
+.CalibrationPreview {
+    grid-area: preview;
+    min-height: 12rem;
+}
+
+.CalibrationPipeline {
+    grid-area: pipeline;
+    gap: .9rem;
+}
+
+.CalibrationLibrary {
+    grid-area: library;
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap);
+    min-height: 0;
+}
+
+.CalibrationResult {
+    flex: 0 1 auto;
+    max-height: 68%;
+}
+
+.CalibrationResult > .AsyncButton {
+    width: 100%;
+    margin-top: .5rem;
+}
+
+.PipelineTop {
+    display: flex;
+    align-items: flex-start;
+    gap: 1.2rem;
+}
+
+.PipelineTop .AsyncButton {
+    margin-top: 1.25rem;
+    min-width: 9rem;
+}
+
+.PipelineHint {
+    margin-top: .45rem;
+    font-size: .76rem;
+}
+
+.PipelineFields {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: .7rem;
+    align-items: end;
+}
+
+.PipelineFields .Wide {
+    grid-column: span 2;
+}
+
+.PointFields {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: .35rem;
+}
+
+.PointFields .Input {
+    padding: 0 .5rem;
+}
+
+.PipelineNotice + .PipelineNotice {
+    margin-top: -.4rem;
+}
+
+.Noise {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .25rem .8rem;
+    font-size: .72rem;
+    color: var(--muted);
+}
+
+@media (max-width: 1400px) {
+    .PipelineFields {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 1250px) {
+    .CalibrationPage .PageBody {
+        grid-template-columns: minmax(13rem, 16rem) minmax(0, 1fr);
+        grid-template-rows: minmax(0, 1fr) minmax(0, 1fr) auto;
+        grid-template-areas: 'sessions preview' 'library preview' 'library pipeline';
+    }
+}

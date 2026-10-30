@@ -1,0 +1,200 @@
+.HMSPage .PageBody {
+    grid-template-columns: minmax(0, 1fr) minmax(15rem, 19rem);
+    grid-template-rows: auto auto minmax(10rem, 1fr);
+    grid-template-areas: 'banner banner' 'tiles deck' 'chart deck';
+}
+
+.Banner {
+    grid-area: banner;
+    display: flex;
+    align-items: center;
+    gap: 1.1rem;
+    border-radius: var(--radius);
+    padding: .85rem 1.2rem;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-left: 6px solid #c4cad4;
+    box-shadow: var(--shadow);
+}
+
+.Banner.ok { border-left-color: #16a34a; }
+.Banner.warn { border-left-color: #f59e0b; background: #fffcf5; }
+.Banner.bad { border-left-color: #dc2626; background: #fff8f7; }
+
+.BannerLight {
+    width: 2.4rem;
+    height: 2.4rem;
+    border-radius: 50%;
+    background: #c4cad4;
+    flex-shrink: 0;
+}
+
+.Banner.ok .BannerLight { background: #16a34a; box-shadow: 0 0 0 6px rgba(22, 163, 74, .15); }
+.Banner.warn .BannerLight { background: #f59e0b; box-shadow: 0 0 0 6px rgba(245, 158, 11, .18); }
+.Banner.bad .BannerLight { background: #dc2626; box-shadow: 0 0 0 6px rgba(220, 38, 38, .15); animation: pulse 1.2s ease-in-out infinite; }
+
+.BannerText {
+    flex: 1;
+    min-width: 0;
+}
+
+.BannerTitle {
+    font-size: 1.3rem;
+    font-weight: 800;
+    letter-spacing: .01em;
+}
+
+.Banner.ok .BannerTitle { color: #127a4b; }
+.Banner.warn .BannerTitle { color: #b54708; }
+.Banner.bad .BannerTitle { color: #b42318; }
+
+.BannerDetail {
+    color: var(--muted);
+    font-size: .8rem;
+    margin-top: .1rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.BannerOptions {
+    display: flex;
+    gap: .45rem;
+    flex-shrink: 0;
+}
+
+.HMSGrid {
+    display: contents;
+}
+
+.Tiles {
+    grid-area: tiles;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--gap);
+}
+
+.Tile {
+    border: 1px solid var(--line);
+    border-top: 4px solid #d0d5dd;
+    border-radius: var(--radius);
+    padding: .65rem .9rem .75rem .9rem;
+    background: #fff;
+    box-shadow: var(--shadow);
+    min-width: 0;
+}
+
+.Tile.ok { border-top-color: #16a34a; }
+.Tile.warn { border-top-color: #f59e0b; background: #fffcf5; }
+.Tile.bad { border-top-color: #dc2626; background: #fff8f7; }
+
+.TileTop {
+    display: flex;
+    justify-content: space-between;
+    gap: .5rem;
+    font-size: .7rem;
+    font-weight: 550;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    color: var(--muted);
+    white-space: nowrap;
+}
+
+.TileLimit {
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--faint);
+    font-weight: 450;
+}
+
+.TileValue {
+    font-size: 2rem;
+    font-weight: 700;
+    letter-spacing: -.03em;
+    font-variant-numeric: tabular-nums;
+    margin: .15rem 0 .3rem 0;
+    white-space: nowrap;
+}
+
+.TileValue small {
+    font-size: .9rem;
+    font-weight: 500;
+    color: var(--faint);
+    margin-left: .2rem;
+    letter-spacing: 0;
+}
+
+.TileRows {
+    display: flex;
+    flex-direction: column;
+    gap: .15rem;
+    font-size: .76rem;
+}
+
+.TileRows div {
+    display: flex;
+    justify-content: space-between;
+    gap: .5rem;
+}
+
+.TileRows span {
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.TileRows b {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.DeckCard {
+    grid-area: deck;
+    align-items: center;
+}
+
+.DeckCard .CardTitle {
+    width: 100%;
+}
+
+.Deck {
+    width: 100%;
+    flex: 1;
+    min-height: 0;
+    max-height: 22rem;
+}
+
+.DeckOuter { fill: #f7f8fa; stroke: #e2e5ea; }
+.DeckLimit { fill: none; stroke: #ef4444; stroke-dasharray: 5 4; stroke-width: 1.4; }
+.DeckHalf { fill: none; stroke: #e2e5ea; stroke-dasharray: 3 4; }
+.DeckAxis { stroke: #e2e5ea; }
+.DeckLabel { font-size: 9px; fill: var(--faint); text-anchor: middle; font-weight: 600; }
+.DeckTrail { fill: none; stroke: #94a3b8; stroke-width: 1.4; stroke-linejoin: round; opacity: .8; }
+.DeckDot { fill: #16a34a; stroke: #fff; stroke-width: 2; }
+.DeckDot.warn { fill: #f59e0b; }
+.DeckDot.bad { fill: #dc2626; }
+
+.DeckNote {
+    text-align: center;
+    margin-top: .4rem;
+    font-size: .74rem;
+}
+
+.HMSChart {
+    grid-area: chart;
+}
+
+.HMSChart .Toolbar .Muted {
+    text-align: right;
+    font-size: .74rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+@media (max-width: 1300px) {
+    .BannerOptions .Segmented > span {
+        padding: .3rem .45rem;
+    }
+}

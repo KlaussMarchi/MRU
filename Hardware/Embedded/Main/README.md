@@ -1,8 +1,8 @@
 # Firmware do MRU · ESP32-S3
 
-Este firmware recebe as medições do **Kernel-120**, aplica os ajustes produzidos pela calibração e transmite orientação, aceleração, giro e movimento vertical por **USB, RS232 ou RS422**. O ponto de entrada é [`Main.ino`](Main.ino), que identifica a versão atual como `v1.0.7`.
+Este firmware recebe as medições do **Kernel-120**, aplica os ajustes produzidos pela calibração e transmite orientação, aceleração, giro e movimento vertical por **USB, RS232 ou RS422**. O ponto de entrada é [`Main.ino`](Main.ino), que identifica a versão atual como `v1.0.8`.
 
-O [pipeline de calibração](../../../Calibration/README.md) escolhe filtros e ajusta modelos no computador. Aqui, o ESP32 executa esses modelos sobre as novas amostras, usando os parâmetros compilados em `config.h`.
+O [pipeline de calibração](../../../Calibration/README.md) escolhe filtros e ajusta modelos no computador. Aqui, o ESP32 executa esses modelos sobre as novas amostras, usando os parâmetros compilados em `config.h` ou, quando houver, os gravados na flash pela serial.
 
 **Visão geral**
 
@@ -17,9 +17,10 @@ Kernel-120 → UART1 → decodificação → escala → filtros → correção �
 
 Computador → comandos pela serial → configurações persistentes / controle do stream
 Calibration → config.h → compilação do firmware → parâmetros usados no processamento
+MRU Monitor → CL: pela serial → calibração na flash, que prevalece sobre os config.h
 ```
 
-Esse é o caminho calibrado. Os modos RAW e SCALE permitem observar as medições anteriores à calibração.
+Esse é o caminho calibrado. Os modos RAW e SCALE permitem observar as medições anteriores à calibração. O SCALE ainda calcula heave e `heave_rate`, só com a aceleração e o pitch/roll do próprio Kernel, e entrega os mesmos campos do caminho calibrado.
 
 **Estrutura de arquivos**
 
@@ -90,8 +91,8 @@ Os arquivos abaixo ficam em `objects/`. As setas representam dados mantidos em m
 | **Pré-filtro** · `processing/filters/index.h` | Seis sinais em escala física | Aplica o filtro escolhido para cada eixo do acelerômetro e giroscópio. | Sensores filtrados → Align/Correction. |
 | **Correção** · `processing/align/index.h` + `correction/index.h` | Sensores filtrados e temperatura | Adapta os eixos quando o align mudou e aplica matriz, viés e termo térmico. | Sensores corrigidos nos eixos do navio → Attitude e Heave. |
 | **Atitude** · `processing/attitude/<modelo>/index.h` | Sensores corrigidos e ângulos originais do Kernel | Executa o modelo selecionado em `attitude/config.h`. | Pitch, roll e yaw → Heave, Lever e saída. |
-| **Heave** · `processing/heave/index.h` | Aceleração corrigida, pitch, roll e intervalo de tempo | Encontra a aceleração vertical, compensa a gravidade e integra com rejeição de deriva. | Heave no sensor, em metros → Lever. |
-| **Braço** · `processing/lever/index.h` | Heave, inclinação e vetor até o ponto desejado | Acrescenta o deslocamento vertical devido à distância entre sensor e ponto; calcula sua velocidade vertical. | Heave e `heave_rate` no ponto → Streamer. |
+| **Heave** · `processing/heave/index.h` | Aceleração corrigida, pitch, roll e intervalo de tempo; no SCALE, a aceleração e o pitch/roll do Kernel | Encontra a aceleração vertical, compensa a gravidade e integra com rejeição de deriva. | Heave no sensor, em metros → Lever. |
+| **Braço** · `processing/lever/index.h` | Heave, inclinação e vetor até o ponto desejado; no SCALE, a inclinação do Kernel | Acrescenta o deslocamento vertical devido à distância entre sensor e ponto; calcula sua velocidade vertical. | Heave e `heave_rate` no ponto → Streamer. |
 | **Transmissão** · `telemetry/streamer/index.h` | Estado mais recente e contador do processamento | Escolhe os campos, verifica a cadência, formata e escreve na porta ativa. | Uma mensagem JSON, LIST ou NMEA → computador ou sistema do navio. |
 
 `Processing::handle()` verifica se `lastAckTime` mudou, evitando processar novamente a mesma amostra. O intervalo usado por atitude e heave vem da diferença entre esses instantes; os coeficientes dos pré-filtros são calculados para a taxa nominal do Kernel.
@@ -147,9 +148,9 @@ x_corrigido = M·x + c + k·(T−T0)
 
 Com align igual ou informação indisponível (`NAN`), a correção continua sendo aplicada, mas sem essa rotação adicional. A mensagem de boot informa `sem rotacao` ou `correcao girada`.
 
-**4 · Attitude — o modelo escolhido em tempo de compilação**
+**4 · Attitude — o modelo da calibração**
 
-[`objects/processing/attitude/config.h`](objects/processing/attitude/config.h) inclui um modelo e define o apelido `AttitudeModel`. Na configuração atual, ele seleciona **`KalmanModel`**. Para trocar de estratégia, exporte a desejada no pipeline de calibração e recompile.
+Os três modelos são compilados e `Processing` escolhe um pelo `ATTITUDE_MODEL` da calibração ativa. [`objects/processing/attitude/config.h`](objects/processing/attitude/config.h) define o padrão dos `config.h` pelo apelido `AttitudeModel`; na configuração atual, **`KalmanModel`**. Para trocar de estratégia, exporte a desejada no pipeline de calibração e recompile, ou envie a calibração pela serial.
 
 | Modelo | Entrada efetivamente usada | Princípio e comportamento |
 |---|---|---|
@@ -179,6 +180,8 @@ A classe `Heave` passa essa aceleração por **duas seções de segunda ordem em
 
 O resultado é **heave no sensor, em metros, positivo para baixo**. Representa movimento oscilatório na faixa filtrada, não altitude absoluta.
 
+No modo **SCALE**, `Heave` e `Lever` rodam sem pré-filtro, correção nem atitude. A entrada é a aceleração na escala e o pitch/roll do próprio Kernel. Os eixos do Kernel (X boreste, Y proa, Z para cima) entram em `vertical()` na ordem `(ay, ax, −az)`, ou seja, proa, boreste e para baixo. Com o pitch do Kernel girando em X e o roll em Y, essa é exatamente a terceira linha de `Rz(−K)·Rx(pitch)·Ry(roll)` do ICD. O período, o amortecimento e a gravidade continuam vindo de `heave/config.h`. No ensaio do pêndulo, esse heave erra 22,6 mm RMS, contra 20,5 mm da cadeia calibrada. O `LEVER_POINT` vale nos dois modos: com o align certo, o Kernel já entrega nos eixos do navio, e `(ay, ax, −az)` é (proa, boreste, baixo).
+
 **6 · Lever — movimento no ponto de interesse**
 
 `LEVER_POINT = [x, y, z]` representa o vetor **do MRU até o ponto desejado**, em metros, nos eixos do navio. Pode ser, por exemplo, o centro do helideque.
@@ -200,7 +203,7 @@ Há três seleções independentes:
 | `protocol` | `0` JSON · `1` LIST · `2` NMEA | A representação textual de cada mensagem. |
 | `kernel_mode` | `0` HR · `1` QT · `2` OR | O pacote binário solicitado ao Kernel. |
 
-**RAW** lê diretamente os inteiros do Kernel. **SCALE** transmite esses campos convertidos para unidades físicas. **CALIBRATED** transmite a saída da cadeia de processamento, desde que o Kernel esteja em HR ou OR.
+**RAW** lê diretamente os inteiros do Kernel. **SCALE** transmite esses campos convertidos para unidades físicas, junto com heave e `heave_rate` no ponto de interesse calculados só com eles: os mesmos campos do CALIBRATED. **CALIBRATED** transmite a saída da cadeia de processamento, desde que o Kernel esteja em HR ou OR.
 
 O processamento segue as amostras recebidas. No modo normal, `frequency` controla a cadência de transmissão, com temporização em milissegundos; não muda a configuração de 200 Hz do Kernel. O Streamer só envia quando o contador de processamento mudou. Em aquisição, elimina o intervalo adicional e tenta transmitir cada novo estado processado.
 
@@ -208,11 +211,11 @@ O processamento segue as amostras recebidas. No modo normal, `frequency` control
 
 | Situação | Ordem dos campos em JSON/LIST |
 |---|---|
-| HR/OR calibrado · **13 campos** | `time, tmp, pitch, roll, yaw, ax, ay, az, wx, wy, wz, heave, heave_rate` |
-| HR/OR RAW ou SCALE · **12 campos** | `time, tmp, pitch, roll, yaw, ax, ay, az, wx, wy, wz, heave` |
+| HR/OR CALIBRATED ou SCALE · **13 campos** | `time, tmp, pitch, roll, yaw, ax, ay, az, wx, wy, wz, heave, heave_rate` |
+| HR/OR RAW · **12 campos** | `time, tmp, pitch, roll, yaw, ax, ay, az, wx, wy, wz, heave` |
 | QT · **10 campos** | `time, tmp, pitch, roll, yaw, q0, q1, q2, q3, heave` |
 
-JSON usa nomes; LIST usa uma lista entre colchetes na mesma ordem. RAW imprime os campos do sensor como inteiros; os demais modos usam três casas decimais. `time` é sempre apresentado em segundos com três casas e se refere à recepção do pacote no ESP32, relativa ao início do stream. RAW/SCALE mantêm heave em zero.
+JSON usa nomes; LIST usa uma lista entre colchetes na mesma ordem. RAW imprime os campos do sensor como inteiros; os demais modos usam três casas decimais. `time` é sempre apresentado em segundos com três casas e se refere à recepção do pacote no ESP32, relativa ao início do stream. RAW mantém heave em zero. CALIBRATED e SCALE têm os mesmos campos; o Monitor os separa pela gravidade, porque no SCALE a aceleração está nos eixos do Kernel (Z para cima) e no CALIBRATED nos do navio (z para baixo).
 
 O formato chamado NMEA no código contém **quatro campos**:
 
@@ -240,12 +243,18 @@ O checksum é o XOR dos caracteres entre `$` e `*`, e a linha termina em CRLF. U
 | `$settings!` | Mostra as configurações persistidas. |
 | `ID:chave$` | Consulta um valor salvo; resposta no formato `$valor!`. |
 | `CF:chave$valor!` | Salva uma configuração e reinicia o ESP32. |
+| `CS:chave$valor!` | Salva sem reiniciar e responde `$OK:chave=valor!`; várias configurações valem num `MICRS` só. |
+| `$status!` | JSON com id, firmware, porta deste link, baud, modos efetivos, sensor, align, cadeia e origem da calibração. |
+| `CL:CHAVE@posição$v1,v2,...!` | Grava valores na calibração pendente (chaves = constantes dos `config.h`); responde `$OK:CHAVE@posição+n!` ou `$ERROR:CHAVE!`. |
+| `$calibration_check!` | JSON com a origem (`firmware`/`flash`), o modelo e, por chave, o tamanho e o CRC-32 dos float. |
+| `$calibration_save!` / `$calibration_erase!` | Grava a pendente na flash ou apaga a da flash; os dois respondem e reiniciam. |
 | `$calibrate!` | Informa o processamento ativo; não executa uma nova calibração. |
 | `$check_sensor!` | Informa `OK` ou `NOT WORKING`, conforme o estado do driver. |
 | `$firmware!` | Informa a versão. |
 | `$align:N!` | Grava no Kernel o preset de montagem `N` e reinicia os estados do processamento. |
 | `MICRS` | Reinicia o ESP32. |
-| `$ERASE!` | Restaura configurações padrão e reinicia. |
+| `$ERASE!` | Restaura configurações padrão e reinicia. Não apaga a calibração da flash. |
+| `CF:output$N!` | Porta do stream ao ligar: 1 USB, 2 RS422, 3 RS232 (padrão). |
 | `updt` | Entra no recebimento de uma atualização de firmware. |
 
 `device/settings/index.h` guarda as opções via `utils/json/index.h`, em `Preferences`, como um JSON persistido na flash do ESP32. Os padrões efetivos são modo normal, Kernel HR, saída calibrada, protocolo JSON, `autostream` desligado, frequência de 100 Hz e baud de 9600. Frequência e baud usam valores de fallback quando ainda não estão salvos.
@@ -261,7 +270,7 @@ CF:baudrate$115200!
 CF:autostream$1!
 ```
 
-O exemplo escolhe LIST a 10 Hz. Os comandos `CF:` alteram a operação; os coeficientes de calibração continuam vindo dos `config.h`.
+O exemplo escolhe LIST a 10 Hz. Com `CS:` no lugar de `CF:`, os mesmos ajustes valem num único `MICRS` no fim, que é o que a tela Produção do MRU Monitor faz. Os comandos `CF:` e `CS:` alteram a operação; os coeficientes vêm da calibração da flash, se houver, ou dos `config.h`.
 
 **Montagem e presets de align**
 
@@ -284,7 +293,11 @@ Escolha o preset correspondente à montagem física, desligue e ligue o MRU e co
 | `4 - Heave/1 - Model.ipynb` | `heave/config.h` | Período, amortecimento e gravidade local. |
 | `5 - Lever/1 - Model.ipynb` | `lever/config.h` | Vetor até o ponto de interesse. |
 
-Uma nova exportação substitui esses arquivos. **Recompile e grave o firmware para usar os novos parâmetros.** Na instalação, confira principalmente `HEAVE_PERIOD`, `KALMAN_LEVER` e `LEVER_POINT`: os valores ajustados na mesa descrevem aquele ensaio e sua geometria.
+Uma nova exportação substitui esses arquivos. **Recompile e grave o firmware para usar os novos parâmetros.**
+
+**Calibração pela serial.** Sem recompilar, o pacote de uma calibração do MRU Monitor (`firmware/*/config.h` e `calibration.json → firmware`) vai pela tela Produção como comandos `CL:`, com as chaves iguais aos nomes das constantes dos `config.h`. [`objects/processing/calibration/index.h`](objects/processing/calibration/index.h) monta uma `CalibrationData` pendente, `$calibration_check!` devolve o CRC-32 de cada chave para conferência, e `$calibration_save!` grava na `Preferences` com um CRC do bloco inteiro: uma gravação interrompida cai de volta na calibração compilada. O boot informa a origem na linha `Calibration: flash` ou `Calibration: firmware`. A da flash prevalece: depois de recompilar com outros `config.h`, apague-a com `$calibration_erase!`.
+
+Em qualquer origem, confira na instalação principalmente `HEAVE_PERIOD`, `KALMAN_LEVER` e `LEVER_POINT`: os valores ajustados na mesa descrevem aquele ensaio e sua geometria.
 
 **Compilação e gravação**
 

@@ -5,11 +5,19 @@
 #include "../correction/index.h"
 
 
+// ALIGN DO KERNEL NO ENSAIO (PROA, PITCH E ROLL; NAN DESLIGA) E A MONTAGEM ARREDONDADA: OS ALIGN_* DA CALIBRACAO
+struct AlignParams{
+	float calibration[3];
+	float frame[3][3];
+};
+
+
 // A CORRECAO FOI AJUSTADA COM O KERNEL NO ALIGN DO ENSAIO: COM OUTRO ALIGN, A ENTRADA VOLTA AOS EIXOS DO ENSAIO E A SAIDA VAI AOS DO NAVIO DE AGORA
 class Align{
   private:
 	float Q[3][3];    // ALIGN DE AGORA SOBRE O DO ENSAIO, NOS EIXOS DO KERNEL
 	float F[3][3];    // A MESMA ROTACAO NOS EIXOS DO NAVIO
+	const CorrectionParams* correction;
 
 	// ICD APENDICE B: PROA HORARIA EM Z, PITCH EM X, ROLL EM Y; CADA COLUNA E UM EIXO DO KERNEL NOS EIXOS DO NAVIO
 	static void rotation(const float* angles, float R[3][3]){
@@ -44,16 +52,17 @@ class Align{
   public:
 	bool active = false;
 
-	void setup(const float* alignment){
+	void setup(const float* alignment, const AlignParams& params, const CorrectionParams& correctionParams){
 		float now[3][3], test[3][3], frame[3][3], deviation = 0;
-		active = !isnan(alignment[0]) && !isnan(ALIGN_CALIBRATION[0]);
+		correction = &correctionParams;
+		active     = !isnan(alignment[0]) && !isnan(params.calibration[0]);
 
 		if(active){
 			rotation(alignment, now);
-			rotation(ALIGN_CALIBRATION, test);
+			rotation(params.calibration, test);
 			product(now, test, Q, true);
-			product(ALIGN_FRAME, Q, frame, false);
-			product(frame, ALIGN_FRAME, F, true);
+			product(params.frame, Q, frame, false);
+			product(frame, params.frame, F, true);
 		}
 
 		for(int i = 0; active && i < 3; i++)
@@ -61,14 +70,14 @@ class Align{
 				deviation = max(deviation, fabsf(Q[i][j] - (i == j)));
 
 		active = active && deviation > 1e-4f;    // MESMO ALIGN DO ENSAIO: A CORRECAO JA ESTA NOS EIXOS CERTOS
-		Serial.printf("Align: ensaio %.0f %.0f %.0f | Kernel %.0f %.0f %.0f | %s\n", ALIGN_CALIBRATION[0], ALIGN_CALIBRATION[1], ALIGN_CALIBRATION[2], alignment[0], alignment[1], alignment[2], active ? "correcao girada" : "sem rotacao");
+		Serial.printf("Align: ensaio %.0f %.0f %.0f | Kernel %.0f %.0f %.0f | %s\n", params.calibration[0], params.calibration[1], params.calibration[2], alignment[0], alignment[1], alignment[2], active ? "correcao girada" : "sem rotacao");
 	}
 
 	void apply(float* sensors, const float temperature){
 		if(active)
 			rotate(sensors, Q, true);
 
-		correct(sensors, temperature);
+		correct(sensors, temperature, *correction);
 
 		if(active)
 			rotate(sensors, F, false);

@@ -180,7 +180,7 @@ table.wide th:last-child { width:26% }
 Computador → comandos pela serial → configurações persistentes / controle do stream
 Calibration → config.h → compilação do firmware → parâmetros usados no processamento
 </code></pre>
-<p>Esse é o caminho calibrado. Os modos RAW e SCALE permitem observar as medições anteriores à calibração.</p>
+<p>Esse é o caminho calibrado. Os modos RAW e SCALE permitem observar as medições anteriores à calibração. O SCALE ainda calcula heave e <code>heave_rate</code>, só com a aceleração e o pitch/roll do próprio Kernel, e entrega os mesmos campos do caminho calibrado.</p>
 <h2 id="estrutura-de-arquivos">Estrutura de arquivos</h2>
 <pre aria-label="Código ou diagrama; role horizontalmente se necessário" tabindex="0"><code class="language-text">Main/
 ├── Main.ino                         ← setup() e loop() do Arduino
@@ -316,13 +316,13 @@ Calibration → config.h → compilação do firmware → parâmetros usados no 
 </tr>
 <tr>
 <td><strong>Heave</strong> · <code>processing/heave/index.h</code></td>
-<td>Aceleração corrigida, pitch, roll e intervalo de tempo</td>
+<td>Aceleração corrigida, pitch, roll e intervalo de tempo; no SCALE, a aceleração e o pitch/roll do Kernel</td>
 <td>Encontra a aceleração vertical, compensa a gravidade e integra com rejeição de deriva.</td>
 <td>Heave no sensor, em metros → Lever.</td>
 </tr>
 <tr>
 <td><strong>Braço</strong> · <code>processing/lever/index.h</code></td>
-<td>Heave, inclinação e vetor até o ponto desejado</td>
+<td>Heave, inclinação e vetor até o ponto desejado; no SCALE, a inclinação do Kernel</td>
 <td>Acrescenta o deslocamento vertical devido à distância entre sensor e ponto; calcula sua velocidade vertical.</td>
 <td>Heave e <code>heave_rate</code> no ponto → Streamer.</td>
 </tr>
@@ -481,6 +481,7 @@ Calibration → config.h → compilação do firmware → parâmetros usados no 
 <p>A classe <code>Heave</code> passa essa aceleração por <strong>duas seções de segunda ordem em cascata</strong>: uma produz velocidade, a outra deslocamento. As seções integram na faixa de interesse e rejeitam componentes constantes e muito lentas, reduzindo a deriva que cresceria ao integrar um pequeno desvio.</p>
 <p><code>HEAVE_PERIOD</code> define <code>ωc = 2π/(10·Th)</code> e <code>HEAVE_DAMPING</code> define o amortecimento. O cálculo usa estados em <code>double</code>. Na primeira amostra, ou após um intervalo maior que <strong>0,5 s</strong>, as seções reiniciam em regime para a entrada recebida.</p>
 <p>O resultado é <strong>heave no sensor, em metros, positivo para baixo</strong>. Representa movimento oscilatório na faixa filtrada, não altitude absoluta.</p>
+<p>No modo <strong>SCALE</strong>, <code>Heave</code> e <code>Lever</code> rodam sem pré-filtro, correção nem atitude. A entrada é a aceleração na escala e o pitch/roll do próprio Kernel. Os eixos do Kernel (X boreste, Y proa, Z para cima) entram em <code>vertical()</code> na ordem <code>(ay, ax, −az)</code>, ou seja, proa, boreste e para baixo. Com o pitch do Kernel girando em X e o roll em Y, essa é exatamente a terceira linha de <code>Rz(−K)·Rx(pitch)·Ry(roll)</code> do ICD. O período, o amortecimento e a gravidade continuam vindo de <code>heave/config.h</code>. No ensaio do pêndulo, esse heave erra 22,6 mm RMS, contra 20,5 mm da cadeia calibrada. O <code>LEVER_POINT</code> vale nos dois modos: com o align certo, o Kernel já entrega nos eixos do navio, e <code>(ay, ax, −az)</code> é (proa, boreste, baixo).</p>
 <h3 id="6-lever-movimento-no-ponto-de-interesse">6 · Lever — movimento no ponto de interesse</h3>
 <p><code>LEVER_POINT = [x, y, z]</code> representa o vetor <strong>do MRU até o ponto desejado</strong>, em metros, nos eixos do navio. Pode ser, por exemplo, o centro do helideque.</p>
 <p><code>Lever::update()</code> projeta esse vetor na vertical usando a inclinação atual. Passa o deslocamento pelas mesmas duas seções, agora usando suas saídas passa-alta, e soma ao heave do sensor. Assim, a contribuição geométrica tem a mesma filtragem do heave.</p>
@@ -519,7 +520,7 @@ Calibration → config.h → compilação do firmware → parâmetros usados no 
 </tr>
 </tbody>
 </table></div>
-<p><strong>RAW</strong> lê diretamente os inteiros do Kernel. <strong>SCALE</strong> transmite esses campos convertidos para unidades físicas. <strong>CALIBRATED</strong> transmite a saída da cadeia de processamento, desde que o Kernel esteja em HR ou OR.</p>
+<p><strong>RAW</strong> lê diretamente os inteiros do Kernel. <strong>SCALE</strong> transmite esses campos convertidos para unidades físicas, junto com heave e <code>heave_rate</code> no ponto de interesse calculados só com eles: os mesmos campos do CALIBRATED. <strong>CALIBRATED</strong> transmite a saída da cadeia de processamento, desde que o Kernel esteja em HR ou OR.</p>
 <p>O processamento segue as amostras recebidas. No modo normal, <code>frequency</code> controla a cadência de transmissão, com temporização em milissegundos; não muda a configuração de 200 Hz do Kernel. O Streamer só envia quando o contador de processamento mudou. Em aquisição, elimina o intervalo adicional e tenta transmitir cada novo estado processado.</p>
 <h2 id="campos-transmitidos">Campos transmitidos</h2>
 <div aria-label="Tabela 8 — role horizontalmente se necessário" class="table-wrap" role="region" tabindex="0"><table>
@@ -531,11 +532,11 @@ Calibration → config.h → compilação do firmware → parâmetros usados no 
 </thead>
 <tbody>
 <tr>
-<td>HR/OR calibrado · <strong>13 campos</strong></td>
+<td>HR/OR CALIBRATED ou SCALE · <strong>13 campos</strong></td>
 <td><code>time, tmp, pitch, roll, yaw, ax, ay, az, wx, wy, wz, heave, heave_rate</code></td>
 </tr>
 <tr>
-<td>HR/OR RAW ou SCALE · <strong>12 campos</strong></td>
+<td>HR/OR RAW · <strong>12 campos</strong></td>
 <td><code>time, tmp, pitch, roll, yaw, ax, ay, az, wx, wy, wz, heave</code></td>
 </tr>
 <tr>
@@ -544,7 +545,7 @@ Calibration → config.h → compilação do firmware → parâmetros usados no 
 </tr>
 </tbody>
 </table></div>
-<p>JSON usa nomes; LIST usa uma lista entre colchetes na mesma ordem. RAW imprime os campos do sensor como inteiros; os demais modos usam três casas decimais. <code>time</code> é sempre apresentado em segundos com três casas e se refere à recepção do pacote no ESP32, relativa ao início do stream. RAW/SCALE mantêm heave em zero.</p>
+<p>JSON usa nomes; LIST usa uma lista entre colchetes na mesma ordem. RAW imprime os campos do sensor como inteiros; os demais modos usam três casas decimais. <code>time</code> é sempre apresentado em segundos com três casas e se refere à recepção do pacote no ESP32, relativa ao início do stream. RAW mantém heave em zero. CALIBRATED e SCALE têm os mesmos campos; o Monitor os separa pela gravidade, porque no SCALE a aceleração está nos eixos do Kernel (Z para cima) e no CALIBRATED nos do navio (z para baixo).</p>
 <p>O formato chamado NMEA no código contém <strong>quatro campos</strong>:</p>
 <pre aria-label="Código ou diagrama; role horizontalmente se necessário" tabindex="0"><code class="language-text">$GPPASHR,pitch,roll,yaw,heave*checksum
 </code></pre>

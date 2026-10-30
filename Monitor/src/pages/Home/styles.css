@@ -1,0 +1,333 @@
+.HomePage .PageBody {
+    grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+    grid-template-rows: auto auto minmax(0, 1fr);
+    grid-template-areas: 'live facts' 'flow flow' 'guides tools';
+}
+
+.HomeLive {
+    grid-area: live;
+    flex-direction: row;
+    align-items: center;
+    gap: 1.6rem;
+    padding: 1.2rem 1.5rem;
+}
+
+.HomeLive .Horizon {
+    width: clamp(7.5rem, 12vw, 11rem);
+    height: auto;
+}
+
+.HomeLiveBody {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    min-width: 0;
+    flex: 1;
+}
+
+.HomeLiveState {
+    display: flex;
+    align-items: center;
+    gap: .7rem;
+    min-width: 0;
+}
+
+.HomeLiveState .Muted {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.HomeValues {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: .8rem;
+}
+
+.HomeValues div {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.HomeValues span {
+    font-size: .7rem;
+    font-weight: 550;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    color: var(--muted);
+}
+
+.HomeValues b {
+    font-size: 1.75rem;
+    font-weight: 650;
+    letter-spacing: -.03em;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.HomeValues small {
+    font-size: .8rem;
+    font-weight: 500;
+    color: var(--faint);
+    margin-left: .2rem;
+    letter-spacing: 0;
+}
+
+.HomeValues .empty b {
+    color: #c4cad4;
+}
+
+.HomeFacts {
+    grid-area: facts;
+}
+
+.HomeFactList {
+    display: flex;
+    flex-direction: column;
+}
+
+.HomeFactList div {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: .5rem 0;
+    border-bottom: 1px solid var(--soft);
+    font-size: .82rem;
+}
+
+.HomeFactList div:last-child {
+    border-bottom: none;
+}
+
+.HomeFactList span {
+    color: var(--muted);
+    white-space: nowrap;
+}
+
+.HomeFactList b {
+    font-weight: 600;
+    text-align: right;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.HomeFactList b.ok { color: var(--green); }
+.HomeFactList b.bad { color: var(--red); }
+.HomeFactList b.warn { color: var(--amber); }
+.HomeFactList b.info { color: var(--accent-strong); }
+
+.HomeFlow {
+    grid-area: flow;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--gap);
+}
+
+.HomeStep {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    cursor: pointer;
+    transition: border-color .15s, box-shadow .15s, transform .15s;
+    min-width: 0;
+}
+
+.HomeStep:hover {
+    border-color: #a9d7e2;
+    box-shadow: var(--lift);
+    transform: translateY(-1px);
+}
+
+.HomeStep {
+    display: flex;
+    flex-direction: column;
+    gap: .35rem;
+    padding: 1rem 1.1rem;
+}
+
+.HomeStepTop {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    margin-bottom: .2rem;
+}
+
+.HomeStepIcon {
+    display: grid;
+    place-items: center;
+    width: 2.1rem;
+    height: 2.1rem;
+    border-radius: 10px;
+    background: var(--accent-soft);
+    color: var(--accent-strong);
+    flex-shrink: 0;
+}
+
+.HomeStepIcon svg {
+    width: .95rem;
+    height: .95rem;
+}
+
+.HomeStepNumber {
+    font-size: .7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--faint);
+}
+
+.HomeStepArrow {
+    margin-left: auto;
+    width: .7rem;
+    height: .7rem;
+    color: #c4cad4;
+    flex-shrink: 0;
+}
+
+.HomeStep:hover .HomeStepArrow, .HomeTool:hover .HomeStepArrow {
+    color: var(--accent);
+}
+
+.HomeStepTitle {
+    font-weight: 700;
+    font-size: 1.02rem;
+}
+
+.HomeStepText {
+    font-size: .8rem;
+    color: var(--muted);
+    line-height: 1.45;
+}
+
+.HomeStepContext {
+    margin-top: .3rem;
+    padding-top: .55rem;
+    border-top: 1px solid var(--soft);
+    font-size: .74rem;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.HomeGuides {
+    grid-area: guides;
+    flex-direction: row;
+    gap: 1.4rem;
+    padding: 1.1rem 1.3rem;
+}
+
+.GuideTabs {
+    display: flex;
+    flex-direction: column;
+    gap: .15rem;
+    width: 13.5rem;
+    flex-shrink: 0;
+    border-right: 1px solid var(--soft);
+    padding-right: 1rem;
+}
+
+.GuideTabs .Label {
+    margin-bottom: .5rem;
+}
+
+.GuideTabs span {
+    padding: .45rem .7rem;
+    border-radius: 8px;
+    font-size: .82rem;
+    cursor: pointer;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.GuideTabs span:hover {
+    background: var(--soft);
+    color: var(--ink);
+}
+
+.GuideTabs span.on {
+    background: var(--accent-soft);
+    color: var(--accent-strong);
+    font-weight: 600;
+}
+
+.GuideSteps {
+    list-style: none;
+    margin: 0;
+    padding: .2rem 0 0 0;
+    display: flex;
+    flex-direction: column;
+    gap: .7rem;
+    font-size: .86rem;
+    line-height: 1.5;
+    color: var(--text);
+}
+
+.GuideSteps li {
+    display: flex;
+    gap: .75rem;
+}
+
+.GuideSteps li span {
+    display: grid;
+    place-items: center;
+    width: 1.4rem;
+    height: 1.4rem;
+    border-radius: 50%;
+    background: var(--soft);
+    color: var(--muted);
+    font-size: .72rem;
+    font-weight: 700;
+    flex-shrink: 0;
+    margin-top: .05rem;
+}
+
+.HomeTools {
+    grid-area: tools;
+}
+
+.HomeTool {
+    display: flex;
+    align-items: center;
+    gap: .9rem;
+    padding: .7rem .6rem;
+    border-radius: 11px;
+    cursor: pointer;
+    flex: 1;
+    max-height: 5.5rem;
+    transition: background .15s;
+}
+
+.HomeTool + .HomeTool {
+    border-top: 1px solid var(--soft);
+}
+
+.HomeTool:hover {
+    background: var(--canvas);
+}
+
+.HomeToolTitle {
+    font-weight: 650;
+    font-size: .9rem;
+}
+
+.HomeToolText {
+    font-size: .76rem;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+@media (max-height: 700px) {
+    .GuideSteps {
+        gap: .4rem;
+        font-size: .8rem;
+        line-height: 1.4;
+    }
+}

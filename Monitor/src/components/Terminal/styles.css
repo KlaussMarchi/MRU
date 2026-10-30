@@ -1,0 +1,111 @@
+.Terminal {
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+    flex: 1;
+    min-height: 0;
+    min-width: 0;
+}
+
+.TerminalBar {
+    display: flex;
+    align-items: center;
+    gap: .7rem;
+    flex-wrap: wrap;
+}
+
+.TerminalHint {
+    font-size: .74rem;
+    color: var(--faint);
+    flex-basis: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.TerminalBar .Chip {
+    font-size: .74rem;
+    padding: .18rem .6rem;
+}
+
+.TerminalLink {
+    border: none;
+    background: none;
+    color: var(--muted);
+    font-size: .78rem;
+    cursor: pointer;
+    text-decoration: underline;
+}
+
+.TerminalBox {
+    flex: 1;
+    min-height: 5rem;
+    background: #0f141b;
+    color: #d6dbe3;
+    border-radius: 12px;
+    padding: .6rem .75rem;
+    overflow: auto;
+    font-size: .76rem;
+    line-height: 1.5;
+}
+
+.TerminalBox:empty::before {
+    content: attr(data-empty);
+    color: #6b7380;
+}
+
+.TerminalLine {
+    display: flex;
+    gap: .6rem;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+.TerminalTime {
+    color: #5c6573;
+    flex-shrink: 0;
+}
+
+.TerminalKind {
+    width: .8rem;
+    flex-shrink: 0;
+    text-align: center;
+}
+
+.TerminalLine.tx .TerminalText, .TerminalLine.tx .TerminalKind { color: #7dd3fc; }
+.TerminalLine.rx .TerminalText, .TerminalLine.rx .TerminalKind { color: #e5e7eb; }
+.TerminalLine.stream .TerminalText, .TerminalLine.stream .TerminalKind { color: #6ee7b7; opacity: .8; }
+.TerminalLine.info .TerminalText, .TerminalLine.info .TerminalKind { color: #9ca3af; }
+.TerminalLine.error .TerminalText, .TerminalLine.error .TerminalKind { color: #fca5a5; }
+
+.TerminalInput {
+    display: flex;
+    gap: .45rem;
+}
+
+.TerminalInput .Input {
+    flex: 1;
+    height: 2.2rem;
+}
+
+.TerminalInput .Select {
+    width: 6.5rem;
+    height: 2.2rem;
+}
+
+.TerminalInput .AsyncButton {
+    height: 2.2rem;
+    min-width: 0;
+}
+
+.TerminalQuick {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .3rem;
+}
+
+.TerminalQuick .Chip {
+    font-size: .72rem;
+    padding: .16rem .5rem;
+    white-space: nowrap;
+}

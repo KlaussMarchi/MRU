@@ -48,19 +48,29 @@ class Section{
 };
 
 
+// PERIODO Th, AMORTECIMENTO E GRAVIDADE LOCAL: OS HEAVE_* DA CALIBRACAO
+struct HeaveParams{
+	float period;
+	float damping;
+	float gravity;
+};
+
+
 // HEAVE NO SENSOR, POSITIVO PARA BAIXO: ACELERACAO VERTICAL PELA ATITUDE, MAIS g, DUAS VEZES INTEGRADA COM PASSA-ALTA
 class Heave{
   public:
 	Section velocity, position;
 	float heave = 0;
+	float gravity;
 
-	void setup(){
-		velocity.setup(HEAVE_PERIOD, HEAVE_DAMPING);
-		position.setup(HEAVE_PERIOD, HEAVE_DAMPING);
+	void setup(const HeaveParams& params){
+		velocity.setup(params.period, params.damping);
+		position.setup(params.period, params.damping);
+		gravity = params.gravity;
 	}
 
 	void update(const float* accel, const float pitch, const float roll, const float dt){
-		velocity.update(vertical(accel, pitch, roll) + HEAVE_GRAVITY, dt);
+		velocity.update(vertical(accel, pitch, roll) + gravity, dt);
 		position.update(velocity.z1, dt);
 		heave = position.z1;
 	}

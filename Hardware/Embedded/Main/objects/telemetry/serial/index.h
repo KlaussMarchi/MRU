@@ -38,14 +38,23 @@ template<int CMD_MAX_SIZE> class NextSerial{
 		rs232(UART_RS232),
 		rs422(UART_RS422){}
 
-	void setup(int baud=9600){
+	void setup(int baud=9600, int output=RS232_PORT){
 		baudrate = baud;
 		rs232.begin(baudrate, SERIAL_8N1, RX_RS232, TX_RS232); delay(200);
 		rs422.begin(baudrate, SERIAL_8N1, RX_RS422, TX_RS422); delay(200);
 
+		port = (output == USB_PORT || output == RS422_PORT) ? output : RS232_PORT;
+		uart = (port == USB_PORT)   ? (Stream*) &Serial :
+		       (port == RS422_PORT) ? (Stream*) &rs422  : (Stream*) &rs232;
+
 		Serial.printf("RS422 Started at tx=%d - rx=%d\n", TX_RS422, RX_RS422);
 		Serial.printf("RS232 Started at tx=%d - rx=%d\n", TX_RS232, RX_RS232);
-		Serial.println("Baudrate: " + String(baudrate) + "\n");
+		Serial.println("Baudrate: " + String(baudrate) + " | Output: " + getName() + "\n");
+	}
+
+	const char* getName() const {
+		return (port == USB_PORT)   ? "USB"   :
+		       (port == RS422_PORT) ? "RS422" : "RS232";
 	}
 
 	void send(const char* msg, bool breakLine = true){

@@ -19,13 +19,44 @@ template <typename Parent> class Protocol{
 			return;
 		}
 
+		if(device->telemetry.serial.command.contains("CL:")){
+			handleCalibration();
+			return;
+		}
+
+		if(device->telemetry.serial.command.contains("CS:")){
+			handleConfig(false);
+			return;
+		}
+
+		if(device->telemetry.serial.command.contains("calibration_save")){
+			handleSave();
+			return;
+		}
+
+		if(device->telemetry.serial.command.contains("calibration_erase")){
+			device->processing.calibration.erase();
+			restart("$CALIBRATION ERASED!");
+			return;
+		}
+
+		if(device->telemetry.serial.command.contains("calibration_check")){
+			device->telemetry.serial.send(device->processing.calibration.toJson());
+			return;
+		}
+
+		if(device->telemetry.serial.command.contains("status")){
+			handleStatus();
+			return;
+		}
+
 		if(device->telemetry.serial.command.contains("D:")){
 			handleID();
 			return;
 		}
 
 		if(device->telemetry.serial.command.contains("F:")){
-			handleConfig();
+			handleConfig(true);
 			return;
 		}
 
@@ -117,7 +148,8 @@ template <typename Parent> class Protocol{
 		device->telemetry.response += '!';
 	}
 
-	void handleConfig(){
+	// CF:chave$valor! GRAVA E REINICIA; CS:chave$valor! SO GRAVA, PARA VARIAS CONFIGURACOES VALEREM NUM REINICIO SO (MICRS)
+	void handleConfig(const bool reboot){
 		const int start = device->telemetry.serial.command.find(':');
 		const int mid   = device->telemetry.serial.command.find('$');
 		const int end   = device->telemetry.serial.command.find('!');
@@ -129,9 +161,80 @@ template <typename Parent> class Protocol{
 		auto value = device->telemetry.serial.command.substring(mid+1, end);
 
 		device->settings.params.set(key.get(), value.get());
-		device->telemetry.response.set(key.toString() + " set to " + value.toString());
 		device->settings.save();
 
+		if(reboot)
+			return restart((key.toString() + " set to " + value.toString()).c_str());
+
+		device->telemetry.response.set("$OK:" + key.toString() + "=" + value.toString() + "!");
+	}
+
+	// CL:CHAVE@posicao$v1,v2,...! PREENCHE A CALIBRACAO PENDENTE, QUE SO VALE DEPOIS DO $calibration_save!
+	void handleCalibration(){
+		const int start = device->telemetry.serial.command.find(':');
+		const int mid   = device->telemetry.serial.command.find('$');
+		const int end   = device->telemetry.serial.command.find('!');
+
+		if(start == -1 || mid == -1 || end == -1)
+			return device->telemetry.response.set("$ERROR!");
+
+		auto key         = device->telemetry.serial.command.substring(start+1, mid);
+		const int at     = key.find('@');
+		const int offset = (at == -1) ? 0 : key.substring(at+1, key.length()).toInt();
+
+		if(at != -1)
+			key = key.substring(0, at);
+
+		const int count = device->processing.calibration.set(key.get(), offset, device->telemetry.serial.command.substring(mid+1, end).get());
+
+		if(count < 0)
+			return device->telemetry.response.set("$ERROR:" + key.toString() + "!");
+
+		device->telemetry.response.set("$OK:" + key.toString() + "@" + String(offset) + "+" + String(count) + "!");
+	}
+
+	void handleSave(){
+		if(!device->processing.calibration.save())
+			return device->telemetry.response.set("$ERROR:SAVE!");
+
+		restart("$CALIBRATION SAVED!");
+	}
+
+	// RETRATO DO MRU PARA O APP: IDENTIDADE, PORTA, MODOS EFETIVOS, SENSOR, ALIGN DO KERNEL E A CALIBRACAO EM USO
+	void handleStatus(){
+		const auto& kernel = device->sensors.kernel;
+		JsonDocument doc;
+
+		doc["id"]            = device->id.get();
+		doc["firmware"]      = device->firmware;
+		doc["port"]          = device->telemetry.serial.getName();
+		doc["baud"]          = device->telemetry.serial.baudrate;
+		doc["device_mode"]   = device->mode;
+		doc["streamer_mode"] = device->telemetry.streamer.mode;
+		doc["protocol"]      = device->telemetry.streamer.protocol;
+		doc["kernel_mode"]   = kernel.mode;
+		doc["frequency"]     = device->frequency;
+		doc["autostream"]    = device->telemetry.streamer.autostart;
+		doc["streaming"]     = device->telemetry.streamer.active;
+		doc["sensor"]        = device->sensors.working;
+		doc["kernel_baud"]   = kernel.baud;
+		doc["processing"]    = device->processing.toString();
+		doc["calibration"]   = device->processing.calibration.getSource();
+		doc["model"]         = (int) device->processing.calibration.data.model;
+
+		JsonArray align = doc["align"].to<JsonArray>();
+
+		for(const float angle : kernel.alignment)
+			isnan(angle) ? align.add(nullptr) : align.add(angle);    // NAN NAO E JSON: O KERNEL QUE NAO RESPONDEU SAI null
+
+		String output;
+		serializeJson(doc, output);
+		device->telemetry.serial.send(output);
+	}
+
+	// A RESPOSTA SAI ANTES DO REINICIO: SEM ELA O APP NAO SABE SE O COMANDO CHEGOU
+	void restart(const char* message){
+		device->telemetry.serial.send(message);
 		delay(500);
 		device->reset();
 	}

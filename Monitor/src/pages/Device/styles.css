@@ -1,0 +1,109 @@
+.DevicePage .PageBody {
+    grid-template-columns: minmax(19rem, 24rem) minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-areas: 'status config' 'status terminal';
+}
+
+.DeviceStatus {
+    grid-area: status;
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap);
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.DeviceStatus .Card {
+    flex-shrink: 0;
+}
+
+.DeviceActions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .4rem;
+    margin-top: 1rem;
+}
+
+.DeviceConfig {
+    grid-area: config;
+}
+
+.DeviceTerminal {
+    grid-area: terminal;
+}
+
+.DeviceTerminal .CardTitle {
+    margin-bottom: .5rem;
+}
+
+.FormGrid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: .7rem;
+}
+
+.FormGrid .changed .Select {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+}
+
+.DeviceApply {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    margin-top: .9rem;
+}
+
+.DeviceApply .Notice {
+    flex: 1;
+    padding: .5rem .75rem;
+    font-size: .77rem;
+}
+
+.Identity {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: .6rem;
+    margin-bottom: .7rem;
+}
+
+.IdentityName {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    font-size: 1.15rem;
+    font-weight: 700;
+    letter-spacing: -.01em;
+}
+
+.MruTiles {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: .4rem;
+    margin-bottom: .8rem;
+}
+
+.MruTile {
+    display: flex;
+    flex-direction: column;
+    background: var(--soft);
+    border-radius: 10px;
+    padding: .4rem .6rem;
+    min-width: 0;
+}
+
+.MruTile span {
+    font-size: .66rem;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    color: var(--muted);
+}
+
+.MruTile b {
+    font-size: .9rem;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}

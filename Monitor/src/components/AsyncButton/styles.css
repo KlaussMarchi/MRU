@@ -1,0 +1,72 @@
+.AsyncButton {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: .5rem;
+    min-width: 6.5rem;
+    height: 2.4rem;
+    padding: 0 1.05rem;
+    border-radius: 10px;
+    border: 1px solid transparent;
+    font-size: .85rem;
+    font-weight: 600;
+    cursor: pointer;
+    user-select: none;
+    transition: opacity .15s, background .15s, border-color .15s, transform .05s;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.AsyncButton:active:not(:disabled) {
+    transform: translateY(1px);
+}
+
+.AsyncButton.small {
+    height: 2rem;
+    min-width: 0;
+    padding: 0 .8rem;
+    font-size: .78rem;
+    border-radius: 9px;
+}
+
+.AsyncButton.large {
+    height: 2.8rem;
+    padding: 0 1.4rem;
+    font-size: .92rem;
+    border-radius: 11px;
+}
+
+.AsyncButton svg {
+    width: .85em;
+    height: .85em;
+}
+
+.AsyncButton.dark { background: var(--ink); color: #fff; }
+.AsyncButton.dark:hover:not(:disabled) { background: #1f3247; }
+.AsyncButton.light { background: #fff; color: var(--ink); border-color: var(--line); }
+.AsyncButton.light:hover:not(:disabled) { border-color: #b9c0cb; }
+.AsyncButton.accent { background: var(--accent); color: #fff; }
+.AsyncButton.accent:hover:not(:disabled) { background: var(--accent-strong); }
+.AsyncButton.red { background: var(--red); color: #fff; }
+.AsyncButton.red:hover:not(:disabled) { background: #b42318; }
+.AsyncButton.ghost { background: transparent; color: var(--muted); }
+.AsyncButton.ghost:hover:not(:disabled) { color: var(--ink); background: var(--soft); }
+
+.AsyncButton:disabled {
+    opacity: .42;
+    cursor: not-allowed;
+}
+
+.loadingCircle {
+    width: 15px;
+    height: 15px;
+    border: 2px solid rgba(255, 255, 255, .35);
+    border-top-color: currentColor;
+    border-radius: 50%;
+    animation: spin .8s linear infinite;
+}
+
+.AsyncButton.light .loadingCircle, .AsyncButton.ghost .loadingCircle {
+    border-color: var(--line);
+    border-top-color: var(--ink);
+}

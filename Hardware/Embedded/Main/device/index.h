@@ -47,7 +47,9 @@ class Device{
 		updater(this){}
 
 	void setup(){
-		snprintf(id.buffer, sizeof(id.buffer), "%04X%08X", (uint16_t)(ESP.getEfuseMac() >> 32), (uint32_t)ESP.getEfuseMac());
+		char mac[sizeof(id.buffer)];
+		snprintf(mac, sizeof(mac), "%04X%08lX", (uint16_t)(ESP.getEfuseMac() >> 32), (unsigned long)(uint32_t)ESP.getEfuseMac());
+		id.set(mac);    // O Text SÓ CONTA O QUE ENTRA PELO set: ESCREVER NO buffer DEIXAVA O id VAZIO NO toString()
 
 		Serial.println("Device Started: " + id.toString());
 		Serial.println("Firmware: " + String(firmware));

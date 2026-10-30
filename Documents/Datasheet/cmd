@@ -1,3 +1,3 @@
-google-chrome --headless --disable-gpu --no-sandbox --print-to-pdf=release/measure.pdf measure.html
+google-chrome --headless --disable-gpu --no-sandbox --no-pdf-header-footer --virtual-time-budget=20000 --print-to-pdf=../datsheet.pdf "file://$PWD/index.html"
 
-google-chrome --headless --disable-gpu --no-sandbox --print-to-pdf=release/kernel.pdf kernel.html
+google-chrome --headless --disable-gpu --no-sandbox --hide-scrollbars --force-device-scale-factor=3 --window-size=720,975 --virtual-time-budget=20000 --screenshot=../pipeline.png "file://$PWD/index.html?figura"

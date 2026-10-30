@@ -27,7 +27,7 @@ public:
 
 	void setup(){
 		int baud = (device->mode == ACQUISITION_MODE) ? ACQUISITION_BAUD : device->settings.template get<int>("baudrate", 9600);
-		serial.setup(baud);
+		serial.setup(baud, device->settings.template get<int>("output", RS232_PORT));
 		
 		streamer.setup();
 		response.reset();

@@ -172,7 +172,7 @@ class Motor{
 };
 
 
-// ENSAIO CÍCLICO DA MESA: PITCH, ROLL E REPOUSO, TRANSMITINDO TEMPO, PITCH E ROLL
+// ENSAIO DA MESA COMANDADO PELO APP: start ZERA O PROGRAMA (20 s PARADA, DEPOIS PITCH, ROLL E REPOUSO EM CICLO), stop VOLTA A 0 E ESPERA
 class Movement{
   private:
 	const uint8_t STEP_ROLL_PIN  = 18;
@@ -188,10 +188,17 @@ class Movement{
 	const float RECUO_ROLL_HOME  = 61.0f;
 	const float RECUO_PITCH_HOME = 40.0f;
 	const float RAMP             = 2.0f;               // S DE ENTRADA E SAÍDA DE CADA SENOIDE
-	const int64_t STAGE          = 100*1000000LL;      // US POR ETAPA: PITCH, ROLL, REPOUSO
+	const int64_t STILL          = 20*1000000LL;       // US PARADA DEPOIS DO start: O TRECHO static DA CALIBRAÇÃO
+	const int64_t STAGE          = 100*1000000LL;      // US POR ETAPA DO CICLO: PITCH, ROLL, REPOUSO
 
 	FastAccelStepperEngine engine;
+	int64_t bootTime  = 0;
 	int64_t startTime = 0;
+
+	void brake(){
+		pitch.stop();
+		roll.stop();
+	}
 
   public:
 	Motor pitch = Motor(&engine, STEP_PITCH_PIN, DIR_PITCH_PIN, FC_PITCH_MIN_PIN, FC_PITCH_MAX_PIN, RECUO_PITCH_HOME);
@@ -201,7 +208,7 @@ class Movement{
 	float PITCH_AMPLITUDE  = 15.00f;
 	float frequency        = 0.30f;
 	float dt               = 0.01f;
-	bool autostart         = true;
+	bool running           = false;
 	bool AUTO_HOME_ON_BOOT = true;
 
 	void setup(){
@@ -214,24 +221,18 @@ class Movement{
 			pitch.home();
 		}
 
-		delay(700);
-
-		while(!autostart && !Serial.available())
-			delay(100);
-
-		while(Serial.available())
-			Serial.read();
-
-		startTime = esp_timer_get_time();
+		bootTime = esp_timer_get_time();
 	}
 
+	// FORA DO PROGRAMA, NOS 20 s PARADOS E NO REPOUSO OS ALVOS SÃO 0: O stop VOLTA SEM TRAVAR O LAÇO
 	void handle(){
 		if(pitch.emFalha || roll.emFalha)
-			return stop();
+			return brake();
 
-		int64_t elapsed = (esp_timer_get_time() - startTime) % (3*STAGE);
-		int stage       = elapsed / STAGE;
-		float t         = (elapsed % STAGE) * 1e-6f;
+		int64_t elapsed = esp_timer_get_time() - startTime - STILL;
+		int64_t cycle   = (running && elapsed >= 0) ? elapsed % (3*STAGE) : 2*STAGE;
+		int stage       = cycle / STAGE;
+		float t         = (cycle % STAGE) * 1e-6f;
 
 		pitch.target = stage == 0 ? getAngle(t, PITCH_AMPLITUDE) : 0.0f;
 		roll.target  = stage == 1 ? getAngle(t, ROLL_AMPLITUDE)  : 0.0f;
@@ -239,15 +240,19 @@ class Movement{
 		roll.handle();
 	}
 
-	void reset(){
-		roll.reset();
-		pitch.reset();
+	void start(){
 		startTime = esp_timer_get_time();
+		running   = true;
 	}
 
 	void stop(){
-		pitch.stop();
-		roll.stop();
+		running = false;
+	}
+
+	void reset(){
+		running = false;
+		roll.reset();
+		pitch.reset();
 	}
 
 	void listen(){
@@ -261,10 +266,16 @@ class Movement{
 
 		if(command.indexOf("home") != -1)
 			return reset();
+
+		if(command.indexOf("stop") != -1)
+			return stop();
+
+		if(command.indexOf("start") != -1)
+			return start();
 	}
 
 	double getTime(){
-		return (esp_timer_get_time() - startTime) * 1e-6;
+		return (esp_timer_get_time() - bootTime) * 1e-6;
 	}
 
 	// SENOIDE COM ENVELOPE EM COSSENO PARA PARTIR E CHEGAR EM 0 SEM TRANCO

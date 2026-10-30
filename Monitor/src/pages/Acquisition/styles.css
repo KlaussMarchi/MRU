@@ -1,0 +1,191 @@
+.AcquisitionPage .PageBody {
+    grid-template-columns: minmax(21rem, 26rem) minmax(0, 1fr);
+}
+
+.AcquisitionFlow {
+    padding: 1.1rem 1.15rem;
+}
+
+.AcquisitionFlow .CardBody {
+    margin-right: -.5rem;
+    padding-right: .5rem;
+}
+
+.FlowStep + .FlowStep {
+    margin-top: 1.1rem;
+    padding-top: 1.1rem;
+    border-top: 1px solid var(--soft);
+}
+
+.FlowStep .ConnectionBar {
+    justify-content: flex-start;
+}
+
+.FlowStep .ConnectionBar .Select {
+    flex: 1;
+    width: auto;
+    min-width: 7rem;
+}
+
+.FlowFields {
+    margin-top: .7rem;
+}
+
+.FlowStep .Numbered .Pill {
+    margin-left: auto;
+    font-weight: 600;
+}
+
+.FlowNow {
+    display: flex;
+    align-items: center;
+    gap: .55rem;
+    margin-top: .7rem;
+    padding: .45rem .5rem .45rem .7rem;
+    border-radius: 10px;
+    background: var(--soft);
+    font-size: .8rem;
+}
+
+.FlowNow > span {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+    font-size: .7rem;
+}
+
+.FlowNow b {
+    font-size: .82rem;
+    color: var(--ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-variant-numeric: tabular-nums;
+}
+
+.FlowPlan {
+    font-size: .8rem;
+    line-height: 1.5;
+    color: var(--ink);
+    margin-bottom: .7rem;
+}
+
+.FlowMissing {
+    display: flex;
+    flex-direction: column;
+    gap: .2rem;
+    margin-bottom: .7rem;
+    padding: .5rem .7rem;
+    border-radius: 10px;
+    background: var(--amber-soft);
+    color: var(--amber);
+    font-size: .78rem;
+    font-weight: 550;
+}
+
+.FlowStep > .AsyncButton.large {
+    width: 100%;
+}
+
+.FlowCheck, .FlowHint {
+    margin-top: .65rem;
+}
+
+.FlowState {
+    display: flex;
+    flex-direction: column;
+    gap: .9rem;
+    flex: 1;
+    min-height: 0;
+}
+
+.FlowState .AsyncButton.large {
+    width: 100%;
+}
+
+.FlowPath {
+    word-break: break-all;
+    font-size: .72rem;
+}
+
+.Elapsed {
+    display: flex;
+    align-items: center;
+    gap: .7rem;
+    font-size: 2.8rem;
+    font-weight: 700;
+    letter-spacing: -.03em;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+    line-height: 1;
+}
+
+.Elapsed .Dot {
+    width: .85rem;
+    height: .85rem;
+    color: var(--red);
+}
+
+.Timeline {
+    display: flex;
+    flex-direction: column;
+    gap: .45rem;
+}
+
+.TimelineBar {
+    position: relative;
+    display: flex;
+    gap: 3px;
+    height: .65rem;
+}
+
+.TimelinePhase {
+    border-radius: 4px;
+    background: var(--soft);
+}
+
+.TimelinePhase.done {
+    background: var(--accent);
+}
+
+.TimelinePhase.now {
+    background: #8fcbd9;
+}
+
+.TimelineMark {
+    position: absolute;
+    top: -.25rem;
+    bottom: -.25rem;
+    width: 3px;
+    border-radius: 2px;
+    background: var(--ink);
+    transform: translateX(-1px);
+    transition: left .25s linear;
+}
+
+.TimelineLabels {
+    display: flex;
+    gap: 3px;
+    white-space: nowrap;
+    font-size: .68rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+}
+
+.TimelineLabels span {
+    min-width: 0;
+    overflow: hidden;
+}
+
+.Numbered > span.Spinner:first-child {
+    background: none;
+    width: .85rem;
+    height: .85rem;
+    border-radius: 50%;
+}
+
+.FlowState .Actions {
+    flex-wrap: wrap;
+}

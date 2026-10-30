@@ -1,0 +1,89 @@
+.MonitorPage .PageBody {
+    grid-template-columns: minmax(0, 1fr) minmax(17rem, 20rem);
+    grid-template-rows: minmax(0, 1fr) auto;
+    grid-template-areas: 'chart side' 'terminal side';
+}
+
+.MonitorPage.docked .PageBody {
+    grid-template-rows: minmax(0, 1.4fr) minmax(12rem, 1fr);
+}
+
+.MonitorChart {
+    grid-area: chart;
+}
+
+.MonitorSide {
+    grid-area: side;
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap);
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.MonitorSide .Card {
+    flex-shrink: 0;
+}
+
+.MonitorSide .Readout.Wide {
+    grid-column: span 2;
+}
+
+.Chain {
+    margin-top: .6rem;
+    font-size: .72rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.MonitorTerminal {
+    grid-area: terminal;
+    padding-top: .7rem;
+    padding-bottom: .7rem;
+}
+
+.MonitorPage.docked .MonitorTerminal {
+    gap: .6rem;
+}
+
+.DockIcon {
+    width: .7rem;
+    height: .7rem;
+    color: var(--muted);
+}
+
+.IconButton {
+    display: grid;
+    place-items: center;
+    width: 2.05rem;
+    height: 2.05rem;
+    border-radius: 9px;
+    border: 1px solid var(--line);
+    background: #fff;
+    color: var(--text);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: border-color .15s, background .15s;
+}
+
+.IconButton:hover {
+    border-color: #b9c0cb;
+}
+
+.IconButton.on {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+}
+
+.IconButton svg {
+    width: .75rem;
+    height: .75rem;
+}
+
+@media (max-width: 1280px) {
+    .MonitorPage .Toolbar .Select.Compact {
+        display: none;
+    }
+}

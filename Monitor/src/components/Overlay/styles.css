@@ -1,0 +1,154 @@
+.Overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 30, 46, .32);
+    backdrop-filter: blur(3px);
+    display: grid;
+    place-items: center;
+    z-index: 100;
+}
+
+.OverlayCard {
+    width: min(34rem, 90vw);
+    max-height: 90vh;
+    background: #fff;
+    border-radius: 18px;
+    padding: 1.6rem 1.7rem 1.3rem 1.7rem;
+    box-shadow: 0 24px 64px rgba(16, 24, 40, .28);
+    display: flex;
+    flex-direction: column;
+    gap: .7rem;
+}
+
+.OverlayTitle {
+    font-size: 1.2rem;
+    font-weight: 700;
+    letter-spacing: -.01em;
+}
+
+.OverlayBar {
+    height: .55rem;
+    border-radius: 999px;
+    background: var(--soft);
+    overflow: hidden;
+    margin-top: .3rem;
+}
+
+.OverlayFill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 999px;
+    transition: width .5s;
+}
+
+.OverlayFill.indeterminate {
+    animation: slide 1.4s ease-in-out infinite;
+}
+
+@keyframes slide {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(300%); }
+}
+
+.OverlayTimes {
+    display: flex;
+    justify-content: space-between;
+    font-size: .78rem;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.OverlayTimes b {
+    color: var(--ink);
+}
+
+.OverlayStages {
+    display: flex;
+    flex-direction: column;
+    gap: .15rem;
+    margin-top: .3rem;
+    border-top: 1px solid var(--soft);
+    padding-top: .6rem;
+}
+
+.OverlayStage {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    font-size: .84rem;
+    color: var(--faint);
+    min-height: 1.7rem;
+    min-width: 0;
+}
+
+.OverlayStage.done {
+    color: var(--muted);
+}
+
+.OverlayStage.now {
+    color: var(--ink);
+    font-weight: 600;
+}
+
+.OverlayMark {
+    display: grid;
+    place-items: center;
+    width: 1.1rem;
+    height: 1.1rem;
+    flex-shrink: 0;
+    border-radius: 50%;
+    border: 1.5px solid #d0d5dd;
+    font-size: .66rem;
+    font-weight: 700;
+}
+
+.OverlayStage.done .OverlayMark {
+    background: var(--green-soft);
+    border-color: var(--green-soft);
+    color: var(--green);
+}
+
+.OverlayStage.now .OverlayMark {
+    border: none;
+}
+
+.OverlayMessage {
+    color: var(--muted);
+    font-size: .76rem;
+    font-weight: 400;
+    margin-left: auto;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+}
+
+.OverlayCard > .OverlayMessage {
+    margin-left: 0;
+}
+
+.OverlayDetails summary {
+    cursor: pointer;
+    font-size: .74rem;
+    color: var(--muted);
+}
+
+.OverlayLog {
+    background: var(--soft);
+    border-radius: 10px;
+    padding: .6rem .7rem;
+    font-size: .7rem;
+    color: var(--muted);
+    max-height: 8rem;
+    overflow: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+    margin-top: .4rem;
+}
+
+.OverlayActions {
+    display: flex;
+    justify-content: flex-end;
+    gap: .5rem;
+    margin-top: .3rem;
+}

@@ -1,0 +1,19 @@
+{
+    "description": "target = MRU em teste, reference = mesa (Table)",
+    "devices": {
+        "target": {
+            "port": "/dev/ttyUSB0",
+            "baud": 460800,
+            "samples": 850141,
+            "lost": 357,
+            "bad_lines": 0,
+            "layouts": {
+                "scale": 850141
+            }
+        }
+    },
+    "still": 20.0,
+    "released": null,
+    "calibration": false,
+    "warnings": []
+}

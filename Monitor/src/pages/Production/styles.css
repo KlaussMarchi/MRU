@@ -1,0 +1,145 @@
+.ProductionPage .PageBody {
+    grid-template-columns: minmax(0, 1fr) minmax(20rem, 27rem);
+}
+
+.ProductionSteps {
+    overflow-y: auto;
+}
+
+.ProductionSteps .Numbered .hint {
+    margin-left: auto;
+    font-size: .76rem;
+    font-weight: 450;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.BundleFacts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+    gap: .6rem;
+    margin-top: .9rem;
+}
+
+.BundleFacts div {
+    display: flex;
+    flex-direction: column;
+    background: var(--canvas);
+    border-radius: 10px;
+    padding: .5rem .7rem;
+    min-width: 0;
+}
+
+.BundleFacts span {
+    font-size: .68rem;
+    font-weight: 550;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--muted);
+}
+
+.BundleFacts b {
+    font-size: .88rem;
+    font-weight: 650;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ProductionNotice {
+    margin-top: .7rem;
+}
+
+.OutputFields {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: .7rem;
+}
+
+.Load {
+    display: flex;
+    flex-direction: column;
+    gap: .45rem;
+    margin-top: 1rem;
+    background: var(--canvas);
+    border-radius: 10px;
+    padding: .7rem .85rem;
+}
+
+.LoadText {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    font-size: .8rem;
+    font-weight: 600;
+}
+
+.LoadText .Muted {
+    font-weight: 400;
+    font-size: .74rem;
+    text-align: right;
+}
+
+.Progress.warn > div { background: #f2a33a; }
+.Progress.bad > div { background: var(--red); }
+
+.Plan {
+    font-size: .82rem;
+    color: var(--text);
+}
+
+.Plan ol {
+    margin: .6rem 0 0 0;
+    padding-left: 1.2rem;
+    display: flex;
+    flex-direction: column;
+    gap: .45rem;
+    line-height: 1.45;
+    color: var(--muted);
+}
+
+.Checklist {
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+}
+
+.Check {
+    display: flex;
+    gap: .6rem;
+    align-items: flex-start;
+    font-size: .82rem;
+    color: var(--muted);
+}
+
+.Check.run {
+    color: var(--ink);
+    font-weight: 600;
+}
+
+.Check.bad {
+    color: var(--red);
+}
+
+.CheckMark {
+    display: grid;
+    place-items: center;
+    width: 1.1rem;
+    flex-shrink: 0;
+    font-weight: 700;
+    margin-top: .05rem;
+}
+
+.Check.ok .CheckMark {
+    color: var(--green);
+}
+
+.Card.Ready {
+    border-color: #b7e2c8;
+}

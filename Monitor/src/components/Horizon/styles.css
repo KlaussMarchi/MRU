@@ -1,0 +1,19 @@
+.Horizon {
+    flex-shrink: 0;
+    display: block;
+}
+
+.HorizonSky { fill: #bfe9f3; }
+.HorizonSea { fill: #0e7490; }
+.HorizonLine { stroke: #ecfeff; stroke-width: 2.5; }
+.HorizonPitch { stroke: #ffffff; stroke-width: 1.5; opacity: .7; }
+.HorizonRing { fill: none; stroke: #0f1e2e; stroke-width: 7; }
+.HorizonTick { stroke: #0f1e2e; stroke-width: 2; }
+.HorizonPointer { fill: #f59e0b; }
+.HorizonSymbol { fill: none; stroke: #f59e0b; stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; }
+.HorizonCenter { fill: #f59e0b; }
+
+.Horizon.idle .HorizonSky { fill: #e9edf2; }
+.Horizon.idle .HorizonSea { fill: #c9d1db; }
+.Horizon.idle .HorizonSymbol, .Horizon.idle .HorizonPointer, .Horizon.idle .HorizonCenter { stroke: #98a2b3; fill: #98a2b3; }
+.Horizon.idle .HorizonSymbol { fill: none; }

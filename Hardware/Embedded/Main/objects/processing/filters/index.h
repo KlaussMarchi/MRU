@@ -35,15 +35,22 @@ class Biquad{
 };
 
 
+// TIPO E CORTE DE CADA EIXO, NA ORDEM ax, ay, az, wx, wy, wz: OS FILTERS_TYPE E FILTERS_FC DA CALIBRACAO
+struct FiltersParams{
+	float type[6];
+	float fc[6];
+};
+
+
 // PASSA-BAIXA DE CADA EIXO NA TAXA DO KERNEL, NO TIPO QUE O Calibration/1 - Filters ESCOLHEU: O ANTI-ALIASING ANTES DE O STREAMER DECIMAR
 class Filters{
   public:
 	Biquad sections[6][4];    // ax, ay, az, wx, wy, wz: ATE QUATRO SECOES EM CASCATA
 	int count[6];
 
-	void setup(const float dt){
+	void setup(const float dt, const FiltersParams& params){
 		for(int i = 0; i < 6; i++)
-			count[i] = design(sections[i], FILTERS_TYPE[i], FILTERS_FC[i], dt);
+			count[i] = design(sections[i], (int) params.type[i], params.fc[i], dt);
 	}
 
 	// COEFICIENTES DE UM EIXO PELO CORTE EM Hz, ESPELHO DAS CLASSES DO NOTEBOOK; DEVOLVE QUANTAS SECOES USA
