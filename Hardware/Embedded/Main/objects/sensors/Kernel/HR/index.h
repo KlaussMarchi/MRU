@@ -35,7 +35,7 @@ class KernelModelHR{
 
 	bool update(){
 		if(!checksumValid())
-			{Serial.println("Checksum inválido no HR Data!"); return false;}
+			return false;
 
 		yaw   = extract_i32(6);  // Orientation Angles 
 		pitch = extract_i32(10); 

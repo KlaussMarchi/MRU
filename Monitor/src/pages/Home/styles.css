@@ -129,7 +129,6 @@
     background: #fff;
     border: 1px solid var(--line);
     border-radius: var(--radius);
-    box-shadow: var(--shadow);
     cursor: pointer;
     transition: border-color .15s, box-shadow .15s, transform .15s;
     min-width: 0;

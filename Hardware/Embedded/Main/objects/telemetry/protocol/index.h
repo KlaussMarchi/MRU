@@ -19,6 +19,32 @@ template <typename Parent> class Protocol{
 			return;
 		}
 
+		if(device->telemetry.serial.command.contains("update:")){
+			device->updater.start(device->telemetry.serial.command.get());
+			return;
+		}
+
+		if(device->telemetry.serial.command.contains("update_")){    // O MRU JA DESISTIU POR TEMPO: O APP PRECISA SABER, NAO ESPERAR
+			device->telemetry.serial.send("$UPDATE ERROR:nenhuma atualizacao em andamento!");
+			return;
+		}
+
+		if(device->telemetry.serial.command.contains("diagnostics")){
+			device->telemetry.serial.send(device->health.info());
+			return;
+		}
+
+		if(device->telemetry.serial.command.contains("$log!")){
+			device->telemetry.serial.send(device->health.getLog());
+			return;
+		}
+
+		if(device->telemetry.serial.command.contains("verbose:")){
+			device->health.verbose = device->telemetry.serial.command.contains("verbose:1");
+			device->telemetry.response.set(device->health.verbose ? "$VERBOSE ON!" : "$VERBOSE OFF!");
+			return;
+		}
+
 		if(device->telemetry.serial.command.contains("CL:")){
 			handleCalibration();
 			return;
@@ -57,11 +83,6 @@ template <typename Parent> class Protocol{
 
 		if(device->telemetry.serial.command.contains("F:")){
 			handleConfig(true);
-			return;
-		}
-
-		if(device->telemetry.serial.command.contains("updt")){
-			device->updater.start();
 			return;
 		}
 

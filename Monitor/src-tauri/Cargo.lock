@@ -2110,10 +2110,12 @@ dependencies = [
 name = "mru-monitor"
 version = "1.0.0"
 dependencies = [
+ "base64 0.22.1",
  "libc",
  "serde",
  "serde_json",
  "serialport",
+ "sha2",
  "tauri",
  "tauri-build",
  "tauri-plugin-dialog",

@@ -24,6 +24,13 @@ template <typename Parent> class Components{
 	}
 
 	void handle(){
+		if(leds.enabled && device->updater.active){
+			leds.duty1.set(60, 60);
+			leds.duty2.set(60, 60);
+			leds.handle();
+			return;
+		}
+
 		if(leds.enabled){
 			handleSensors();
 			handleComm();
@@ -57,7 +64,9 @@ led 1: sensores
 led 2: comunicação
 	- nada funcionando: apagado
 	- streamando: duty 0.2 seg on e 0.2 seg off
-	- comunicando por protocolo: duty 0.5 seg on e 0.5 seg off
+	- comunicando por protocolo: duty 1 seg on e 1 seg off
+
+os dois piscando rapido (60 ms): atualizando o firmware, nao desligue
 */
 
 #endif

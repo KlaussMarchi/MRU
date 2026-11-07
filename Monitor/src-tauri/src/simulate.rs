@@ -1,4 +1,6 @@
 use crate::device::now;
+use crate::firmware::{crc32 as image_crc, get_version};
+use base64::{engine::general_purpose::STANDARD, Engine};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::f64::consts::PI;
@@ -8,7 +10,17 @@ use std::sync::{Arc, Mutex, OnceLock};
 use std::thread;
 use std::time::{Duration, Instant};
 
-const FIRMWARE: &str = "v1.0.8";
+const FIRMWARE: &str = "v1.0.9";
+const LEGACY: &str = "v1.0.8";          // O ÚLTIMO SEM A ATUALIZAÇÃO COM CRC NEM O DIAGNÓSTICO
+const CONFIRM: f64 = 10.0;              // s RODANDO SEM CAIR PARA O FIRMWARE NOVO SAIR DA PROVA
+const FLASH_WAIT: f64 = 15.0;           // s SEM RECEBER NADA: O ESP DESISTE DA ATUALIZAÇÃO
+const LEGACY_WAIT: f64 = 10.0;          // O FIRMWARE ANTIGO TERMINA A ATUALIZAÇÃO QUANDO A LINHA FICA QUIETA
+const PARTITION: f64 = 1310720.0;       // bytes DA PARTIÇÃO OTA DO ESQUEMA PADRÃO
+const PARTITIONS: [&str; 2] = ["app0", "app1"];
+const LOG_SIZE: usize = 32;
+const CRASH_PERIOD: f64 = 8.0;          // s ENTRE DUAS QUEDAS DA FALHA crash
+const STALL_PERIOD: f64 = 2.0;          // s ENTRE DUAS TRAVADAS DA FALHA stall
+const STALL_MS: i64 = 300;
 const ID: &str = "SIMULADOR01";
 const G0: f64 = 9.8106;                 // m/s² POR g DA ESCALA DO KERNEL
 const GRAVITY: f64 = 9.785;             // g LOCAL DO ENSAIO
@@ -354,7 +366,33 @@ impl Heave {
 }
 
 // O FIRMWARE DO MRU EM SOFTWARE SOBRE UM KERNEL SIMULADO: COMANDOS, REINÍCIO, CONFIGURAÇÕES, CALIBRAÇÃO PELA SERIAL E O STREAM EM CADA MODO
+struct Flash {
+    size: usize,
+    crc: u32,
+    image: Vec<u8>,
+    next: u32,
+    frames: u32,
+    last: f64,
+}
+
 struct Mru {
+    firmware: String,
+    prior: Option<String>,       // O FIRMWARE ANTERIOR, ENQUANTO O NOVO ESTÁ EM PROVA
+    flash: Option<Flash>,
+    fault: String,
+    rolled: bool,
+    reset: &'static str,
+    partition: usize,
+    verbose: bool,
+    logs: Vec<(f64, char, String)>,
+    written: usize,
+    packets: u64,
+    errors: u64,
+    second: f64,
+    alarms: [bool; 2],           // KERNEL MUDO E CONGELADO
+    frozen: Option<String>,
+    stall: i64,
+    hiccup: f64,
     settings: HashMap<String, String>,
     applied: HashMap<String, String>,
     calibration: HashMap<&'static str, Vec<f32>>,
@@ -384,7 +422,7 @@ impl Mru {
         let settings = DEFAULTS.iter().map(|(key, value)| (key.to_string(), value.to_string())).collect();
         let calibration = KEYS.iter().map(|(key, size)| (*key, vec![0.0f32; *size])).collect();
         let host = now();
-        Mru { applied: HashMap::new(), settings, calibration, pending: None, stored: false, align: MOUNT, frame: [[0.0; 3]; 3], powered: host, booting: Some(host), active: false, linked: false, started: host, origin: host, count: 0, emit: host, budget: 0.0, previous: None, lag: [0.0; 2], heave: Heave::new(HEAVE[0], HEAVE[1]), noise: Noise(host.to_bits() | 1), inbox: Vec::new(), out: String::new() }
+        Mru { firmware: FIRMWARE.to_string(), prior: None, flash: None, fault: String::new(), rolled: false, reset: "poweron", partition: 0, verbose: false, logs: Vec::new(), written: 0, packets: 0, errors: 0, second: host, alarms: [false; 2], frozen: None, stall: 0, hiccup: host, applied: HashMap::new(), settings, calibration, pending: None, stored: false, align: MOUNT, frame: [[0.0; 3]; 3], powered: host, booting: Some(host), active: false, linked: false, started: host, origin: host, count: 0, emit: host, budget: 0.0, previous: None, lag: [0.0; 2], heave: Heave::new(HEAVE[0], HEAVE[1]), noise: Noise(host.to_bits() | 1), inbox: Vec::new(), out: String::new() }
     }
 
     // O QUE VALE É O QUE O BOOT LEU DA Preferences: CS: SÓ GRAVA, O REINÍCIO APLICA
@@ -427,6 +465,247 @@ impl Mru {
 
         self.booting = Some(now());
         self.active = false;
+        self.reset = "sw";
+    }
+
+    // O Health::log DO FIRMWARE: FICA NO DIÁRIO E, COM O verbose LIGADO, SAI NA PORTA
+    fn log(&mut self, level: char, text: &str) {
+        let time = now() - self.started;
+        self.logs.push((time, level, text.to_string()));
+        self.written += 1;
+
+        if self.logs.len() > LOG_SIZE {
+            self.logs.remove(0);
+        }
+
+        if self.verbose {
+            self.say(&format!("#{level} {time:.3} {text}"));
+        }
+    }
+
+    fn is_legacy(&self) -> bool {
+        self.firmware == LEGACY
+    }
+
+    fn is_found(&self) -> bool {
+        self.fault != "kernel_dead"
+    }
+
+    fn is_alive(&self) -> bool {
+        self.is_found() && self.fault != "kernel_silent"
+    }
+
+    fn get_diagnostics(&self) -> String {
+        json!({"uptime": (now() - self.started) as u64, "reset": self.reset, "heap": 251000, "heap_min": 198000, "partition": PARTITIONS[self.partition], "sketch_free": PARTITION, "rolled_back": self.rolled, "stall": self.stall, "logs": self.written, "verbose": self.verbose,
+            "kernel": {"found": self.is_found(), "alive": self.is_alive(), "frozen": self.alarms[1], "baud": ACQUISITION_BAUD, "rate": if self.is_alive() { RATE } else { 0.0 }, "packets": self.packets, "errors": self.errors, "silence": if self.is_alive() { 2 } else { ((now() - self.started) * 1000.0) as u64 }, "temperature": 35.2},
+            "stream": {"active": self.active, "port": "RS232", "lines": self.count, "skipped": 0},
+            "processing": {"count": self.count, "invalid": 0}, "simulated": true}).to_string()
+    }
+
+    fn get_log(&self) -> String {
+        let list: Vec<Value> = self.logs.iter().map(|(time, level, text)| json!({"t": time, "l": level.to_string(), "m": text})).collect();
+        json!({"log": list}).to_string()
+    }
+
+    // O Health::update DO FIRMWARE, UMA VEZ POR SEGUNDO, E AS QUEDAS QUE A FALHA ESCOLHIDA PEDE
+    fn check_health(&mut self, host: f64) {
+        if self.prior.is_some() && self.fault == "rollback" && host - self.started > 3.0 {
+            self.firmware = self.prior.take().unwrap();
+            self.rolled = true;
+            self.partition = 1 - self.partition;
+            self.restart(None);
+            self.reset = "panic";
+            return;
+        }
+
+        if self.prior.is_some() && host - self.started > CONFIRM {
+            self.prior = None;
+            self.log('I', &format!("firmware novo confirmado depois de {CONFIRM} s"));
+        }
+
+        if self.fault == "crash" && host - self.started > CRASH_PERIOD {
+            self.restart(None);
+            self.reset = "panic";
+            return;
+        }
+
+        if self.fault == "stall" && host - self.hiccup > STALL_PERIOD {
+            self.hiccup = host;
+            self.stall = STALL_MS;
+            self.count += (STALL_MS as f64 * 1e-3 * RATE) as u64;
+            self.log('W', &format!("thread0 travou {STALL_MS} ms"));
+        }
+
+        if host - self.second < 1.0 {
+            return;
+        }
+
+        self.second = host;
+        let (alive, frozen) = (self.is_alive(), self.fault == "kernel_frozen");
+
+        if alive == self.alarms[0] {
+            self.alarms[0] = !alive;
+            self.log(if alive { 'I' } else { 'E' }, if alive { "kernel voltou a transmitir" } else { "kernel mudo: nenhum pacote valido" });
+        }
+
+        if frozen != self.alarms[1] {
+            self.alarms[1] = frozen;
+            self.log(if frozen { 'E' } else { 'I' }, if frozen { "kernel congelado: valores identicos por 3 s" } else { "kernel voltou a variar" });
+        }
+
+        if self.fault == "kernel_bad" {
+            self.log('W', "66 pacotes do kernel com checksum invalido em 1 s");
+        }
+    }
+
+    // $update:TAMANHO:CRC! DO Updater DO FIRMWARE
+    fn start_flash(&mut self, command: &str) {
+        let field = command.split_once("update:").map_or("", |(_, rest)| rest).trim_end_matches('!');
+        let (size, crc) = field.split_once(':').map_or((0, 0), |(size, crc)| (size.parse().unwrap_or(0), u32::from_str_radix(crc, 16).unwrap_or(0)));
+
+        if size == 0 {
+            return self.say("$UPDATE ERROR:pedido invalido!");
+        }
+
+        if size as f64 > PARTITION {
+            return self.say("$UPDATE ERROR:Not Enough Space!");
+        }
+
+        self.log('I', &format!("atualizacao: {size} bytes"));
+        self.flash = Some(Flash { size, crc, image: Vec::with_capacity(size), next: 0, frames: 0, last: now() });
+        self.active = false;
+        self.say(&format!("$UPDATE READY:{}!", 2048));
+    }
+
+    fn abort_flash(&mut self, reason: Option<&str>) {
+        self.flash = None;
+        self.active = self.get("device_mode") == 1.0 || self.get("autostream") == 1.0;
+
+        if let Some(reason) = reason {
+            self.log('E', &format!("atualizacao falhou: {reason}"));
+            self.say(&format!("$UPDATE ERROR:{reason}!"));
+        }
+    }
+
+    // A IMAGEM ACEITA VAI À PARTIÇÃO OUTRA; O FIRMWARE NOVO FICA EM PROVA ATÉ RODAR CONFIRM s
+    fn install(&mut self, image: &[u8]) {
+        self.prior = Some(self.firmware.clone());
+        self.firmware = get_version(image).unwrap_or_else(|| self.firmware.clone());
+        self.partition = 1 - self.partition;
+        self.flash = None;
+    }
+
+    // UM QUADRO $...! DURANTE A ATUALIZAÇÃO; A FALHA noisy_link ESTRAGA UM BLOCO E PERDE UMA CONFIRMAÇÃO A CADA POUCOS
+    fn process_frame(&mut self, frame: &str) {
+        if frame == "update_abort" {
+            self.log('W', "atualizacao cancelada pelo app");
+            self.say("$UPDATE ABORTED!");
+            return self.abort_flash(None);
+        }
+
+        if frame == "update_end" {
+            let flash = self.flash.as_ref().unwrap();
+            let image = flash.image.clone();
+            let reason = if image.len() != flash.size { Some("tamanho nao confere") } else if image_crc(&image, 0) != flash.crc { Some("crc da imagem nao confere") } else { None };
+
+            if let Some(reason) = reason {
+                return self.abort_flash(Some(reason));
+            }
+
+            self.log('I', &format!("atualizacao gravada: {} bytes, reiniciando", image.len()));
+            self.install(&image);
+            return self.restart(Some("$UPDATE DONE!"));
+        }
+
+        let parts: Vec<&str> = frame.splitn(3, ',').collect();
+
+        let [sequence, checksum, data] = parts[..] else {
+            return self.say("$UPDATE BUSY!");
+        };
+
+        let noisy = self.fault == "noisy_link";
+        let flash = self.flash.as_mut().unwrap();
+        let (sequence, checksum) = (sequence.parse::<u32>().unwrap_or(u32::MAX), u32::from_str_radix(checksum, 16).unwrap_or(0));
+        let (next, total) = (flash.next, flash.image.len());
+        flash.frames += 1;
+
+        if next > 0 && sequence == next - 1 {
+            return self.say(&format!("$UPDATE OK:{sequence}:{total}!"));
+        }
+
+        if sequence != next {
+            return self.say(&format!("$UPDATE RETRY:{next}:ordem!"));
+        }
+
+        let bytes = STANDARD.decode(data).unwrap_or_default();
+
+        if bytes.is_empty() || image_crc(&bytes, 0) != checksum || (noisy && flash.frames % 37 == 5) {
+            return self.say(&format!("$UPDATE RETRY:{next}:crc!"));
+        }
+
+        flash.image.extend_from_slice(&bytes);
+        flash.next += 1;
+        let (written, half) = (flash.image.len(), flash.size / 2);
+        let dropped = noisy && flash.frames % 23 == 9;
+
+        if self.fault == "flash_fail" && written > half {
+            return self.abort_flash(Some("Flash Write Failed"));
+        }
+
+        if !dropped {
+            self.say(&format!("$UPDATE OK:{sequence}:{written}!"));
+        }
+    }
+
+    // OS QUADROS DO FIRMWARE ANTIGO SÓ TÊM O BASE64, E ELE TERMINA QUANDO A LINHA FICA QUIETA
+    fn process_legacy(&mut self, frame: &str) {
+        let bytes = STANDARD.decode(frame).unwrap_or_default();
+        let flash = self.flash.as_mut().unwrap();
+        flash.image.extend_from_slice(&bytes);
+        self.say("__WRITTEN__");
+    }
+
+    // O ESP FICA NO LAÇO DO Updater: SÓ OS QUADROS ANDAM, O STREAM E OS COMANDOS NÃO
+    fn update_flash(&mut self, host: f64) -> String {
+        while let (Some(start), Some(end)) = (self.inbox.iter().position(|byte| *byte == b'$'), self.inbox.iter().position(|byte| *byte == b'!')) {
+            if end < start {
+                self.inbox.drain(..=end);
+                continue;
+            }
+
+            let frame = String::from_utf8_lossy(&self.inbox[start + 1..end]).to_string();
+            self.inbox.drain(..=end);
+            self.flash.as_mut().unwrap().last = host;
+
+            if self.is_legacy() {
+                self.process_legacy(&frame);
+            } else {
+                self.process_frame(&frame);
+            }
+
+            if self.flash.is_none() {
+                self.inbox.clear();
+                return std::mem::take(&mut self.out);
+            }
+        }
+
+        if !self.inbox.is_empty() {
+            self.flash.as_mut().unwrap().last = host;
+        }
+
+        let idle = host - self.flash.as_ref().unwrap().last;
+
+        if self.is_legacy() && idle > LEGACY_WAIT {
+            let image = self.flash.as_ref().unwrap().image.clone();
+            self.install(&image);
+            self.restart(None);
+        }
+
+        if !self.is_legacy() && idle > FLASH_WAIT {
+            self.abort_flash(Some("sem dados por 15 s"));
+        }
+
+        std::mem::take(&mut self.out)
     }
 
     // O align GRAVADO GIRA A CAIXA FÍSICA PARA OS EIXOS DE SAÍDA: SÓ COM ELE IGUAL À MONTAGEM O KERNEL SAI NOS EIXOS DO CONVÉS
@@ -435,6 +714,21 @@ impl Mru {
         self.frame = product(&rotation(self.align[0], self.align[1], self.align[2]), &transpose(&mount));
         self.booting = None;
         self.applied = self.settings.clone();
+        self.verbose = false;
+        self.alarms = [false; 2];
+        self.second = host;
+        self.stall = 0;
+        self.started = host;
+        self.logs.truncate(if self.reset == "sw" || self.reset == "panic" { self.logs.len() } else { 0 });
+        let (firmware, reset, partition) = (self.firmware.clone(), self.reset, PARTITIONS[self.partition]);
+        self.log(if reset == "panic" { 'E' } else { 'I' }, &format!("boot {firmware}, reset {reset}, particao {partition}"));
+
+        if self.is_found() {
+            self.log('I', &format!("kernel respondeu a {ACQUISITION_BAUD} bps, align {:.0} {:.0} {:.0}", self.align[0], self.align[1], self.align[2]));
+        } else {
+            self.log('E', "kernel nao respondeu em 460800/115200/230400/921600: alimentacao ou TX/RX");
+        }
+
         self.linked = self.get("output") == 3.0;
         self.active = self.get("device_mode") == 1.0 || self.get("autostream") == 1.0 || self.applied.get("autostream").is_some_and(|value| value == "true");
         self.heave = Heave::new(self.get_heave(0, HEAVE[0]), self.get_heave(1, HEAVE[1]));
@@ -463,7 +757,7 @@ impl Mru {
 
     fn get_status(&self) -> String {
         let (streamer, protocol, kernel) = self.get_modes();
-        json!({"id": ID, "firmware": FIRMWARE, "port": "RS232", "baud": self.get_baud(), "device_mode": self.get("device_mode"), "streamer_mode": streamer, "protocol": protocol, "kernel_mode": kernel, "frequency": self.get_rate(), "autostream": self.get("autostream") == 1.0, "streaming": self.active, "sensor": true, "kernel_baud": ACQUISITION_BAUD, "processing": self.get_chain(), "calibration": if self.stored { "flash" } else { "firmware" }, "model": self.calibration["ATTITUDE_MODEL"][0], "align": self.align, "simulated": true}).to_string()
+        json!({"id": ID, "firmware": self.firmware, "port": "RS232", "baud": self.get_baud(), "device_mode": self.get("device_mode"), "streamer_mode": streamer, "protocol": protocol, "kernel_mode": kernel, "frequency": self.get_rate(), "autostream": self.get("autostream") == 1.0, "streaming": self.active, "sensor": self.is_alive(), "kernel_baud": ACQUISITION_BAUD, "processing": self.get_chain(), "calibration": if self.stored { "flash" } else { "firmware" }, "model": self.calibration["ATTITUDE_MODEL"][0], "align": self.align, "simulated": true}).to_string()
     }
 
     fn get_check(&self) -> String {
@@ -487,6 +781,35 @@ impl Mru {
 
         if command.contains("MICRS") {
             return self.restart(None);
+        }
+
+        if self.is_legacy() && command.contains("updt") {
+            self.flash = Some(Flash { size: 0, crc: 0, image: Vec::new(), next: 0, frames: 0, last: now() });
+            self.active = false;
+            return self.say("__STARTING_UPDATE__");
+        }
+
+        if !self.is_legacy() && command.contains("update:") {
+            return self.start_flash(command);
+        }
+
+        if !self.is_legacy() && command.contains("update_") {
+            return self.say("$UPDATE ERROR:nenhuma atualizacao em andamento!");
+        }
+
+        if !self.is_legacy() && command.contains("diagnostics") {
+            let info = self.get_diagnostics();
+            return self.say(&info);
+        }
+
+        if !self.is_legacy() && command.contains("$log!") {
+            let log = self.get_log();
+            return self.say(&log);
+        }
+
+        if !self.is_legacy() && command.contains("verbose:") {
+            self.verbose = command.contains("verbose:1");
+            return self.say(if self.verbose { "$VERBOSE ON!" } else { "$VERBOSE OFF!" });
         }
 
         if command.contains("CL:") {
@@ -543,7 +866,8 @@ impl Mru {
         }
 
         if command.contains("firmware") {
-            return self.say(FIRMWARE);
+            let firmware = self.firmware.clone();
+            return self.say(&firmware);
         }
 
         if command.contains("stream_start") {
@@ -566,7 +890,7 @@ impl Mru {
         }
 
         if command.contains("check_sensor") {
-            return self.say("OK");
+            return self.say(if self.is_alive() { "OK" } else { "NOT WORKING" });
         }
 
         if command.contains("align") {
@@ -588,6 +912,18 @@ impl Mru {
             self.settings = DEFAULTS.iter().map(|(key, value)| (key.to_string(), value.to_string())).collect();
             self.restart(None);
         }
+    }
+
+    // A FALHA kernel_frozen: O TEMPO ANDA E OS VALORES FICAM OS MESMOS, COMO O PROCESSAMENTO COM UM KERNEL TRAVADO
+    fn hold_sample(&mut self, sample: String) -> String {
+        if self.fault != "kernel_frozen" {
+            self.frozen = None;
+            return sample;
+        }
+
+        let Some((time, values)) = sample.split_once(',') else { return sample };
+        let held = self.frozen.get_or_insert_with(|| values.to_string()).clone();
+        format!("{time},{held}")
     }
 
     fn set_calibration(&mut self, key: &str, values: &str) -> String {
@@ -678,7 +1014,15 @@ impl Mru {
             self.boot(host);
         }
 
+        if self.flash.is_some() {
+            return self.update_flash(host);
+        }
+
         while let Some(position) = self.inbox.iter().position(|byte| *byte == b'\n') {
+            if self.flash.is_some() {
+                break;
+            }
+
             let line: Vec<u8> = self.inbox.drain(..=position).collect();
             let command = String::from_utf8_lossy(&line).replace(['\r', '\n', '\t'], "");
 
@@ -686,6 +1030,12 @@ impl Mru {
                 self.respond(&command);
             }
         }
+
+        if self.booting.is_some() || self.flash.is_some() {
+            return std::mem::take(&mut self.out);
+        }
+
+        self.check_health(host);
 
         if self.booting.is_some() {
             return std::mem::take(&mut self.out);
@@ -708,7 +1058,19 @@ impl Mru {
                 continue;
             }
 
+            if !self.is_alive() {
+                continue;
+            }
+
+            self.packets += 1;
+
+            if self.fault == "kernel_bad" && self.count % 3 == 0 {
+                self.errors += 1;
+                continue;
+            }
+
             let sample = self.get_sample(motion, time);
+            let sample = self.hold_sample(sample);
 
             if !self.active || !self.linked || (!acquisition && time < self.emit) {
                 continue;
@@ -817,6 +1179,7 @@ impl Rig {
             let mut mru = self.mru.lock().unwrap();
             mru.powered = now();
             mru.restart(None);
+            mru.reset = "poweron";
             self.motion.lock().unwrap().cycle();
         }
 
@@ -831,6 +1194,27 @@ impl Rig {
 
     pub fn reset(&self) {
         *self.mru.lock().unwrap() = Mru::new();
+    }
+
+    #[cfg(test)]
+    pub fn set_legacy(&self) {
+        self.mru.lock().unwrap().firmware = LEGACY.to_string();
+    }
+
+    // UMA FALHA PARA VER O DIAGNÓSTICO SEM HARDWARE; KERNEL MUDO DESDE O BOOT SÓ VALE NUM BOOT NOVO, E O MESMO AO TIRÁ-LA
+    pub fn set_fault(&self, fault: &str) {
+        let mut mru = self.mru.lock().unwrap();
+
+        if mru.fault == fault {
+            return;
+        }
+
+        let reboot = mru.fault == "kernel_dead" || fault == "kernel_dead";
+        mru.fault = fault.to_string();
+
+        if reboot {
+            mru.restart(None);
+        }
     }
 
     // A GRAVAÇÃO SEM A MESA DO APP RECOMEÇA O PROGRAMA DA PLATAFORMA DO MRU SIMULADO, COMO O start FARIA NA MESA
@@ -1149,6 +1533,37 @@ mod tests {
     }
 
     #[test]
+    fn diagnostico_explica_o_kernel_mudo_e_o_congelado() {
+        let motion = still();
+        let mut mru = booted(&[("autostream", "1"), ("protocol", "1"), ("frequency", "100"), ("baudrate", "115200"), ("output", "3")]);
+        let read = |mru: &mut Mru, command: &str| -> Value {
+            let answer = mru.update(&motion, format!("{command}\r\n").as_bytes());
+            serde_json::from_str(answer.lines().find(|line| line.starts_with('{') && !line.starts_with("{\"time")).unwrap()).unwrap()
+        };
+
+        assert_eq!(read(&mut mru, "$diagnostics!")["kernel"]["alive"], true);
+        mru.fault = "kernel_silent".to_string();
+        mru.second = 0.0;
+        thread::sleep(Duration::from_millis(20));
+        mru.update(&motion, b"");
+        thread::sleep(Duration::from_millis(30));
+        let quiet = mru.update(&motion, b"");
+        let info = read(&mut mru, "$diagnostics!");
+        assert_eq!(info["kernel"]["alive"], false);
+        assert_eq!(info["kernel"]["found"], true);
+        assert!(!quiet.lines().any(|line| line.starts_with('[')), "kernel mudo não gera stream: {quiet}");
+        assert!(read(&mut mru, "$log!")["log"].as_array().unwrap().iter().any(|item| item["m"].as_str().unwrap().contains("kernel mudo")));
+
+        mru.fault = "kernel_frozen".to_string();
+        thread::sleep(Duration::from_millis(40));
+        let lines: Vec<String> = mru.update(&motion, b"").lines().filter(|line| line.starts_with('[')).map(|line| line.split_once(',').unwrap().1.to_string()).collect();
+        thread::sleep(Duration::from_millis(40));
+        let more: Vec<String> = mru.update(&motion, b"").lines().filter(|line| line.starts_with('[')).map(|line| line.split_once(',').unwrap().1.to_string()).collect();
+        assert!(!lines.is_empty() && !more.is_empty());
+        assert_eq!(lines[0], more[more.len() - 1], "congelado: só o tempo anda");
+    }
+
+    #[test]
     fn comandos_respondem_como_o_firmware() {
         let motion = still();
         let mut mru = booted(&[]);
@@ -1167,6 +1582,7 @@ mod tests {
 
         let status: Value = serde_json::from_str(ask("$status!").lines().find(|line| line.starts_with('{')).unwrap()).unwrap();
         assert_eq!(status["firmware"], FIRMWARE);
+        assert!(ask("$diagnostics!").contains("\"uptime\""), "o diagnóstico responde numa linha");
         assert_eq!(status["baud"], 115200);
         assert!(ask("$calibration_save!").contains("$CALIBRATION SAVED!"));
         assert!(ask("$ackoneledge!").is_empty(), "reiniciando não responde");

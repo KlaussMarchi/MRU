@@ -1,0 +1,36 @@
+.FirmwarePanel {
+    display: flex;
+    flex-direction: column;
+    gap: .7rem;
+}
+
+.FirmwareTiles {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: .4rem;
+}
+
+.FirmwareSend {
+    display: flex;
+    align-items: center;
+    gap: .7rem;
+}
+
+.FirmwareNotices {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: .3rem;
+}
+
+.FirmwareNotices .Notice {
+    padding: .4rem .7rem;
+    font-size: .77rem;
+}
+
+.FirmwareWarning {
+    flex: 1;
+    text-align: left;
+    font-size: .78rem;
+}

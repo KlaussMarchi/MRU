@@ -3,6 +3,7 @@ import { open } from '@tauri-apps/plugin-dialog'
 import Page from '../../components/Page'
 import AsyncButton from '../../components/AsyncButton'
 import Overlay from '../../components/Overlay'
+import Dropdown from '../../components/Dropdown'
 import { useConfirm } from '../../components/Dialog'
 import { useDevice } from '../../contexts/DeviceContext'
 import { useGlobalContext } from '../../contexts/GlobalContext'
@@ -12,6 +13,19 @@ import './styles.css'
 const FOLDERS = [
     {key: 'sessions', label: 'Sessões gravadas', hint: 'cada gravação vira uma pasta com target.csv, data.csv e info.json'},
     {key: 'calibrations', label: 'Calibrações', hint: 'cada calibração vira um pacote com certificado, figuras, config.h e calibration.json'}
+]
+
+const FAULTS = [
+    {value: '', label: 'Nenhuma: o MRU funciona bem', detail: ''},
+    {value: 'kernel_dead', label: 'Kernel não responde no boot', detail: 'O ESP32 responde, mas o Kernel não apareceu na busca de baud: não há stream.'},
+    {value: 'kernel_silent', label: 'Kernel para de transmitir', detail: 'O Kernel estava bem e parou: o stream para junto.'},
+    {value: 'kernel_bad', label: 'Kernel com checksum errado', detail: 'Um terço dos pacotes chega corrompido: a taxa cai.'},
+    {value: 'kernel_frozen', label: 'Kernel congelado', detail: 'Os pacotes chegam, mas sempre com os mesmos valores.'},
+    {value: 'crash', label: 'MRU reiniciando sozinho', detail: 'O firmware cai a cada 8 s.'},
+    {value: 'stall', label: 'Processamento travando', detail: 'A cada 2 s o laço trava 300 ms e perde pacotes.'},
+    {value: 'noisy_link', label: 'Atualização: linha ruidosa', detail: 'Blocos corrompidos e confirmações perdidas: a atualização repete e termina certo.'},
+    {value: 'flash_fail', label: 'Atualização: erro de gravação', detail: 'A flash falha no meio: o firmware em uso continua.'},
+    {value: 'rollback', label: 'Atualização: firmware novo cai', detail: 'O firmware novo cai 3 s depois do boot e o MRU volta sozinho ao anterior.'}
 ]
 
 const SCENARIOS = [
@@ -84,7 +98,7 @@ export default function SettingsPage(){
                     </label>
 
                     <div className='Muted' style={{margin: '.5rem 0 .8rem 0'}}>
-                        Um MRU e uma plataforma fictícios nas portas <b>SIM0</b> e <b>SIM1</b>, nas listas e na busca automática. O MRU já sai transmitindo a <b>100 Hz em LIST a 115200 bps</b>, emula o firmware v1.0.8 e entrega o Kernel com o ruído, o viés e a deriva do ensaio real; baud errado vira lixo. A plataforma transmite a 100 Hz, como o Table.ino.
+                        Um MRU e uma plataforma fictícios nas portas <b>SIM0</b> e <b>SIM1</b>, nas listas e na busca automática. O MRU já sai transmitindo a <b>100 Hz em LIST a 115200 bps</b>, emula o firmware v1.0.9 e entrega o Kernel com o ruído, o viés e a deriva do ensaio real; baud errado vira lixo. A plataforma transmite a 100 Hz, como o Table.ino.
                     </div>
 
                     <div className='Label'>Movimento</div>
@@ -93,6 +107,11 @@ export default function SettingsPage(){
                     </div>
 
                     <div className='Muted' style={{marginTop: '.5rem'}}>{scenario.detail}</div>
+
+                    <div className='SimulationFault'>
+                        <Dropdown label='Falha simulada' value={simulation.fault ?? ''} options={FAULTS} disabled={!simulation.enabled} onChange={fault => setSimulation({fault})}/>
+                        {simulation.fault && <div className='Muted' style={{marginTop: '.35rem'}}>{FAULTS.find(item => item.value == simulation.fault)?.detail}</div>}
+                    </div>
 
                     <div className='Actions'>
                         <AsyncButton small variant='light' text='Restaurar o MRU simulado' onClick={resetSimulator} disabled={!simulation.enabled}/>
@@ -162,7 +181,7 @@ export default function SettingsPage(){
 
                     <div className='Facts wide'>
                         <span>MRU Monitor</span><b>{APP_VERSION}</b>
-                        <span>Firmware compatível</span><b className='small'>v1.0.8 ou mais novo para $status!, CS: e calibração pela serial; o resto funciona com versões anteriores</b>
+                        <span>Firmware compatível</span><b className='small'>v1.0.9 ou mais novo para o diagnóstico completo e a atualização com CRC; v1.0.8 para $status!, CS: e calibração pela serial; o resto funciona com versões anteriores</b>
                         <span>Pipeline</span><b className='small'>Pipeline/: os algoritmos dos notebooks de Calibration/, conferidos contra eles</b>
                         <span>Scripts e dados</span><b className='small mono'>{defaults?.base}</b>
                     </div>

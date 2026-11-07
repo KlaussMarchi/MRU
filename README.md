@@ -18,12 +18,13 @@ MRU/
 │   │       ├── sensors/Kernel/      # leitura e configuração do Kernel-120
 │   │       ├── processing/          # algoritmos e config.h da calibração
 │   │       ├── telemetry/           # serial, comandos e formatos de saída
-│   │       └── updater/             # atualização do firmware pela serial
+│   │       ├── updater/             # atualização do firmware pela serial, com CRC e rollback
+│   │       └── health/              # diário de eventos e sinais de vida ($diagnostics!, $log!)
+│   ├── Embedded/Host/              # o firmware real no PC, com Kernel falso, para testar sem hardware
 │   ├── Table/                      # Table.ino: firmware da plataforma de referência, em outra placa
 │   ├── Encoder/                    # teste isolado do encoder
 │   └── Listener/                   # ponte serial auxiliar em 9600
 ├── Monitor/                        # app MRU Monitor (Tauri): monitor, aquisição, calibração, produção e HMS
-├── Updater/index.py                 # envio de um firmware .bin já compilado
 ├── Calibration/
 │   ├── info.json                   # identificação, teste selecionado e gravidade
 │   ├── Dataset/Format.ipynb         # preparação dos dados do ensaio
@@ -55,7 +56,7 @@ Visão geral do funcionamento do MRU, extraída do datasheet:
 O Monitor é um aplicativo desktop. Instalação, execução no Tauri, geração do executável para Linux e Windows, o MRU
 simulado e a referência em debug estão em [`Monitor/README.md`](Monitor/README.md).
 
-### Python: notebooks de calibração e Updater
+### Python: notebooks de calibração
 
 Os exemplos usam Linux/Bash e Python 3.12. Se já tem o repositório, comece na
 pasta `MRU/`.
@@ -69,9 +70,6 @@ python -m pip install --upgrade pip
 
 # Calibração e certificado
 python -m pip install jupyterlab nbconvert ipykernel "scikit-learn>=1.4" joblib tqdm multiprocess reportlab
-
-# Updater
-python -m pip install requests Unidecode
 
 python -m ipykernel install --prefix "$VIRTUAL_ENV" --name mru --display-name "Python (MRU)"
 ```
@@ -103,7 +101,7 @@ toda a pasta `Main/`, e selecione:
 | Placa | **ESP32S3 Dev Module** |
 | USB CDC On Boot | **Enabled**; libera UART0 para RS232. Desabilitado causa erro de compilação. |
 | USB Mode | **Hardware CDC and JTAG** |
-| Partition Scheme | Padrão com OTA; necessário para usar o Updater. |
+| Partition Scheme | Padrão com OTA; necessário para atualizar pelo MRU Monitor. |
 | Porta | USB nativo do ESP32-S3 conectado ao computador. |
 
 Clique em **Verificar** e depois **Carregar**. O firmware já contém `config.h`;
@@ -125,7 +123,7 @@ arduino-cli upload --fqbn "$MRU_FQBN" --port /dev/ttyACM0 --input-dir "$MRU_BUIL
 ```
 
 Troque `/dev/ttyACM0` pela porta encontrada. O binário `Main.ino.bin` fica no
-caminho usado pelo Updater. Os comandos não gravam a placa da plataforma de referência.
+caminho que o MRU Monitor oferece em Dispositivo → Atualizar firmware. Os comandos não gravam a placa da plataforma de referência.
 
 ## Uso rápido e ordem dos códigos
 
@@ -134,7 +132,7 @@ caminho usado pelo Updater. Os comandos não gravam a placa da plataforma de ref
 | Ver medições | Gravar Main → abrir o MRU Monitor → Monitor (porta e baud automáticos). |
 | Calibrar | Gravar Main e Table nas respectivas placas → ajustar montagem → MRU Monitor: Aquisição ("Para calibração") → gravar → Calibração → Produção (envia a calibração pela serial e prepara a saída). |
 | Reprocessar ensaio existente | Preparar `Dataset/testN/` e `Calibration/info.json` → executar notebooks → recompilar Main para aplicar os parâmetros. |
-| Atualizar MRU em funcionamento | Compilar Main → executar Updater, ou carregar novamente pela IDE/CLI. |
+| Atualizar MRU em funcionamento | Compilar Main → MRU Monitor: Dispositivo → Atualizar firmware, ou carregar novamente pela IDE/CLI. |
 
 ### Antes de escolher o modo
 
@@ -383,7 +381,7 @@ selecioná-la. NMEA também está disponível no modo normal sem calibração.
 | Aquisição | Configura o modo com `CS:` + um reinício, sincroniza e grava MRU + plataforma de referência. |
 | Calibração | Roda o pipeline de `Monitor/Pipeline` sobre uma sessão e gera o pacote da calibração. |
 | Produção | Envia a calibração pela serial e deixa o MRU transmitindo sozinho ao ligar (NMEA por padrão). |
-| Dispositivo | `$status!`, configurações, align do Kernel e terminal. |
+| Dispositivo | Diagnóstico, configurações, atualização do firmware pelo cabo, align do Kernel e terminal. |
 | HMS | Painel de helideque simulado com os limites da NORMAM-223. |
 
 Sem MRU por perto, **Ajustes → Simular MRU** liga um MRU e uma plataforma fictícios nas portas SIM0 e SIM1, com o firmware inteiro emulado e o Kernel com o ruído do ensaio real. Detalhes em [`Monitor/README.md`](Monitor/README.md).
@@ -626,24 +624,22 @@ z para baixo. No RAW, as escalas dependem do pacote:
 
 ## Atualização por serial
 
-O Updater é opcional: exige Main já funcionando e partição com OTA.
-A primeira gravação deve ser feita pela IDE/CLI.
+A atualização fica no **MRU Monitor → Dispositivo → Atualizar firmware** e exige Main
+já funcionando e partição com OTA; a primeira gravação deve ser feita pela IDE/CLI.
 
-1. Compile o `.bin` pelos comandos de instalação acima.
-2. No final de [`Updater/index.py`](Updater/index.py), ajuste `device.port` e
-   `Device(rate=...)`. O código vem com `/dev/ttyACM0` e `rate=9600`; no USB
-   nativo use **115200** por convenção. Em conversores RS232/RS422, use o baud
-   ativo da tabela de comunicação.
-3. Feche Monitor/terminal serial e execute, a partir da raiz:
+1. Compile o `.bin` pelos comandos de instalação acima: o app já oferece esse caminho.
+2. Confira a versão, o tamanho e a data que o app mostra e clique em **Enviar ao MRU**.
+   Sem conexão, o botão conecta sozinho, em qualquer porta (USB, RS232 ou RS422).
 
-   ```bash
-   (cd Updater && python index.py)
-   ```
+O app recusa o que não é a aplicação do MRU (merged, bootloader, partitions, firmware da
+mesa, arquivo cortado ou corrompido) e avisa se o arquivo é mais antigo que o MRU ou que o
+código. Cada bloco leva número e CRC e é confirmado um a um; o MRU só troca de partição depois
+de conferir o tamanho e o CRC da imagem inteira, e qualquer falha deixa o firmware atual
+rodando. O firmware novo fica **em prova por 10 s**: se cair nesse tempo, o bootloader volta
+sozinho ao anterior, e o app avisa. As configurações e a calibração da flash permanecem.
 
-O script depende desse diretório para localizar o binário. Ele sincroniza com
-`$ackoneledge!`, solicita `__updt__`, envia blocos base64 e aguarda o reinício.
-Use **`Main.ino.bin`**, não merged, bootloader ou partitions. As configurações
-salvas no ESP32 permanecem após a atualização.
+Um MRU com firmware até a v1.0.8 é atualizado pelo protocolo antigo, sem CRC por bloco e
+sem prova, que só vale daí em diante.
 
 ## Diagnóstico rápido
 
@@ -651,7 +647,8 @@ salvas no ESP32 permanecem após a atualização.
 | --- | --- |
 | Porta não encontrada | Liste com `python -m serial.tools.list_ports -v`; o nome pode mudar ao reconectar. |
 | `Permission denied` no Linux | Confira permissões. No Ubuntu/Debian: `sudo usermod -aG dialout "$USER"`, depois saia e entre na sessão. |
-| USB mostra boot, mas não envia medições | Envie `$stream_start!` pelo USB e consulte `$check_sensor!`. O destino inicial é RS232. |
+| USB mostra boot, mas não envia medições | Envie `$stream_start!` pelo USB e consulte `$diagnostics!`. O destino inicial é RS232. |
+| Qualquer tela do MRU Monitor com faixa vermelha ou amarela | É o diagnóstico: porta, ACK, Kernel, stream e dados. O detalhe e os eventos do MRU estão em **Dispositivo**, ou peça `$diagnostics!` e `$log!` no terminal. |
 | Serial para após `CF:` | Aguarde o boot, reabra a porta e ajuste baud se mudou `device_mode` ou `baudrate`. |
 | Linhas truncadas ou perdas | Confira baud, formato e frequência; 115200 não comporta LIST a 200 Hz nas UARTs. |
 | `Kernel nao respondeu em nenhum baud` | Confira alimentação e TX/RX. A busca usa 460800, 115200, 230400 e 921600. |

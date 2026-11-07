@@ -18,7 +18,7 @@ public:
 	Protocol<Parent> protocol;
 	Streamer<Parent> streamer;
 	Text<64> response;
-	bool working;
+	bool working = false;
 
 	Telemetry(Parent *dev): 
 		device(dev),
@@ -39,8 +39,10 @@ public:
 		if(serial.available)
 			Serial.println(serial.command.toString());
 
-		if(serial.available)
+		if(serial.available){
+			working = true;
 			protocol.check();
+		}
 
 		if(Time::get() - serial.lastAckTime > 60000)
 			working = false;
@@ -51,6 +53,7 @@ public:
 		if(serial.available)
 			last_cmd = serial.command.get();
 
+		device->health.flush();
 		streamer.handle();
 		serial.reset();
 	}

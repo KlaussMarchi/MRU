@@ -7,13 +7,14 @@ const KINDS = [
     {value: 'rx', label: 'Respostas'},
     {value: 'tx', label: 'Enviados'},
     {value: 'stream', label: 'Stream'},
+    {value: 'log', label: 'Eventos'},
     {value: 'info', label: 'Sistema'}
 ]
 
-const QUICK   = ['$ackoneledge!', '$status!', '$settings!', '$check_sensor!', '$firmware!', '$calibrate!', '$stream_start!', '$stream_stop!', '$calibration_check!']
+const QUICK   = ['$ackoneledge!', '$status!', '$diagnostics!', '$log!', '$settings!', '$check_sensor!', '$firmware!', '$calibrate!', '$stream_start!', '$stream_stop!', '$calibration_check!']
 const ENDINGS = [{value: '\r\n', label: 'CR+LF'}, {value: '\n', label: 'LF'}, {value: '', label: 'nenhum'}]
 const VISIBLE = 400    // LINHAS NO DOM: O RESTO FICA NO BUFFER
-const MARKS   = {tx: '→', rx: '←', stream: '≈'}
+const MARKS   = {tx: '→', rx: '←', stream: '≈', log: '!'}
 
 
 function format(host){
@@ -43,7 +44,7 @@ export default function Terminal({role = 'mru', hint}){
     const {stats} = useLive()
     const {settings, setSettings} = useGlobalContext()
     const [message, setMessage] = useState('')
-    const [kinds, setKinds]     = useState(['rx', 'tx', 'stream', 'info', 'error'])
+    const [kinds, setKinds]     = useState(['rx', 'tx', 'stream', 'log', 'info', 'error'])
     const [history, setHistory] = useState([])
     const [cursor, setCursor]   = useState(-1)
     const [error, setError]     = useState('')

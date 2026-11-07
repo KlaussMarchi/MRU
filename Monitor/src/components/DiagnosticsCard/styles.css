@@ -1,0 +1,82 @@
+.DiagnosticsCard {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 12rem;
+}
+
+.DiagnosticsBody {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    margin-top: .5rem;
+}
+
+.DiagnosticsIssue {
+    display: flex;
+    flex-direction: column;
+    gap: .1rem;
+    margin-bottom: .4rem;
+    padding: .4rem .6rem;
+    border-radius: 10px;
+    border-left: 4px solid var(--accent);
+    background: var(--soft);
+    font-size: .77rem;
+}
+
+.DiagnosticsIssue.error { border-left-color: var(--red); background: var(--red-soft); }
+.DiagnosticsIssue.warn { border-left-color: var(--amber); background: var(--amber-soft); }
+
+.DiagnosticsCheck {
+    display: flex;
+    align-items: center;
+    gap: .45rem;
+    padding: .16rem 0;
+    font-size: .8rem;
+    color: var(--muted);
+}
+
+.DiagnosticsCheck b {
+    flex: 1;
+    min-width: 0;
+    text-align: right;
+    color: var(--ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.DiagnosticsCheck .Dot {
+    flex-shrink: 0;
+    background: var(--line);
+}
+
+.DiagnosticsCheck.ok .Dot { background: var(--green); }
+.DiagnosticsCheck.warn .Dot { background: #f2a33a; }
+.DiagnosticsCheck.bad .Dot { background: var(--red); }
+.DiagnosticsCheck.bad b { color: var(--red); }
+
+.DiagnosticsLabel {
+    margin-top: .6rem;
+}
+
+.DiagnosticsLog {
+    margin-top: .25rem;
+    font-size: .7rem;
+    line-height: 1.5;
+}
+
+.DiagnosticsLog > div {
+    display: flex;
+    gap: .5rem;
+}
+
+.DiagnosticsLog > div.E { color: var(--red); }
+.DiagnosticsLog > div.W { color: var(--amber); }
+
+.DiagnosticsLog span {
+    flex-shrink: 0;
+    width: 3.6rem;
+    text-align: right;
+    color: var(--faint);
+}

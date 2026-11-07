@@ -40,6 +40,8 @@ template<int CMD_MAX_SIZE> class NextSerial{
 
 	void setup(int baud=9600, int output=RS232_PORT){
 		baudrate = baud;
+		rs232.setRxBufferSize(1024);    // ANTES DO begin: UM BLOCO DA ATUALIZACAO NAO PODE TRANSBORDAR ENQUANTO O ESP GRAVA
+		rs422.setRxBufferSize(1024);
 		rs232.begin(baudrate, SERIAL_8N1, RX_RS232, TX_RS232); delay(200);
 		rs422.begin(baudrate, SERIAL_8N1, RX_RS422, TX_RS422); delay(200);
 
@@ -114,7 +116,11 @@ template<int CMD_MAX_SIZE> class NextSerial{
 		reset();
 
 		while(uart->available() && Time::get() - startTime < timeout) {
-			command.concat((char) uart->read());
+			const char letter = (char) uart->read();
+			command.concat(letter);
+
+			if(letter == '\n')    // O PROXIMO COMANDO FICA PARA A PROXIMA LEITURA: DOIS NUMA LINHA SO, UM SE PERDIA
+				break;
 
 			if(!uart->available())
 				delayMicroseconds(2000);

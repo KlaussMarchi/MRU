@@ -1,5 +1,6 @@
 mod device;
 mod discover;
+mod firmware;
 mod job;
 mod packet;
 mod simulate;
@@ -125,6 +126,11 @@ fn get_scripts(app: &AppHandle) -> (PathBuf, bool) {
     (app.path().resource_dir().unwrap_or_default(), true)
 }
 
+// LINUX SEM user-dirs.dirs NÃO TEM PASTA DE DOCUMENTOS: CAMINHO VAZIO VIRARIA RELATIVO À PASTA DE CADA SCRIPT
+fn get_documents(app: &AppHandle) -> PathBuf {
+    app.path().document_dir().or_else(|_| app.path().home_dir().map(|home| home.join("Documents"))).or_else(|_| app.path().app_local_data_dir()).unwrap_or_default()
+}
+
 // O AMBIENTE PYTHON QUE O PRÓPRIO APP INSTALA NA PASTA LOCAL DELE, E O EXECUTÁVEL DENTRO DELE
 fn get_environment(app: &AppHandle) -> (PathBuf, PathBuf) {
     let folder = app.path().app_local_data_dir().unwrap_or_default().join("python");
@@ -136,11 +142,13 @@ fn get_environment(app: &AppHandle) -> (PathBuf, PathBuf) {
 fn app_defaults(app: AppHandle) -> Value {
     let (scripts, installed) = get_scripts(&app);
     let (environment, managed) = get_environment(&app);
-    let data = if installed { app.path().document_dir().unwrap_or_default().join("MRU Monitor") } else { scripts.join("Data") };
+    let data = if installed { get_documents(&app).join("MRU Monitor") } else { scripts.join("Data") };
     let home = std::env::var("HOME").or(std::env::var("USERPROFILE")).unwrap_or_default();
     let candidates = [managed.display().to_string(), format!("{home}/miniconda3/bin/python"), format!("{home}/anaconda3/bin/python"), "python3".to_string(), "python".to_string()];
     let pythons: Vec<String> = candidates.into_iter().filter(|path| !(path.contains('/') || path.contains('\\')) || Path::new(path).exists()).collect();
-    json!({"base": scripts, "sessions": data.join("Sessions"), "calibrations": data.join("Calibrations"), "environment": environment, "managed": managed, "pythons": pythons})
+    let firmware = if installed { scripts.join("Firmware/Main.ino.bin") } else { scripts.join("../Hardware/Embedded/Main/build/esp32.esp32.esp32s3/Main.ino.bin") };
+    let firmware = firmware.canonicalize().unwrap_or(firmware);
+    json!({"base": scripts, "sessions": data.join("Sessions"), "calibrations": data.join("Calibrations"), "environment": environment, "managed": managed, "pythons": pythons, "firmware": firmware})
 }
 
 #[tauri::command]
@@ -205,9 +213,31 @@ fn send(state: State<App>, role: String, message: String, ending: Option<String>
 }
 
 #[tauri::command]
-async fn query(state: State<'_, App>, role: String, message: String, expect: Vec<String>, timeout: u64) -> Result<String, String> {
+async fn query(state: State<'_, App>, role: String, message: String, expect: Vec<String>, timeout: u64, quiet: Option<bool>) -> Result<String, String> {
     let device = get_device(&state, &role)?;
-    tauri::async_runtime::spawn_blocking(move || device.query(&message, &expect, Duration::from_millis(timeout))).await.map_err(|error| error.to_string())?
+    let timeout = Duration::from_millis(timeout);
+    tauri::async_runtime::spawn_blocking(move || if quiet.unwrap_or(false) { device.query_quiet(&message, &expect, timeout) } else { device.query(&message, &expect, timeout) }).await.map_err(|error| error.to_string())?
+}
+
+// CONFERE O ARQUIVO SEM TOCAR NA PORTA: É O QUE A TELA MOSTRA ANTES DE ENVIAR
+#[tauri::command]
+async fn firmware_inspect(path: String) -> Result<firmware::Image, String> {
+    tauri::async_runtime::spawn_blocking(move || firmware::inspect(&path).map(|(image, _)| image)).await.map_err(|error| error.to_string())?
+}
+
+#[tauri::command]
+fn firmware_start(state: State<App>, path: String) -> Result<u64, String> {
+    if state.recording.lock().unwrap().is_some() {
+        return Err("existe uma gravação em andamento: pare antes de atualizar".to_string());
+    }
+
+    let device = get_device(&state, "mru")?;
+    let (image, bytes) = firmware::inspect(&path)?;
+    let id = state.counter.fetch_add(1, Ordering::SeqCst) + 1;
+    let job = Job::thread(id, "firmware");
+    firmware::start(device, image, bytes, job.state.clone(), job.cancel.clone());
+    state.jobs.lock().unwrap().insert(id, Arc::new(job));
+    Ok(id)
 }
 
 #[tauri::command]
@@ -396,8 +426,9 @@ fn python_install(app: AppHandle, state: State<App>) -> Result<u64, String> {
 
 // DESLIGAR A SIMULAÇÃO FECHA AS PORTAS FICTÍCIAS QUE ESTIVEREM ABERTAS
 #[tauri::command]
-fn simulation_set(state: State<App>, enabled: bool, scenario: String) -> Value {
+fn simulation_set(state: State<App>, enabled: bool, scenario: String, fault: Option<String>) -> Value {
     state.rig.set(enabled, &scenario);
+    state.rig.set_fault(fault.as_deref().unwrap_or(""));
 
     if !enabled {
         state.devices.lock().unwrap().retain(|_, device| !device.port.starts_with("sim:") || { device.stop(); false });
@@ -426,7 +457,7 @@ fn job_cancel(state: State<App>, id: u64) {
 #[tauri::command]
 async fn python_check(python: String) -> Value {
     let script = format!("import sys, json, importlib.util as u; print(json.dumps({{'version': sys.version.split()[0], 'executable': sys.executable, 'missing': [m for m in {MODULES:?} if u.find_spec(m) is None]}}))");
-    let output = tauri::async_runtime::spawn_blocking(move || job::hide(Command::new(&python).arg("-c").arg(&script)).output()).await;
+    let output = tauri::async_runtime::spawn_blocking(move || job::prepare(Command::new(&python).arg("-c").arg(&script)).output()).await;
 
     match output {
         Ok(Ok(output)) if output.status.success() => serde_json::from_slice(&output.stdout).unwrap_or(json!({"error": "resposta ilegível do Python"})),
@@ -544,7 +575,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .manage(App { devices: Mutex::default(), rig: Arc::new(Rig::new()), recording: Mutex::default(), jobs: Mutex::default(), counter: AtomicU64::new(0) })
         .setup(|app| Ok(fit(&app.get_webview_window("main").expect("janela main do tauri.conf.json"))?))
-        .invoke_handler(tauri::generate_handler![app_defaults, list_ports, discover, connect, disconnect, send, query, poll, record_start, record_stop, remove_folder, clear_folder, job_start, job_status, job_cancel, python_check, python_install, simulation_set, simulation_reset, list_sessions, list_calibrations, read_text, write_text, copy_file, open_path, csv_preview])
+        .invoke_handler(tauri::generate_handler![app_defaults, list_ports, discover, connect, disconnect, send, query, firmware_inspect, firmware_start, poll, record_start, record_stop, remove_folder, clear_folder, job_start, job_status, job_cancel, python_check, python_install, simulation_set, simulation_reset, list_sessions, list_calibrations, read_text, write_text, copy_file, open_path, csv_preview])
         .run(tauri::generate_context!())
         .expect("erro ao iniciar o MRU Monitor");
 }

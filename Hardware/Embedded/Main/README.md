@@ -60,7 +60,8 @@ Main/
 │   │   ├── protocol/index.h        ← interpretação dos comandos
 │   │   └── streamer/index.h        ← formato e cadência das amostras transmitidas
 │   ├── components/                 ← LEDs e encoder
-│   └── updater/index.h             ← atualização do firmware pela serial
+│   ├── updater/index.h             ← atualização do firmware pela serial, com CRC e rollback
+│   └── health/index.h              ← diário de eventos e sinais de vida do MRU
 ├── utils/                          ← texto, JSON, relógios e estruturas auxiliares
 └── build/                          ← artefatos de compilação, quando gerados
 ```
@@ -249,13 +250,16 @@ O checksum é o XOR dos caracteres entre `$` e `*`, e a linha termina em CRLF. U
 | `$calibration_check!` | JSON com a origem (`firmware`/`flash`), o modelo e, por chave, o tamanho e o CRC-32 dos float. |
 | `$calibration_save!` / `$calibration_erase!` | Grava a pendente na flash ou apaga a da flash; os dois respondem e reiniciam. |
 | `$calibrate!` | Informa o processamento ativo; não executa uma nova calibração. |
-| `$check_sensor!` | Informa `OK` ou `NOT WORKING`, conforme o estado do driver. |
+| `$check_sensor!` | Informa `OK` ou `NOT WORKING`: se chegou pacote válido do Kernel nos últimos 500 ms. |
 | `$firmware!` | Informa a versão. |
 | `$align:N!` | Grava no Kernel o preset de montagem `N` e reinicia os estados do processamento. |
 | `MICRS` | Reinicia o ESP32. |
 | `$ERASE!` | Restaura configurações padrão e reinicia. Não apaga a calibração da flash. |
 | `CF:output$N!` | Porta do stream ao ligar: 1 USB, 2 RS422, 3 RS232 (padrão). |
-| `updt` | Entra no recebimento de uma atualização de firmware. |
+| `$diagnostics!` | JSON com tempo ligado, motivo do último reset, memória, partição, a maior travada da `thread0`, Kernel (achado no boot, vivo, congelado, taxa, pacotes, checksums errados, silêncio, temperatura), stream (linhas, pacotes não enviados) e NaN na saída. |
+| `$log!` | JSON com os últimos 32 eventos do MRU, na memória RTC: o que aconteceu antes de um panic, watchdog ou reinício continua lá; só desligar apaga. |
+| `$verbose:1!` / `$verbose:0!` | Liga ou desliga os eventos na porta ativa, como linhas `#N tempo texto` (`I`, `W` ou `E`). Desligado a cada boot; no USB eles sempre saem. |
+| `$update:TAMANHO:CRC!` | Entra na atualização do firmware (ver abaixo). |
 
 `device/settings/index.h` guarda as opções via `utils/json/index.h`, em `Preferences`, como um JSON persistido na flash do ESP32. Os padrões efetivos são modo normal, Kernel HR, saída calibrada, protocolo JSON, `autostream` desligado, frequência de 100 Hz e baud de 9600. Frequência e baud usam valores de fallback quando ainda não estão salvos.
 
@@ -323,13 +327,18 @@ No boot, confira modo do dispositivo, baud e modo do Kernel, align, modelo de pr
 | `utils/json/` | Serialização com ArduinoJson e persistência com Preferences. |
 | `utils/array/` | Vetor circular, estatísticas e persistência auxiliares. Não executa a filtragem principal. |
 | `utils/notes/` | Utilitário de arquivos em LittleFS, sem integração na cadeia ativa de `Device`. |
-| `objects/updater/index.h` | Recebe o binário codificado em base64 pela porta ativa e o grava com a biblioteca `Update`. |
+| `objects/updater/index.h` | Recebe o binário pela porta ativa, confere bloco a bloco e a imagem inteira, e grava com a biblioteca `Update`. |
+| `objects/health/index.h` | Diário de eventos (`log()`) e sinais de vida: Kernel mudo ou congelado, checksums, travadas, NaN, porta saturada. |
 
-O atualizador começa com `updt`, responde `__STARTING_UPDATE__` e espera blocos no formato `$base64!`. Cada escrita produz `__WRITTEN__`; dez segundos sem dados encerram a recepção, e uma finalização bem-sucedida reinicia o ESP32. É uma transferência serial, sem etapa de download pela rede.
+A atualização é o `$update:TAMANHO:CRC!`, que o MRU Monitor conduz. O ESP responde `$UPDATE READY:2048!` e recebe quadros `$SEQ,CRC_DO_BLOCO,BASE64!`, com a `thread0` parada e os dois LEDs piscando rápido: `$UPDATE OK:SEQ:BYTES!` grava e segue; `$UPDATE RETRY:SEQ:MOTIVO!` pede de novo (CRC, ordem, tamanho); um bloco repetido por confirmação perdida é reconfirmado sem gravar. `$update_end!` confere tamanho e CRC da imagem antes de trocar de partição e responde `$UPDATE DONE!`, reiniciando; `$update_abort!` responde `$UPDATE ABORTED!`; 15 s sem receber nada desistem. Toda falha responde `$UPDATE ERROR:MOTIVO!` e volta ao normal sem reiniciar: a partição em uso não muda.
+
+O firmware novo fica **em prova**: `verifyRollbackLater()` impede o core de marcá-lo como bom antes do `setup()`, e o `Updater::confirm()` só o faz depois de 10 s rodando, ou antes de um reinício por comando. Se cair antes disso, o bootloader volta sozinho ao anterior, e `$diagnostics!` passa a dizer `rolled_back`. Desligar o MRU nesses 10 s também volta. Firmware até a v1.0.8 usa `__updt__` e `$BASE64!`, sem número nem CRC; o app ainda fala esse protocolo para trazê-lo à v1.0.9.
+
+**Sem hardware:** `Hardware/Embedded/Host/` compila este firmware no PC com um shim do Arduino, um Kernel falso e as portas em pty; o comando está no `CLAUDE.md`. `scenarios.py` percorre os casos ruins da atualização e do Kernel. O shim imita o core, não o substitui: flash, UART e USB de verdade só se conferem na placa.
 
 **Comportamentos importantes para interpretar os resultados**
 
 - **As tarefas compartilham o estado mais recente.** A implementação não possui uma fila de amostras entre recepção, processamento e transmissão. Se várias amostras chegarem antes do consumo, estados intermediários podem não ser processados ou enviados; aquisição não constitui garantia de gravação sem perdas.
 - **As lacunas recebem tratamentos diferentes.** O Kalman limita o passo de propagação e aumenta a incerteza de inclinação quando o intervalo supera três períodos nominais; Heave e Lever reiniciam suas seções acima de 0,5 s.
-- **O estado `working` não é um teste de atualização contínua.** O driver o altera ao decodificar pacotes, mas o silêncio da UART não o limpa por tempo de inatividade. `$check_sensor!` e LED 1 devem ser interpretados junto com a chegada de novas amostras.
+- **`$check_sensor!`, o LED 1 e `sensor` no `$status!` acompanham o Kernel de verdade.** Sem pacote válido por 500 ms eles caem, e sem pacote novo o stream para: não há o que enviar. `$diagnostics!` e os eventos dizem por quê.
 - **O código atual não inclui a etapa de relatório NORMAM do diagrama antigo.** A cadeia entrega medições e movimento no ponto de interesse; a avaliação e o certificado descritos no pipeline ficam no computador.

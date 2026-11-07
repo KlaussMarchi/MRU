@@ -1,3 +1,4 @@
 Hardware/pyenv
 *.csv
 *.pkl
+*.merged.bin

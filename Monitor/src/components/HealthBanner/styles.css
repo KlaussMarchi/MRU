@@ -1,0 +1,116 @@
+.HealthBanner {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    flex-shrink: 0;
+    min-width: 0;
+    padding: .4rem .7rem;
+    border-radius: 12px;
+    border: 1px solid transparent;
+    font-size: .8rem;
+}
+
+.HealthBanner.error {
+    background: var(--red-soft);
+    border-color: var(--red);
+    color: #912018;
+}
+
+.HealthBanner.warn {
+    background: var(--amber-soft);
+    border-color: #f2a33a;
+    color: #7a3306;
+}
+
+.HealthBanner.info {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    color: var(--ink);
+}
+
+.HealthBanner > b {
+    flex-shrink: 0;
+    max-width: 45%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.HealthDetail {
+    flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    opacity: .85;
+}
+
+.HealthBanner .LinkButton {
+    flex-shrink: 0;
+    color: inherit;
+    text-decoration: underline;
+}
+
+.HealthMark {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.15rem;
+    height: 1.15rem;
+    border-radius: 50%;
+    background: currentColor;
+    font-size: .72rem;
+    font-weight: 800;
+}
+
+.HealthBanner .HealthMark {
+    -webkit-text-fill-color: #fff;
+}
+
+.HealthList {
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+}
+
+.HealthItem {
+    padding: .55rem .7rem;
+    border-radius: 10px;
+    border-left: 4px solid var(--accent);
+    background: var(--soft);
+    font-size: .82rem;
+}
+
+.HealthItem.error { border-left-color: var(--red); }
+.HealthItem.warn { border-left-color: #f2a33a; }
+
+.HealthAction {
+    margin-top: .4rem;
+}
+
+.HealthLog {
+    max-height: 11rem;
+    overflow-y: auto;
+    margin-top: .3rem;
+    padding: .4rem .6rem;
+    border-radius: 10px;
+    background: var(--soft);
+    font-size: .74rem;
+}
+
+.HealthLog > div {
+    display: flex;
+    gap: .6rem;
+    line-height: 1.5;
+}
+
+.HealthLog > div.E { color: var(--red); }
+.HealthLog > div.W { color: var(--amber); }
+
+.HealthLog span {
+    flex-shrink: 0;
+    width: 4.2rem;
+    text-align: right;
+    color: var(--muted);
+}

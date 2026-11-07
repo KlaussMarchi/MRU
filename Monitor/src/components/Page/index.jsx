@@ -1,3 +1,4 @@
+import HealthBanner from '../HealthBanner'
 import './styles.css'
 
 
@@ -13,6 +14,8 @@ export default function Page({title, subtitle, actions, className = '', children
 
                 {actions && <div className='PageActions'>{actions}</div>}
             </header>
+
+            <HealthBanner/>
 
             <div className='PageBody'>{children}</div>
         </main>

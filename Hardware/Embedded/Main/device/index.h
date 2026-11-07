@@ -18,6 +18,7 @@
 #include "../objects/components/index.h"
 #include "../objects/processing/index.h"
 #include "../objects/updater/index.h"
+#include "../objects/health/index.h"
 
 
 class Device{
@@ -36,6 +37,7 @@ class Device{
 	Tasks<Device> tasks;
 	Components<Device> components;
 	Updater<Device> updater;
+	Health<Device> health;
 
 	Device(const char* version):
 		firmware(version),
@@ -44,7 +46,8 @@ class Device{
 		processing(this),
 		tasks(this),
 		components(this),
-		updater(this){}
+		updater(this),
+		health(this){}
 
 	void setup(){
 		char mac[sizeof(id.buffer)];
@@ -54,6 +57,7 @@ class Device{
 		Serial.println("Device Started: " + id.toString());
 		Serial.println("Firmware: " + String(firmware));
 		Serial.println();
+		health.setup();
 		components.setup();
 
 		startTime = Time::get();
@@ -65,9 +69,11 @@ class Device{
 		telemetry.setup();
 		sensors.setup();
 		processing.setup();
+		health.log('I', "pronto: %s a %d bps, stream %s", telemetry.serial.getName(), telemetry.serial.baudrate, telemetry.streamer.active ? "ligado" : "desligado");
 	}
 
 	void reset(){
+		updater.confirm();
 		ESP.restart();
 	}
 };

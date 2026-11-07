@@ -20,6 +20,8 @@ const RETRY: Duration = Duration::from_millis(500);
 const SILENT: u32 = 200;                           // LEITURAS VAZIAS SEGUIDAS QUE SIGNIFICAM PORTA MORTA
 const FLUSH: Duration = Duration::from_secs(1);    // NO MÁXIMO UM SEGUNDO SE PERDE SE O PC CAIR
 const STEPS: usize = 50;
+const WRITE: Duration = Duration::from_secs(3);    // SEM ACEITAR NADA POR ESTE TEMPO, A PORTA MORREU
+const SPACING: Duration = Duration::from_millis(120);    // O FIRMWARE LÊ A PORTA A CADA 100 ms: ATÉ A v1.0.8, DOIS COMANDOS NA MESMA LEITURA VIRAM UM SÓ, E O SEGUNDO SE PERDE
 
 pub fn now() -> f64 {
     SystemTime::now().duration_since(UNIX_EPOCH).map(|elapsed| elapsed.as_secs_f64()).unwrap_or(0.0)
@@ -69,6 +71,7 @@ pub struct Shared {
     pub text_seq: u64,
     pub stats: Stats,
     pub journal: Option<Sender<Row>>,
+    pub quiet: u32,    // RESPOSTAS DE DIAGNÓSTICO PEDIDAS PELO APP, QUE NÃO VÃO AO TERMINAL
 }
 
 pub struct Row {
@@ -158,12 +161,14 @@ pub struct Device {
     running: Arc<AtomicBool>,
     thread: Mutex<Option<JoinHandle<()>>>,
     asking: Mutex<()>,
+    held: AtomicBool,    // A ATUALIZAÇÃO DO FIRMWARE É DONA DA PORTA
+    spoken: Mutex<Option<Instant>>,
 }
 
 impl Device {
     pub fn new(port: &str, baud: u32) -> Device {
         let stats = Stats { port: port.to_string(), baud, opened: now(), ..Default::default() };
-        let shared = Shared { samples: VecDeque::with_capacity(SAMPLES), texts: VecDeque::new(), sample_seq: 0, text_seq: 0, stats, journal: None };
+        let shared = Shared { samples: VecDeque::with_capacity(SAMPLES), texts: VecDeque::new(), sample_seq: 0, text_seq: 0, stats, journal: None, quiet: 0 };
 
         Device {
             port: port.to_string(),
@@ -173,6 +178,8 @@ impl Device {
             running: Arc::new(AtomicBool::new(false)),
             thread: Mutex::new(None),
             asking: Mutex::new(()),
+            held: AtomicBool::new(false),
+            spoken: Mutex::new(None),
         }
     }
 
@@ -195,38 +202,116 @@ impl Device {
         self.shared.0.lock().unwrap().journal = None;
     }
 
-    pub fn send(&self, message: &str, ending: &str) -> Result<(), String> {
-        let mut writer = self.writer.lock().unwrap();
-        let port = writer.as_mut().ok_or(format!("{} não está aberta", self.port))?;
-        port.write_all(format!("{message}{ending}").as_bytes()).map_err(|error| error.to_string())?;
-        port.flush().map_err(|error| error.to_string())?;
-        drop(writer);
+    pub fn hold(&self, held: bool) {
+        self.held.store(held, Ordering::SeqCst);
+    }
 
+    fn check_held(&self) -> Result<(), String> {
+        if self.held.load(Ordering::SeqCst) {
+            return Err("o firmware está sendo atualizado: a porta volta quando terminar".to_string());
+        }
+
+        Ok(())
+    }
+
+    pub fn send(&self, message: &str, ending: &str) -> Result<(), String> {
+        self.check_held()?;
+        self.transmit(message, ending)
+    }
+
+    // UM COMANDO POR VEZ NA PORTA, COM O INTERVALO QUE O FIRMWARE PRECISA, VENHA DE QUE TELA VIER
+    fn speak(&self, line: &str) -> Result<(), String> {
+        let mut spoken = self.spoken.lock().unwrap();
+
+        if let Some(wait) = spoken.and_then(|last| SPACING.checked_sub(last.elapsed())) {
+            thread::sleep(wait);
+        }
+
+        *spoken = Some(Instant::now());
+        self.write(line.as_bytes())
+    }
+
+    fn transmit(&self, message: &str, ending: &str) -> Result<(), String> {
+        self.speak(&format!("{message}{ending}"))?;
         self.shared.0.lock().unwrap().push_text("tx", message.to_string());
         Ok(())
     }
 
+    // OS BYTES NA PORTA; COM O TIMEOUT DE ESCRITA A SERIAL ACEITA UM PEDAÇO DE CADA VEZ, E SÓ DESISTE SE PARAR DE ANDAR
+    pub fn write(&self, bytes: &[u8]) -> Result<(), String> {
+        let deadline = Instant::now() + WRITE;
+        let mut sent = 0;
+
+        while sent < bytes.len() {
+            let mut writer = self.writer.lock().unwrap();
+            let port = writer.as_mut().ok_or(format!("{} não está aberta", self.port))?;
+
+            match port.write(&bytes[sent..]) {
+                Ok(count) => sent += count,
+                Err(error) if error.kind() == ErrorKind::TimedOut || error.kind() == ErrorKind::Interrupted => {}
+                Err(error) => return Err(error.to_string()),
+            }
+
+            drop(writer);
+
+            if Instant::now() > deadline {
+                return Err(format!("{} parou de aceitar dados", self.port));
+            }
+        }
+
+        self.writer.lock().unwrap().as_mut().map_or(Ok(()), |port| port.flush().map_err(|error| error.to_string()))
+    }
+
     // MANDA O COMANDO E ESPERA A PRIMEIRA RESPOSTA QUE CONTÉM UM DOS TRECHOS; UMA PERGUNTA POR VEZ NA PORTA
     pub fn query(&self, message: &str, expect: &[String], timeout: Duration) -> Result<String, String> {
-        let _turn = self.asking.lock().unwrap();
-        let start = self.shared.0.lock().unwrap().text_seq;
-        self.send(message, "\r\n")?;
+        self.check_held()?;
+        self.ask(message, expect, timeout)
+    }
 
+    // O DIAGNÓSTICO PERIÓDICO DO APP: NEM A PERGUNTA NEM A RESPOSTA VÃO AO TERMINAL
+    pub fn query_quiet(&self, message: &str, expect: &[String], timeout: Duration) -> Result<String, String> {
+        self.check_held()?;
+        let _turn = self.asking.lock().unwrap();
+        let start = {
+            let mut shared = self.shared.0.lock().unwrap();
+            shared.quiet += 1;
+            shared.text_seq
+        };
+
+        let result = self.speak(&format!("{message}\r\n")).and_then(|_| self.expect(start, expect, timeout).ok_or(format!("sem resposta a {message}")));
+        let mut shared = self.shared.0.lock().unwrap();
+        shared.quiet = shared.quiet.saturating_sub(1);
+        result
+    }
+
+    pub fn ask(&self, message: &str, expect: &[String], timeout: Duration) -> Result<String, String> {
+        let _turn = self.asking.lock().unwrap();
+        let start = self.mark();
+        self.transmit(message, "\r\n")?;
+        self.expect(start, expect, timeout).ok_or(format!("sem resposta a {message} em {} ms", timeout.as_millis()))
+    }
+
+    pub fn mark(&self) -> u64 {
+        self.shared.0.lock().unwrap().text_seq
+    }
+
+    // A PRIMEIRA RESPOSTA DEPOIS DA MARCA QUE CONTÉM UM DOS TRECHOS; OS EVENTOS DO FIRMWARE (#W ...) NÃO SÃO RESPOSTA
+    pub fn expect(&self, start: u64, expect: &[String], timeout: Duration) -> Option<String> {
         let deadline = Instant::now() + timeout;
         let (lock, signal) = &*self.shared;
         let mut shared = lock.lock().unwrap();
 
         loop {
-            let found = shared.texts.iter().filter(|text| text.seq > start && text.kind == "rx").find(|text| expect.is_empty() || expect.iter().any(|piece| text.text.contains(piece.as_str())));
+            let found = shared.texts.iter().filter(|text| text.seq > start && (text.kind == "rx" || text.kind == "health")).find(|text| expect.is_empty() || expect.iter().any(|piece| text.text.contains(piece.as_str())));
 
             if let Some(text) = found {
-                return Ok(text.text.clone());
+                return Some(text.text.clone());
             }
 
             let left = deadline.saturating_duration_since(Instant::now());
 
             if left.is_zero() {
-                return Err(format!("sem resposta a {message} em {} ms", timeout.as_millis()));
+                return None;
             }
 
             shared = signal.wait_timeout(shared, left).unwrap().0;
@@ -315,6 +400,19 @@ fn set_error(shared: &Arc<(Mutex<Shared>, Condvar)>, message: &str) {
     state.push_text("error", message.to_string());
 }
 
+// EVENTO DO FIRMWARE, RESPOSTA AO DIAGNÓSTICO DO APP OU RESPOSTA COMUM
+fn get_kind(text: &str, quiet: u32) -> &'static str {
+    if text.starts_with('#') {
+        return "log";
+    }
+
+    if quiet > 0 && (text.starts_with("$VERBOSE") || (text.starts_with('{') && (text.contains("\"uptime\"") || text.starts_with("{\"log\"")))) {
+        return "health";
+    }
+
+    "rx"
+}
+
 // O QUE CHEGOU, EM LINHAS COMPLETAS; A LINHA PELA METADE ESPERA O RESTO
 pub fn process(chunk: &[u8], pending: &mut Vec<u8>, shared: &Arc<(Mutex<Shared>, Condvar)>, tracker: &mut Tracker) {
     let host = now();
@@ -361,7 +459,8 @@ pub fn process(chunk: &[u8], pending: &mut Vec<u8>, shared: &Arc<(Mutex<Shared>,
                 }
             }
             Some(Line::Text(text)) => {
-                state.push_text("rx", text);
+                let kind = get_kind(&text, state.quiet);
+                state.push_text(kind, text);
                 answered = true;
             }
             Some(Line::Bad) => state.stats.bad += 1,

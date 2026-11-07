@@ -16,11 +16,11 @@ Não há linter. Verificar = compilar o firmware, rodar os testes do app, execut
 afetado e, quando um algoritmo muda dos dois lados, comparar C++ e Python no host (ver "Espelhamento").
 
 ```bash
-# Firmware principal. Sem CDCOnBoot=cdc o #error de telemetry/serial/index.h dispara (RS232 ocupa a UART0).
+# Firmware principal. Sem CDCOnBoot=cdc o #error de objects/telemetry/serial/index.h dispara (RS232 ocupa a UART0).
 # Para só verificar, use --build-path fora do repo para não tocar no build/ versionado.
 arduino-cli compile --fqbn esp32:esp32:esp32s3:CDCOnBoot=cdc,USBMode=hwcdc --build-path /tmp/mru-build Hardware/Embedded/Main
 
-# Build de release (o Updater lê Main.ino.bin deste caminho) e gravação
+# Build de release (o Monitor oferece e empacota o Main.ino.bin deste caminho) e gravação
 arduino-cli compile --fqbn esp32:esp32:esp32s3:CDCOnBoot=cdc,USBMode=hwcdc --output-dir Hardware/Embedded/Main/build/esp32.esp32.esp32s3 Hardware/Embedded/Main
 arduino-cli upload  --fqbn esp32:esp32:esp32s3:CDCOnBoot=cdc,USBMode=hwcdc --port /dev/ttyACM0 --input-dir Hardware/Embedded/Main/build/esp32.esp32.esp32s3 Hardware/Embedded/Main
 
@@ -29,23 +29,36 @@ arduino-cli compile --fqbn esp32:esp32:esp32 Hardware/Table
 
 # MRU Monitor (app Tauri): ver Monitor/README.md
 (cd Monitor && npm install && npm run tauri dev)
-(cd Monitor/src-tauri && cargo test --lib) && (cd Monitor && npx vite build)    # testes do backend e build do frontend
+(cd Monitor/src-tauri && cargo test --lib) && (cd Monitor && npx vite build)    # testes do backend e build do frontend (o frontend não tem testes)
+(cd Monitor/src-tauri && cargo test --lib kernel_parado_tem_o_ruido_do_test3)   # um teste só, pelo nome
+(cd Monitor && npx tauri build --debug --no-bundle)                             # binário em src-tauri/target/debug, sem instalador; acusa Tauri divergente entre crate e npm
 
-# Pipeline do app sem a interface: job.json com session, output, strategy, gravity, id e point; eventos JSON no stdout, log no stderr
-(cd Monitor/Pipeline && python -u index.py /caminho/job.json)
+# Pipeline do app sem a interface. job.json: session e output obrigatórios; strategy, gravity, id, point, align, axes e copy_data opcionais
+(cd Monitor/Pipeline && ~/miniconda3/bin/python -u index.py /caminho/job.json)
 
-# Updater: precisa rodar de dentro da pasta para achar o .bin
-(cd Updater && python index.py)
+# Gravação → sessão: pasta com os *.journal.csv, pasta da sessão e o json de metadados que o app escreve. APAGA a pasta da gravação ao terminar: rode numa cópia
+~/miniconda3/bin/python Monitor/Pipeline/Session/index.py /caminho/gravacao /caminho/sessao /caminho/meta.json
+
+# O firmware real no PC, sem hardware: shim do Arduino, Kernel falso e portas em pty. scenarios.py cobre atualização e Kernel; recompile antes
+mkdir -p /tmp/mru-host && g++ -std=c++17 -O1 -w -DARDUINO=10000 -DARDUINOJSON_ENABLE_ARDUINO_PRINT=1 -DARDUINOJSON_ENABLE_ARDUINO_STRING=1 -DARDUINOJSON_ENABLE_PROGMEM=0 -IHardware/Embedded/Host/shim -I$HOME/Arduino/libraries/ArduinoJson/src -x c++ Hardware/Embedded/Host/host.cpp -o /tmp/mru-host/mru-host -lutil -lpthread
+python3 Hardware/Embedded/Host/scenarios.py /tmp/mru-host
 
 # Um notebook: sempre com o diretório de trabalho na pasta dele (todos os caminhos são relativos)
-(cd "Calibration/2 - Correction" && jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=-1 "1 - Model.ipynb")
+(cd "Calibration/2 - Correction" && ~/miniconda3/bin/jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=-1 "1 - Model.ipynb")
 
 # Datasheet: Documents/Datasheet/index.html é a fonte; gera ../datsheet.pdf e ../pipeline.png
 (cd Documents/Datasheet && sh cmd)
 ```
 
-Core esp32 **3.3.12**, ArduinoJson **7.4.3**, FastAccelStepper 1.4.0 (mesa). Nesta estação os notebooks rodam no
-Jupyter do conda (`~/miniconda3/bin/jupyter`, kernel `base`); o Jupyter do sistema está quebrado.
+Core esp32 **3.3.12**, ArduinoJson **7.4.3**, FastAccelStepper 1.4.0 (mesa). Nesta estação não há `python` no PATH:
+pipeline e notebooks usam o conda (`~/miniconda3/bin/python`, `~/miniconda3/bin/jupyter`, kernel `base`); o
+Jupyter do sistema está quebrado.
+
+`package.json` da raiz existe só para `npx tauri` funcionar também de lá: nesta estação há uma CLI global 2.8.4 que, sem ele, entra no lugar da do projeto e chama o `cargo` 1.75 do apt, que falha com `lock file version 4 requires -Znext-lockfile-bump`.
+
+Tauri: o crate (2.11.6 no `Cargo.lock`) e os pacotes npm (`~2.11`) precisam estar no mesmo minor. O Rust daqui é o 1.89,
+o Tauri 2.12 pede o 1.90 e `src-tauri/.cargo/config.toml` faz o Cargo ficar nas versões compatíveis: não suba um lado
+sem o outro.
 
 **Tempo de execução:** num ensaio de ~5 min a 200 Hz o pipeline inteiro leva ~4 min com KalmanFusion (`1 - Filters`
 ~7 s com o espectro de Welch fora da busca e orçamento de busca de 1 dimensão; `KalmanFusion` ~4 min com o laço do
@@ -67,8 +80,8 @@ MRU Monitor (Aquisição) ──► Monitor/Data/Sessions/<data_hora>/data.csv
 
 ### Espelhamento Calibration ↔ firmware
 
-Cada etapa numerada de `Calibration/` tem uma pasta em `objects/processing/`, e o csv de cada etapa é o que o MRU
-entregaria naquele ponto da cadeia:
+Cada etapa numerada de `Calibration/` tem uma pasta em `Hardware/Embedded/Main/objects/processing/`, e o csv de cada
+etapa é o que o MRU entregaria naquele ponto da cadeia:
 
 | Notebook | Firmware | Saída no `results/` |
 |---|---|---|
@@ -87,7 +100,8 @@ entregaria naquele ponto da cadeia:
 - `Calibration/info.json` escolhe o ensaio (`test`) e a gravidade local (`gravity` 9,785). `*.csv` é ignorado pelo
   Git: os json de `results/` são versionados, os csv não. `test1`/`test2` são ensaios de pêndulo antigos com `axes`
   remapeando eixos; dados novos do Monitor não usam `axes`. O pêndulo balança só em roll: métricas de pitch/yaw
-  ruins nele são do ensaio, não do modelo.
+  ruins nele são do ensaio, não do modelo. O `test3` (só nesta estação: `target.csv` SCALE, parado a 200 Hz) é a
+  referência de ruído do simulador e não tem `files/data.csv`: com `test: 3` o `Format` falha.
 - `Analysis.ipynb` junta corrected + attitude + lever e grava `Certificate/results/<variável>/metrics.json`;
   `Certificate/1 - Certificate.ipynb` monta o PDF.
 - Paridade no host: compilar os `index.h` de `processing/` com `g++ -std=c++17 -I processing` e um shim de
@@ -102,11 +116,9 @@ entregaria naquele ponto da cadeia:
 - `Monitor/Pipeline/<Etapa>/index.py` é a cópia dos notebooks, etapa por etapa (mapa em `Monitor/README.md`),
   com a mesma API (`update()`, `apply()`, `getParams()`, `info()`); `Firmware/index.py` escreve os `config.h` no
   formato das células de exportação e lê de volta as chaves do `CL:`. Mudou um lado, mude o outro.
-- Paridade conferida em 29/10/2026 no `test1` com as três estratégias e numa sessão de 200 Hz gravada pelo app com o
-  MRU e a mesa simulados (LinearFit): csv iguais até ~1e-14, os 7 `config.h` idênticos fora a linha `GERADO`,
-  métricas da análise e texto do certificado iguais. Em 30/10/2026, numa sessão simulada de 335 s a 200 Hz, também
-  KalmanFusion e MachineLearning: csv até ~1e-12 (`heave_ref` do Lever ~1e-9), `config.h` idênticos fora o `GERADO`
-  e métricas até ~1e-10. Para repetir: copiar
+- Paridade conferida no `test1` (10 Hz) e numa sessão de 335 s a 200 Hz gravada pelo app, com as três estratégias (última
+  em 05/11/2026): csv até ~1e-13 (`hr_ref` do Lever ~2e-11) e os `config.h` idênticos fora a linha `GERADO`. Para repetir:
+  copiar
   `Calibration/` (sem o `test3`) e `objects/processing/` para fora do repo, `info.json` com `test: 1`, apagar os
   `Backup/model_*` do MachineLearning da cópia (o `3 - Compare` escolheria um modelo antigo), rodar os notebooks e o
   pipeline com o mesmo `data.csv` + `info.json` do ensaio e comparar `results/` e os `config.h`.
@@ -140,6 +152,7 @@ entregaria naquele ponto da cadeia:
 - Modos (`globals/constants.h`): `device_mode` NORMAL/ACQUISITION, `streamer_mode` CALIBRATED 0 / RAW 1 / SCALE 2,
   `kernel_mode` HR/QT/OR, `protocol` JSON/LIST/NMEA. Configurações persistem em `Preferences` via
   `CF:chave$valor!`, que reinicia o ESP32.
+- v1.0.9: `objects/health/` guarda os últimos 32 eventos na memória RTC, que sobrevive a panic e watchdog (`$log!`), e os sinais de vida (`$diagnostics!`); `$verbose:1!` põe os eventos na porta ativa como `#N tempo texto`, e o app o liga ao sincronizar. A linha do stream sai numa escrita só, para um evento não entrar no meio. `objects/updater/` recebe a atualização com número e CRC por bloco e CRC da imagem; o firmware novo fica em prova 10 s pelo rollback do bootloader (`verifyRollbackLater()`). A marca `MRU_FIRMWARE=` no `Main.ino` é o que o app lê no `.bin`: suba a versão ali.
 - v1.0.8: `CS:chave$valor!` salva sem reiniciar (um `MICRS` aplica todas), `$status!` devolve em JSON o estado
   efetivo e `CF:output$N!` escolhe a porta do stream ao ligar (1 USB, 2 RS422, 3 RS232). A calibração também pode
   vir da flash (`objects/processing/calibration/`): `CL:CHAVE@posição$v1,v2,...!` monta uma pendente com as chaves
@@ -148,31 +161,62 @@ entregaria naquele ponto da cadeia:
 
 ### MRU Monitor (`Monitor/`)
 
-App Tauri 2 (React em `src/`, Rust em `src-tauri/src/`); o Monitor antigo em Python foi apagado. `device.rs` lê cada
-porta numa thread e, gravando, escreve o diário `*.journal.csv`; `device::open` abre a serial de verdade ou, com o
-prefixo `sim:`, a porta fictícia do simulador, pelo mesmo caminho (descoberta, parser, terminal e gravação são os
-mesmos). `discover.rs` acha porta e baud (ouve o stream ou pergunta o ACK); `packet.rs` reconhece o aparelho pelo
-layout da linha (mesa = 3 campos ou JSON `{"t","pitch","roll"}`; MRU = LIST de 10–13 campos, JSON ou NMEA);
-`simulate.rs` é o banco simulado (`Rig`): MRU com o firmware v1.0.8 e um Kernel com o ruído do `test3`, cinemática do
-braço, perda de pacote, jitter, banda da UART e baud errado virando lixo, e a mesa do `Table.ino`, ligados em
-Ajustes → Simular MRU (portas SIM0/SIM1). O MRU simulado sai transmitindo CALIBRATED/LIST a 100 Hz em 115200 bps e a
-plataforma simulada cicla sozinha, seguindo o alvo como o FastAccelStepper (até ~2,5° atrás da senoide, a mesma posição
-que o `Table.ino` imprime); `record_start` manda `start` à mesa (real ou simulada), que fica 20 s parada e roda
-pitch 100 s, roll 100 s e repouso 100 s em ciclo, e `record_stop` manda `stop`. Toda linha do stream vai ao terminal
-(não há eco a ligar). `job.rs` roda os scripts Python, e cada linha JSON do stdout é um evento
-`progress`/`result`/`error`.
+App Tauri 2: React em `src/`, Rust em `src-tauri/src/`, `Pipeline/` (com o conversor de gravações em `Session/`) e
+`Data/{Sessions,Calibrations}` (fora do Git). Instalado, `Pipeline/` vai como recurso do pacote e os dados para
+`Documentos/MRU Monitor/` (`get_scripts` e `app_defaults` em `lib.rs`). O `Main.ino.bin` de `Hardware/.../build/` também vai no instalador: recompile o release antes de empacotar.
+
+**Backend**
+
+- `device.rs` lê cada porta numa thread e, gravando, escreve o diário `*.journal.csv`. `device::open` abre a serial de
+  verdade ou, com o prefixo `sim:`, a porta fictícia do simulador, pelo mesmo caminho: descoberta, parser, terminal e
+  gravação são os mesmos.
+- `firmware.rs` confere a imagem (cabeçalho, chip, segmentos, SHA-256, `$MICACK!` e a versão) e conduz a atualização numa thread com a porta reservada (`Device::hold`): tenta o protocolo novo e, sem resposta, o `__updt__` do firmware até a v1.0.8. `DeviceContext.updateFirmware` faz o resto (conecta, espera voltar, confere a versão e a prova).
+- `discover.rs` acha porta e baud (ouve o stream ou pergunta o ACK); `packet.rs` reconhece o aparelho pelo layout da
+  linha (mesa = 3 campos ou JSON `{"t","pitch","roll"}`; MRU = LIST de 10–13 campos, JSON ou NMEA).
+- `simulate.rs` é o banco simulado (`Rig`), ligado em Ajustes → Simular MRU (portas SIM0/SIM1): MRU com o firmware
+  v1.0.9 e um Kernel com o ruído do `test3`, cinemática do braço, perda de pacote, jitter, banda da UART e baud errado
+  virando lixo, e a mesa do `Table.ino`. O MRU simulado sai transmitindo CALIBRATED/LIST a 100 Hz em 115200 bps e a
+  mesa simulada cicla sozinha, seguindo o alvo como o FastAccelStepper (até ~2,5° atrás da senoide, a mesma posição que
+  o `Table.ino` imprime).
+- `record_start` manda `start` à mesa (real ou simulada), que fica 20 s parada e roda pitch 100 s, roll 100 s e repouso
+  100 s em ciclo; `record_stop` manda `stop`.
+- `job.rs` roda os scripts Python, e cada linha JSON do stdout é um evento `progress`/`result`/`error`. Por isso o
+  `Pipeline/index.py` reserva o stdout para os eventos e desvia todo `print` para o stderr.
+
+Ajustes → Falha simulada escolhe um defeito (Kernel mudo, checksum, congelado, reinícios, travadas, e na atualização linha ruidosa, erro de gravação e firmware que cai), espelhando o que o firmware faria: é assim que se vê cada diagnóstico sem hardware. Mudou `Protocol`, `Health` ou `Updater`, mude o `Mru` de `simulate.rs`.
+
+Sem hardware, o fluxo inteiro roda contra o simulador. O atraso do motor e a aceleração tangencial da mesa simulada são
+previsão a partir do código do FastAccelStepper, ainda não medida na mesa real; as pendências estão em
+`Monitor/README.md` (seção "O que falta"). `Hardware/Embedded/Host` roda o firmware real no PC: o shim imita o core, então
+provar ali não prova flash, UART nem USB de verdade.
+
+**Frontend**
+
+- `DeviceContext` chama o comando `poll` a cada 30 ms, com um cursor por aparelho, e guarda as amostras em `Series`
+  (refs, 20 min na taxa máxima). O estado React (`useLive`) só muda a cada 250 ms; o `LiveChart` desenha por
+  `requestAnimationFrame` direto das `Series`, 0,12 s atrás do relógio. Amostra ao vivo não passa por estado React: é
+  o que mantém 200 Hz fluido.
+- O diagnóstico está em toda tela: `Page` monta a `HealthBanner`, e `utils/diagnostics.js` (`getIssues`) deduz o motivo de `link`, `stats`, tendência de 10 s, `$diagnostics!` e das próprias amostras, na ordem porta → ACK → Kernel → stream → dados. O `DeviceContext` só pergunta ao MRU fora da gravação e da atualização, de 5 em 5 s (10 s abaixo de 57600 bps, 3 s sem stream, e na hora quando chega um evento ou o stream para ou volta), em `query` com `quiet`, que não vai ao terminal.
+- Nada de `box-shadow` em volta de canvas ou do que muda a cada quadro: o WebKitGTK refaz o borrão inteiro, e a sombra do `.Card` sozinha derrubava o gráfico de 62 para 24 fps, com o JavaScript usando só 9% do tempo. Para medir fluidez, use a janela real (WebKit), não um navegador.
+- Nenhuma tela rola: cada página usa `Page` e cabe de 1024×640 (mínimo em `tauri.conf.json`) a 1920×1080; só listas,
+  terminal e painéis longos rolam por dentro. Um gráfico por tela, com grandeza e variáveis selecionáveis e cor fixa por
+  variável. No Monitor o terminal abre expandido, mostra toda linha do stream (não há eco a ligar) e só recolhe no
+  clique.
+- Ação destrutiva confirma com `useConfirm` (`components/Dialog`), nunca `window.confirm`.
+- Cada `styles.css` é global (sem CSS modules): classe nova precisa de nome único no app inteiro.
+
+**Sessão e referência**
 
 `Pipeline/Session/index.py` transforma os diários em `target.csv`, `reference.csv`, `data.csv` e `info.json`: recupera
 o instante de cada pacote pela contagem de passos em reta (o carimbo tem ±1 ms de jitter e o relógio deriva; sem isso
 o Format derivava o jitter da referência) e interpola a mesa por spline suavizada nesses instantes. Sem a mesa, a
 **referência em debug** usa os ângulos do próprio MRU filtrados (`reference: debug` na sessão, no `calibration.json` e
-no certificado). `Pipeline/` é o pipeline e `Pipeline/Session/` o conversor de gravações; em desenvolvimento os dados vão para `Monitor/Data/` (fora do Git).
-O Python é escolhido em Ajustes, onde "Instalar ambiente" baixa o `uv`, um Python 3.12 próprio e o
+no certificado). O Python é escolhido em Ajustes, onde "Instalar ambiente" baixa o `uv`, um Python 3.12 próprio e o
 `Pipeline/requirements.txt` para a pasta local do app.
 
 ## Fora do fluxo principal
 
-- `Analysis/`: estudos independentes; `Analysis/Calibration_OLD/` é legado (tem `GEMINI.md` próprios) e não
-  alimenta nada do pipeline atual.
+- `Analysis/`: estudos independentes; `Analysis/Calibration_OLD/` é legado e não alimenta nada do pipeline atual.
+  `Analysis/Optimizer` e estudos do `Calibration_OLD` têm `GEMINI.md` próprios.
 - `Documents/`: ICD e GUI do Kernel, normas, datasheet. `README.html` ao lado de cada `README.md` é uma cópia
   renderizada; o gerador não está no repositório.

@@ -1,8 +1,9 @@
 # MRU Monitor
 
 Aplicativo desktop (Tauri 2 + React + Rust) que monitora, adquire, calibra e prepara o MRU para produção, com um
-painel HMS simulado e um MRU simulado para trabalhar sem hardware. É **autossuficiente**: não lê nem escreve fora de
-`Monitor/` (as calibrações e os `config.h` gerados ficam só no pacote de cada calibração).
+painel HMS simulado e um MRU simulado para trabalhar sem hardware. É **autossuficiente**: só escreve dentro de
+`Monitor/` (as calibrações e os `config.h` gerados ficam só no pacote de cada calibração), e de fora só lê o `Main.ino.bin`
+que oferece para atualizar o MRU, que também vai dentro do instalador.
 
 ```text
 Monitor/
@@ -80,8 +81,9 @@ npm run tauri build
 | Linux | `src-tauri/target/release/bundle/deb/*.deb`, `appimage/*.AppImage` e o binário `src-tauri/target/release/mru-monitor` |
 | Windows | `src-tauri\target\release\bundle\msi\*.msi` e `nsis\*-setup.exe` |
 
-O build de Windows precisa ser feito **no Windows** (o Tauri não faz compilação cruzada do instalador). A pasta
-`Pipeline/` vai dentro do instalador como recurso. Instalado, o app grava sessões e calibrações em
+O instalador oficial de Windows deve sair **no Windows**. Do Linux também dá para gerar um, sem instalar o NSIS no sistema: com o
+`x86_64-pc-windows-gnu` e o mingw, extraia os pacotes `nsis` e `nsis-common` e rode `npx tauri build --target x86_64-pc-windows-gnu
+--bundles nsis` com o `makensis` no `PATH` e os stubs em `/usr/share/nsis`. A pasta `Pipeline/` vai dentro do instalador como recurso. Instalado, o app grava sessões e calibrações em
 `Documentos/MRU Monitor/`; o Python sai do botão **Instalar ambiente** (seção 2).
 
 ## 5. Testes
@@ -99,7 +101,7 @@ caminho de uma serial de verdade (`device::open`): parser, terminal, estatístic
 
 - **Como o MRU que temos:** sai de fábrica já transmitindo em modo normal, CALIBRATED, LIST, 100 Hz e 115200 bps; a
   porta se comporta como o conversor RS232 (aberta no baud errado só entrega lixo e não entende comandos). `CS:` só grava, o
-  reinício aplica; o modo aquisição sobe a UART para 460800. Emula o firmware v1.0.8 inteiro: ACK, `$status!`,
+  reinício aplica; o modo aquisição sobe a UART para 460800. Emula o firmware v1.0.9 inteiro: ACK, `$status!`, `$diagnostics!`, `$log!`, eventos, atualização com rollback,
   `$settings!`, `CF:`/`CS:`/`ID:`, `MICRS`, align, `CL:` com CRC, `$calibration_save!/erase!`, porta do stream ao ligar.
 - **Kernel realista:** ruído por eixo do ensaio real (`test3`, parado a 200 Hz: aceleração 0,0072/0,0084/0,0062 m/s²,
   giro 0,068/0,044/0,037 °/s, pitch/roll/yaw 0,0058/0,0035/0,0038°), carimbo em ms que sai 1 ms atrasado em 10,8% dos
@@ -121,7 +123,23 @@ caminho de uma serial de verdade (`device::open`): parser, terminal, estatístic
 Com isso dá para fazer o fluxo inteiro sem hardware: Aquisição → sessão → Calibração → relatório → Produção (envio da
 calibração ao MRU simulado e conferência pelo CRC).
 
-## 7. Referência em debug (sem a plataforma)
+**Falha simulada:** em Ajustes, escolhe um defeito para ver o diagnóstico e a atualização reagirem, sem hardware: Kernel que não responde no boot, que para, com checksum errado ou congelado, MRU reiniciando sozinho, processamento travando; e, na atualização, linha ruidosa (blocos repetidos), erro de gravação (o firmware atual continua) e firmware novo que cai (o MRU volta sozinho ao anterior). A escolha não volta na próxima abertura.
+
+## 7. Diagnóstico
+
+Em qualquer tela, uma faixa diz o problema mais grave com o motivo e o botão que resolve, e "detalhes" mostra os outros e os eventos do MRU. Vale para quando **não há dados**: porta inexistente, sem permissão ou ocupada, baud errado (chegam bytes ilegíveis), MRU mudo, stream chegando sem ACK (fio TX), Kernel que não respondeu no boot ou parou, stream desligado. E para **dados ruins**: congelados, NaN, aceleração impossível, checksum, taxa abaixo do configurado (e se a banda comporta), perdas, linhas corrompidas, travadas, porta saturada, reinício por panic, watchdog ou queda de alimentação, MRU reiniciando sozinho.
+
+O app pergunta ao firmware (`$diagnostics!`, `$log!`) só fora da gravação, sem ocupar o terminal; os eventos em tempo real (`#E 12.340 kernel mudo`) chegam pela porta e aparecem no terminal, no chip *Eventos*. Firmware anterior à v1.0.9 não responde a isso: o que dá para ver é o que chega pela porta, e a faixa sugere atualizar. Os comandos estão no [README do firmware](../Hardware/Embedded/Main/README.md).
+
+## 8. Atualizar o firmware
+
+Em **Dispositivo → Atualizar firmware**: o caminho já vem em `Hardware/Embedded/Main/build/esp32.esp32.esp32s3/Main.ino.bin` (instalado, o `.bin` que veio junto) e **Escolher…** aceita outro. O app mostra versão, tamanho, data e tempo estimado, e recusa na hora o que não serve: merged, bootloader, partitions, firmware da mesa, arquivo cortado ou corrompido. Avisa se o arquivo é mais antigo que o MRU ou que o código, e se a linha é lenta (a 9600 bps leva ~10 min; pelo USB, ~20 s).
+
+**Enviar ao MRU** conecta, se preciso, e passa por Sincronizar → Preparar → Enviar → Verificar → Reiniciar → Confirmar, com a barra e o que está acontecendo. Bloco ruim ou confirmação perdida se repetem sozinhos; o MRU só troca de firmware depois de conferir a imagem inteira, e qualquer falha deixa o atual rodando. O firmware novo fica 10 s em prova: se cair, o bootloader volta ao anterior, e o app diz isso em vez de "atualizado". Cancelar vale até o fim do envio. Gravando, a atualização é recusada.
+
+A porta fica reservada durante o envio, então outra tela não consegue mandar comando no meio. Um MRU até a v1.0.8 é atualizado pelo protocolo dele, sem CRC por bloco nem prova.
+
+## 9. Referência em debug (sem a plataforma)
 
 Na Aquisição, em modo de calibração e sem a plataforma conectada, a caixa **Sem plataforma · referência em debug**
 deixa gravar e calibrar só com o MRU. O `Session` usa como referência os ângulos do próprio MRU (pitch, roll e proa)
@@ -130,10 +148,10 @@ roda inteiro, mesmo sem trecho parado ou sem balanço, e o pacote sai com `refer
 certificado ganha a faixa e a marca d'água **REFERÊNCIA EM DEBUG** e um rodapé avisando que não atesta a calibração.
 Com a plataforma conectada, a referência é sempre a dela.
 
-## 8. Telas
+## 10. Telas
 
-| Tela | Para quê |
-|---|---|
+As telas rodam a 60 fps com o gráfico e o terminal a 200 Hz. Sombra em volta de um card com canvas custa caro: o WebKitGTK refaz o borrão a cada quadro, e só isso derrubava o gráfico para 24 fps.
+
 Nenhuma tela rola: cada uma ocupa a janela, e só listas, terminal e painéis longos rolam por dentro. A janela abre em
 modo janela, centrada, com 1600 × 900 (pixels lógicos) ou 92% da área útil da tela, o que for menor; maximizar ou F11
 (tela cheia) ficam com o usuário. A letra escala com o tamanho da janela, então as proporções são as mesmas de 1280 × 720
@@ -148,11 +166,11 @@ uma cor fixa; a plataforma aparece tracejada na cor da variável do MRU.
 | Aquisição | Três passos com o estado de cada um: modo (calibração, SCALE, CALIBRATED, RAW ou como está) com o que o MRU transmite agora, referência (plataforma ou debug) e gravar, com o que vai acontecer e o que ainda falta; gravação com cronômetro e a linha do tempo do programa da plataforma (parado → pitch → roll → repouso), e a sessão salva, com o gráfico do MRU contra a plataforma. |
 | Calibração | Sessões, prévia, pipeline e a biblioteca de pacotes com o resultado de cada um. Durante o pipeline, uma janela mostra as etapas, a barra, o tempo decorrido e o restante. |
 | Produção | Envia a calibração pela serial (`CL:`, CRC por chave, flash, reinício, conferência) e configura a saída de operação com autostream. |
-| Dispositivo | Identificação do MRU (porta, link, baud, taxa), reiniciar, ver a configuração em JSON (`$status!` e `$settings!`), configuração com um reinício só, align do Kernel e terminal largo na mesma tela. |
-| Ajustes | Simulação, Python do pipeline (escolher um ou instalar o do app), pastas e *Apagar sessões e calibrações*, que esvazia as duas pastas depois de confirmar (recusa durante uma gravação). |
+| Dispositivo | Identificação do MRU, reiniciar, ver a configuração em JSON, **diagnóstico** com a lista do que está bem e os eventos do MRU desde o boot, e em abas a configuração com um reinício só, a **atualização do firmware** e o align do Kernel, com o terminal largo na mesma tela. |
+| Ajustes | Simulação com a falha simulada, Python do pipeline (escolher um ou instalar o do app), pastas e *Apagar sessões e calibrações*, que esvazia as duas pastas depois de confirmar (recusa durante uma gravação). |
 | HMS | Painel de helideque simulado sobre o stream (limites da NORMAM-223, máximos de 20 min, SHR com histerese do guia Bristow). |
 
-## 9. Pipeline × notebooks
+## 11. Pipeline × notebooks
 
 `Pipeline/<Etapa>/index.py` é a cópia dos notebooks de `Calibration/`, etapa por etapa, com a mesma API
 (`update()`, `apply()`, `getParams()`, `info()`). Mudou um lado, mude o outro.
@@ -177,19 +195,23 @@ uma cor fixa; a plataforma aparece tracejada na cor da variável do MRU.
 mudanças estão nos notebooks; depois delas os `config.h` de filtros, correção, align e Kalman do `test1` saíram idênticos
 entre notebook e app, e a atitude difere ~1e-13°.
 
-Conferido contra os notebooks no `test1` (10 Hz, as três estratégias) e numa sessão de 200 Hz gravada pelo app com o
-MRU e a plataforma simulados (LinearFit): `config.h` idênticos e csv iguais até ~1e-14. Diferenças conscientes: o
+Conferido em 05/11/2026 contra os notebooks no `test1` (10 Hz) e numa sessão de 335 s a 200 Hz gravada pelo app com o
+MRU e a plataforma simulados, nas três estratégias: `config.h` idênticos e csv iguais até ~1e-13. Diferenças conscientes: o
 MachineLearning do app treina e usa um modelo por execução; o `5 - Lever` lê o pivô do `heave.json` com 10 dígitos,
 o que dá ~1e-7 no `heave_ref`; e só o app tem as guardas da referência em debug (sem trecho parado ou sem balanço), que
 não mudam nada num ensaio com a plataforma.
 
-## 10. O que falta
+## 12. O que falta
 
 - **Hardware:** o fluxo inteiro foi exercitado com o MRU e a plataforma simulados, pela interface real contra o backend
-  real; falta repeti-lo com o MRU e a mesa de verdade (o MRU de bancada não estava disponível).
-- **Windows:** o backend compila para `x86_64-pc-windows-gnu` (`cargo check`), mas o instalador (`npm run tauri
-  build`), a instalação do Python pelo app (`install.ps1`), os workers do Nature por *spawn* e a ausência de janelas
-  de console só se conferem numa máquina Windows.
+  real, e o firmware real no PC (`Hardware/Embedded/Host`, com um Kernel falso) contra a interface real; falta repetir com o
+  MRU e a mesa de verdade (o MRU de bancada não estava disponível). Em especial: a atualização no USB nativo, em que a porta
+  some e volta no reinício, a escrita real na flash e o rollback no bootloader de verdade.
+- **Mesa:** o atraso do motor e a aceleração tangencial da mesa simulada são previsão a partir do código do
+  FastAccelStepper, ainda não medida na mesa real.
+- **Windows:** o executável e o instalador NSIS saem do Linux para `x86_64-pc-windows-gnu`, com o firmware e o pipeline
+  dentro, mas nunca rodaram: abrir o app, a instalação do Python pelo app (`install.ps1`), os workers do Nature por *spawn* e a
+  ausência de janelas de console só se conferem numa máquina Windows.
 - **Picos de ~70° na saída calibrada do MRU real:** a simulação com o espelho do Kalman aponta uma travada da
   `thread0` seguida de um pacote com `dt` de microssegundos (o `KernelSensor` carimba o pacote na leitura): o buraco
   zera a covariância de inclinação e o `alpha = Δω/dt` explode no braço de 3,6 m do pêndulo do test1 (4–13° nivelado,

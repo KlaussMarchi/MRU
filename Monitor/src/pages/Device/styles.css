@@ -13,15 +13,28 @@
     overflow-y: auto;
 }
 
-.DeviceStatus .Card {
+.DeviceIdentity {
     flex-shrink: 0;
+}
+
+.DeviceTabs {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .7rem;
+    margin-bottom: .8rem;
+}
+
+.DeviceTabs .hint {
+    font-size: .78rem;
+    color: var(--muted);
 }
 
 .DeviceActions {
     display: flex;
     flex-wrap: wrap;
     gap: .4rem;
-    margin-top: 1rem;
+    margin-top: .8rem;
 }
 
 .DeviceConfig {

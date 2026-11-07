@@ -14,7 +14,6 @@
     background: #fff;
     border: 1px solid var(--line);
     border-left: 6px solid #c4cad4;
-    box-shadow: var(--shadow);
 }
 
 .Banner.ok { border-left-color: #16a34a; }
@@ -80,7 +79,6 @@
     border-radius: var(--radius);
     padding: .65rem .9rem .75rem .9rem;
     background: #fff;
-    box-shadow: var(--shadow);
     min-width: 0;
 }
 

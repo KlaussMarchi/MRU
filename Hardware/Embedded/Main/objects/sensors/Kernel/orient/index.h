@@ -40,10 +40,8 @@ class KernelModelOrientation{
 	}
 
 	bool update() {
-		if(!checksumValid()) {
-			Serial.println("Checksum inválido no Orientation Data!");
+		if(!checksumValid())
 			return false;
-		}
 
 		yaw   = extract_u16(6);  // Heading
 		pitch = extract_i16(8);  // Pitch

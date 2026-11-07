@@ -36,7 +36,8 @@
       "icons/icon.ico"
     ],
     "resources": {
-      "../Pipeline/": "Pipeline/"
+      "../Pipeline/": "Pipeline/",
+      "../../Hardware/Embedded/Main/build/esp32.esp32.esp32s3/Main.ino.bin": "Firmware/Main.ino.bin"
     }
   }
 }

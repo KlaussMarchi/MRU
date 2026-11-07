@@ -22,7 +22,7 @@ template <typename Parent> class Tasks {
 		}
 
 		//(function, name, size, NULL, priority, taskPointer, core)
-		xTaskCreatePinnedToCore(setupTask, "Task", 5*1024, this, 1, &Task, 1);
+		xTaskCreatePinnedToCore(setupTask, "Task", 8*1024, this, 1, &Task, 1);
 		Serial.println("\nThread 1 Started");
 
 		while(true)
@@ -38,9 +38,17 @@ template <typename Parent> class Tasks {
 	}
 
 	void thread0() {
+		if(device->updater.active){    // A FLASH ESTA SENDO ESCRITA: SO OS LEDS ANDAM, PARA A thread1 RECEBER SEM DISPUTAR O NUCLEO
+			device->components.handle();
+			delay(5);
+			return;
+		}
+
 		device->sensors.handle();
 		device->processing.handle();
 		device->components.handle();
+		device->health.handle();
+		device->updater.handle();
 	}
 
 	void thread1() { 

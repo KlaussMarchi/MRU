@@ -1,0 +1,12 @@
+{
+  "name": "mru",
+  "private": true,
+  "description": "Faz npx tauri funcionar da raiz: sem isto entra a CLI global, antiga, e o cargo do apt, que nao le o Cargo.lock",
+  "bin": {
+    "tauri": "Monitor/node_modules/.bin/tauri"
+  },
+  "scripts": {
+    "dev": "npm --prefix Monitor run dev",
+    "build": "npm --prefix Monitor run build"
+  }
+}

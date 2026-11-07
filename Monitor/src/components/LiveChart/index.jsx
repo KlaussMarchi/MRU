@@ -73,7 +73,7 @@ export default function LiveChart({lines, unit = '', digits = 2, seconds = 30, p
         }
 
         plot.current = new uPlot(options, [[], ...lines.map(() => []), ...bands.map(() => [])], holder.current)
-        const observer = new ResizeObserver(() => plot.current.setSize({width: holder.current.clientWidth, height: holder.current.clientHeight}))
+        const observer = new ResizeObserver(() => holder.current && plot.current.setSize({width: holder.current.clientWidth, height: holder.current.clientHeight}))    // O REACT SOLTA O ref ANTES DE DESLIGAR O OBSERVADOR
         observer.observe(holder.current)
 
         return () => {
@@ -93,7 +93,7 @@ export default function LiveChart({lines, unit = '', digits = 2, seconds = 30, p
         function draw(moment){
             frame = requestAnimationFrame(draw)
 
-            if(document.hidden || moment - drawn < every)
+            if(document.hidden || moment - drawn < every || !box.current)
                 return
 
             drawn = moment

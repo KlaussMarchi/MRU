@@ -39,7 +39,7 @@ class KernelModelQuaternion{
 
 	bool update(){
 		if(!checksumValid()) 
-			{Serial.println("Checksum inválido no Quaternion Data!"); return false;}
+			return false;
 
 		yaw   = extract_u16(6);  // Heading
 		pitch = extract_i16(8);  // Pitch

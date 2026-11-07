@@ -1,9 +1,12 @@
 import { Fragment, useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import Page from '../../components/Page'
 import ConnectionBar from '../../components/ConnectionBar'
 import AsyncButton from '../../components/AsyncButton'
 import Dropdown from '../../components/Dropdown'
 import Terminal from '../../components/Terminal'
+import FirmwarePanel from '../../components/FirmwarePanel'
+import DiagnosticsCard from '../../components/DiagnosticsCard'
 import Dialog, { useConfirm } from '../../components/Dialog'
 import { useDevice, useLive } from '../../contexts/DeviceContext'
 import { getBaud, getLoad, formatNumber, ALIGNS, BAUDS, DEVICE_MODES, FREQUENCIES, KERNEL_MODES, MODELS, OUTPUTS, PROTOCOLS, STREAMER_MODES } from '../../utils'
@@ -21,6 +24,7 @@ const FIELDS = [
 ]
 
 const FALLBACK = {frequency: 100, baudrate: 9600, output: 3}    // O QUE O FIRMWARE USA SEM VALOR GRAVADO
+const TABS     = [{value: 'config', label: 'Configuração'}, {value: 'firmware', label: 'Atualizar firmware'}, {value: 'align', label: 'Montagem do Kernel'}]
 
 
 // OS VALORES GRAVADOS COMO NÚMEROS (O FIRMWARE GUARDA TEXTO; autostream PODE SER true/false)
@@ -49,6 +53,8 @@ export default function DevicePage(){
     const [align, setAlign] = useState(1)
     const [log, setLog]     = useState([])
     const [error, setError] = useState('')
+    const [params]          = useSearchParams()
+    const [tab, setTab]     = useState(params.get('tab') ?? 'config')
     const saved    = getForm(link.settings)
     const changes  = Object.fromEntries(Object.entries(form).filter(([key, value]) => saved[key] != value))
     const load     = getLoad(form.protocol, form.frequency, form.baudrate)
@@ -56,6 +62,11 @@ export default function DevicePage(){
     useEffect(() => {
         setForm(getForm(link.settings))
     }, [link.settings])
+
+    useEffect(() => {
+        if(params.get('tab'))
+            setTab(params.get('tab'))
+    }, [params])
 
     function report(message){
         setLog(current => [...current, message].slice(-4))
@@ -74,7 +85,7 @@ export default function DevicePage(){
     }
 
     const legacy = link.settings && !status ? [
-        ['Firmware', `${link.firmware ?? '?'} (sem $status!: atualize para v1.0.8)`],
+        ['Firmware', `${link.firmware ?? '?'} (sem $status!: use Atualizar firmware)`],
         ['Gravado', `${DEVICE_MODES.find(item => item.value == saved.device_mode)?.label} · ${STREAMER_MODES.find(item => item.value == saved.streamer_mode)?.label} · ${PROTOCOLS.find(item => item.value == saved.protocol)?.label} · ${saved.frequency} Hz`],
         ['Link', `${link.port} · ${link.baud} bps`]
     ] : []
@@ -104,7 +115,7 @@ export default function DevicePage(){
     return (
         <Page title='Dispositivo' subtitle='Estado, configuração e terminal do MRU: os comandos ficam liberados depois do ACK' actions={<ConnectionBar role='mru'/>} className='DevicePage'>
             <div className='DeviceStatus'>
-                <div className='Card'>
+                <div className='Card DeviceIdentity'>
                     <div className='Identity'>
                         <div>
                             <div className='IdentityName'>{status?.id ?? (active ? 'MRU' : 'Nenhum MRU')}{status?.simulated && <span className='Pill info'>simulado</span>}</div>
@@ -126,42 +137,55 @@ export default function DevicePage(){
                         <AsyncButton small variant='accent' text='Reiniciar MRU' disabled={!active} onClick={() => run(async () => { await send('MICRS'); await reboot(link.settings ?? {}, report) })}/>
                         <AsyncButton small variant='light' text='Ver configuração (JSON)' disabled={!active} onClick={() => run(showJson)}/>
                         <AsyncButton small variant='light' text={status?.streaming ? 'Parar stream' : 'Iniciar stream'} disabled={!synced} onClick={() => run(async () => { await send(status?.streaming ? '$stream_stop!' : '$stream_start!'); await sync() })}/>
-                        <AsyncButton small variant='light' text='Verificar sensor' disabled={!synced} onClick={() => run(async () => report(`sensor: ${await query('$check_sensor!', ['OK', 'NOT WORKING'])}`))}/>
                         <AsyncButton small variant='ghost' text='Restaurar padrões' disabled={!synced} onClick={() => run(async () => { if(!await ask('Restaurar padrões', 'Restaurar as configurações de fábrica do ESP32? Não apaga a calibração nem o align do Kernel.', 'Restaurar')) return; await send('$ERASE!'); await reboot({}, report) })}/>
                     </div>
                 </div>
 
-                <div className='Card'>
-                    <div className='CardTitle'>Montagem do Kernel (align) <span className='hint'>X do Kernel para boreste</span></div>
-
-                    <div className='Row'>
-                        <div className='Grow'><Dropdown value={align} options={ALIGNS} onChange={setAlign} disabled={!synced}/></div>
-                        <AsyncButton text='Gravar' variant='light' disabled={!synced} onClick={() => run(async () => report(await query(`$align:${align}!`, ['ALIGNMENT COMPLETE'], 5000)))}/>
-                    </div>
-
-                    <div className='Muted' style={{marginTop: '.6rem'}}>Depois de gravar, desligue e ligue o MRU: reiniciar só o ESP32 não reinicia o Kernel. Calibre na posição em que ele vai operar.</div>
-                </div>
+                <DiagnosticsCard/>
             </div>
 
             <div className='Card DeviceConfig'>
-                <div className='CardTitle'>Configuração <span className='hint'>{Object.keys(changes).length ? `${Object.keys(changes).length} alteração(ões) · aplicadas num reinício só` : 'igual ao gravado no MRU'}</span></div>
+                <div className='DeviceTabs'>
+                    <div className='Segmented'>
+                        {TABS.map(item => <span key={item.value} className={tab == item.value ? 'on' : ''} onClick={() => setTab(item.value)}>{item.label}</span>)}
+                    </div>
 
-                <div className='FormGrid'>
-                    {FIELDS.map(field => (
-                        <div key={field.key} className={changes[field.key] != null ? 'changed' : ''}>
-                            <Dropdown label={field.label} value={form[field.key]} disabled={!synced} options={field.options} onChange={value => setForm({...form, [field.key]: Number(value)})}/>
+                    {tab == 'config' && <span className='hint'>{Object.keys(changes).length ? `${Object.keys(changes).length} alteração(ões) · aplicadas num reinício só` : 'igual ao gravado no MRU'}</span>}
+                </div>
+
+                {tab == 'config' && (
+                    <>
+                        <div className='FormGrid'>
+                            {FIELDS.map(field => (
+                                <div key={field.key} className={changes[field.key] != null ? 'changed' : ''}>
+                                    <Dropdown label={field.label} value={form[field.key]} disabled={!synced} options={field.options} onChange={value => setForm({...form, [field.key]: Number(value)})}/>
+                                </div>
+                            ))}
                         </div>
-                    ))}
-                </div>
 
-                <div className='DeviceApply'>
-                    {form.device_mode == 1
-                        ? <div className='Notice info'>No modo aquisição o firmware fixa SCALE, LIST, 200 Hz e 460800 bps: os outros campos valem quando o MRU voltar ao modo normal.</div>
-                        : <div className={`Notice ${load > 1 ? 'bad' : load > 0.6 ? 'warn' : ''}`}>{formatNumber(form.frequency, 0)} Hz em {PROTOCOLS.find(item => item.value == form.protocol)?.label} ocupam {(load * 100).toFixed(0)}% de {form.baudrate} bps{load > 0.6 ? `: use ao menos ${getBaud(form.protocol, form.frequency)}` : ''}.</div>}
+                        <div className='DeviceApply'>
+                            {form.device_mode == 1
+                                ? <div className='Notice info'>No modo aquisição o firmware fixa SCALE, LIST, 200 Hz e 460800 bps: os outros campos valem quando o MRU voltar ao modo normal.</div>
+                                : <div className={`Notice ${load > 1 ? 'bad' : load > 0.6 ? 'warn' : ''}`}>{formatNumber(form.frequency, 0)} Hz em {PROTOCOLS.find(item => item.value == form.protocol)?.label} ocupam {(load * 100).toFixed(0)}% de {form.baudrate} bps{load > 0.6 ? `: use ao menos ${getBaud(form.protocol, form.frequency)}` : ''}.</div>}
 
-                    <AsyncButton variant='ghost' text='Desfazer' disabled={!Object.keys(changes).length} onClick={() => setForm(saved)}/>
-                    <AsyncButton text='Aplicar e reiniciar' disabled={!synced || !Object.keys(changes).length} onClick={() => run(() => configure(changes, report))}/>
-                </div>
+                            <AsyncButton variant='ghost' text='Desfazer' disabled={!Object.keys(changes).length} onClick={() => setForm(saved)}/>
+                            <AsyncButton text='Aplicar e reiniciar' disabled={!synced || !Object.keys(changes).length} onClick={() => run(() => configure(changes, report))}/>
+                        </div>
+                    </>
+                )}
+
+                {tab == 'firmware' && <FirmwarePanel/>}
+
+                {tab == 'align' && (
+                    <>
+                        <div className='Row'>
+                            <div className='Grow'><Dropdown label='Como o Kernel está montado (X para boreste)' value={align} options={ALIGNS} onChange={setAlign} disabled={!synced}/></div>
+                            <AsyncButton text='Gravar' variant='light' disabled={!synced} onClick={() => run(async () => report(await query(`$align:${align}!`, ['ALIGNMENT COMPLETE'], 5000)))}/>
+                        </div>
+
+                        <div className='Muted' style={{marginTop: '.6rem'}}>Depois de gravar, desligue e ligue o MRU: reiniciar só o ESP32 não reinicia o Kernel. Calibre na posição em que ele vai operar.</div>
+                    </>
+                )}
 
                 {log.length > 0 && <div className='Steps mono'>{log.map((line, index) => <div key={index}>{line}</div>)}</div>}
                 {error && <div className='Notice bad' style={{marginTop: '.6rem'}}>{error}</div>}

@@ -36,6 +36,7 @@ class KernelSensor {
 	static constexpr int ANSWER    = 300;        // ms DE ESPERA PELA RESPOSTA DO ReadRAM
 	static constexpr uint32_t BAUDS[4] = {BAUD, 115200, 230400, 921600};    // ONDE PROCURAR O KERNEL: O NOSSO, O DE FABRICA E OS VIZINHOS
 	static constexpr uint16_t ALIGNMENT = 0x023A;    // Alignment_Angles: PROA, PITCH E ROLL EM float
+	static constexpr int SILENCE = 500;              // ms SEM PACOTE VALIDO: O KERNEL PAROU
 
 	static constexpr KernelScale SCALE[3] = {
 		{G0*1e-6f,   1e-5f, 1e-3f, 0.0f,  0.1f},    // HR: g*1e6, graus/s*1e5, graus*1e3
@@ -70,6 +71,9 @@ class KernelSensor {
 	int64_t lastAckTime     = 0;    // NENHUM PACOTE AINDA: O PROCESSAMENTO ESPERA O PRIMEIRO
 
 	bool working = false;
+	bool found   = false;      // RESPONDEU NA BUSCA DO BOOT
+	uint32_t packets = 0;      // PACOTES COMPLETOS RECEBIDOS, BONS OU NAO
+	uint32_t errors  = 0;      // OS COM CHECKSUM ERRADO
 	uint32_t baud = BAUD;
 	int tx_pin, rx_pin;
 
@@ -85,7 +89,9 @@ class KernelSensor {
 
 		uart->setRxBufferSize(4096);    // ~80 ms DE PACOTES A 460800: O LACO PODE ATRASAR SEM PERDER AMOSTRA
 
-		if(connect()){
+		found = connect();
+
+		if(found){
 			configure();
 			ask(ALIGNMENT, 12, alignment);    // ANTES DO STREAM: COM ELE RODANDO A RESPOSTA SE PERDE NOS PACOTES
 		}
@@ -139,10 +145,22 @@ class KernelSensor {
 			temperature = ort.temperature;
 		}
 
+		packets++;
+		errors += !working;
+
 		if(working)
 			lastAckTime = packetStartTime;
 
 		reset();
+	}
+
+	// ms DESDE O ULTIMO PACOTE VALIDO, OU DESDE O BOOT SE NENHUM CHEGOU
+	unsigned long silence() const {
+		return (esp_timer_get_time() - lastAckTime)/1000;
+	}
+
+	bool alive() const {
+		return lastAckTime != 0 && silence() < SILENCE;
 	}
 
 	void handle(){

@@ -15,6 +15,8 @@ public:
 
 	unsigned long startTime = 0;
 	unsigned long sent = 0;
+	uint32_t lines = 0;      // LINHAS ENVIADAS DESDE O BOOT
+	uint32_t skipped = 0;    // PACOTES DA AQUISICAO QUE A PORTA NAO DEU CONTA DE ENVIAR
 	bool active, autostart;
 	byte protocol = LIST_PROTOCOL;
 	byte mode = CALIBRATED_MODE;
@@ -62,13 +64,19 @@ public:
 
 	// CADA PACOTE DO KERNEL SAI NO MAXIMO UMA VEZ (SEM PACOTE NOVO NAO HA O QUE ENVIAR); NO NORMAL O TIMER AINDA DECIMA PARA A frequency
 	bool ready(Listener& timer){
-		if(device->processing.count == sent)
+		const unsigned long count = device->processing.count;
+
+		if(count == sent)
 			return false;
 
 		if(device->mode != ACQUISITION_MODE && !timer.ready())
 			return false;
 
-		sent = device->processing.count;
+		if(device->mode == ACQUISITION_MODE && sent > 0)
+			skipped += count - sent - 1;
+
+		sent = count;
+		lines++;
 		return true;
 	}
 
@@ -100,9 +108,8 @@ public:
 		for(int i = 1; i < length; i++)
 			n += snprintf(buffer + n, sizeof(buffer) - n, ",\"%s\":%.*f", keys[i], getDigits(), values[i]);
 
-		n += snprintf(buffer + n, sizeof(buffer) - n, "}");
+		n += snprintf(buffer + n, sizeof(buffer) - n, "}\n");    // A LINHA NUMA ESCRITA SO: UM EVENTO DA OUTRA THREAD NAO ENTRA NO MEIO
 		device->telemetry.serial.uart->write(buffer, n);
-		device->telemetry.serial.uart->write('\n');
 	}
 
 	void printList(const double* values, const int length){
@@ -112,9 +119,8 @@ public:
 		for(int i = 1; i < length; i++)
 			n += snprintf(buffer + n, sizeof(buffer) - n, ",%.*f", getDigits(), values[i]);
 
-		n += snprintf(buffer + n, sizeof(buffer) - n, "]");
+		n += snprintf(buffer + n, sizeof(buffer) - n, "]\n");
 		device->telemetry.serial.uart->write(buffer, n);
-		device->telemetry.serial.uart->write('\n');
 	}
 
 	void printNMEA(const double* values) {

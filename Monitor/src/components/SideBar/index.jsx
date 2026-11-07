@@ -3,7 +3,7 @@ import { NavLink } from 'react-router-dom'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faHouse, faChartLine, faCircleDot, faFlask, faIndustry, faMicrochip, faGear, faExpand, faCompress, faHelicopter } from '@fortawesome/free-solid-svg-icons'
-import { useDevice, useLive } from '../../contexts/DeviceContext'
+import { useDevice, useIssues, useLive } from '../../contexts/DeviceContext'
 import Logo from '../Logo'
 import { APP_VERSION } from '../../utils'
 import './styles.css'
@@ -37,6 +37,7 @@ const STATES = {
 export default function SideBar(){
     const {links, simulation} = useDevice()
     const {stats, recording} = useLive()
+    const issues = useIssues()
     const [full, setFull] = useState(false)
 
     async function toggleFullscreen(){
@@ -86,8 +87,9 @@ export default function SideBar(){
                 <div className='Links'>
                     {devices.map(([name, link, stat]) => {
                         const state = name == 'Plataforma' && link.state == 'open' ? {tone: stat?.rate ? 'ok' : 'warn', label: stat?.rate ? 'transmitindo' : 'sem dados'} : STATES[link.state] ?? STATES.off
+                        const issue = name == 'MRU' && issues[0]?.level != 'info' ? issues[0] : null
                         return (
-                            <div key={name} className={`Link ${state.tone}`} title={link.message || state.label}>
+                            <div key={name} className={`Link ${issue ? (issue.level == 'error' ? 'bad' : 'warn') : state.tone}`} title={issue?.title ?? (link.message || state.label)}>
                                 <span className={`Dot ${['searching', 'syncing', 'rebooting'].includes(link.state) ? 'pulse' : ''}`}/>
                                 <div className='LinkText'>
                                     <b>{name}</b>

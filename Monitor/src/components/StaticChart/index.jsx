@@ -24,7 +24,7 @@ export default function StaticChart({lines, data, unit = ''}){
         }
 
         const plot = new uPlot(options, data, holder.current)
-        const observer = new ResizeObserver(() => plot.setSize({width: holder.current.clientWidth, height: holder.current.clientHeight}))
+        const observer = new ResizeObserver(() => holder.current && plot.setSize({width: holder.current.clientWidth, height: holder.current.clientHeight}))
         observer.observe(holder.current)
 
         return () => {

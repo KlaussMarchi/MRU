@@ -4,12 +4,14 @@ use serde_json::Value;
 use std::collections::VecDeque;
 use std::io::{BufRead, BufReader};
 use std::process::{Child, Command, Stdio};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
 const LOG: usize = 400;    // LINHAS DO LOG QUE A TELA MOSTRA
 const GRACE: Duration = Duration::from_secs(3);    // DEPOIS DO SIGTERM, O SIGKILL
+const APPRUN: [&str; 5] = ["PYTHONHOME", "PYTHONPATH", "LD_LIBRARY_PATH", "PERLLIB", "QT_PLUGIN_PATH"];    // O QUE O AppRun DO AppImage EXPORTA E ATRAPALHA UM PROGRAMA DE FORA
 #[cfg(windows)]
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
@@ -33,10 +35,11 @@ pub struct JobState {
 pub struct Job {
     pub state: Arc<Mutex<JobState>>,
     child: Arc<Mutex<Option<Child>>>,
+    pub cancel: Arc<AtomicBool>,    // A TAREFA EM THREAD, SEM PROCESSO, OLHA ESTE SINAL
 }
 
 impl JobState {
-    fn push(&mut self, line: String) {
+    pub fn push(&mut self, line: String) {
         self.log.push_back(line);
 
         if self.log.len() > LOG {
@@ -75,7 +78,7 @@ impl Job {
         let mut command = Command::new(program);
         command.args(args).current_dir(cwd).stdout(Stdio::piped()).stderr(Stdio::piped()).stdin(Stdio::null());
         command.env("PYTHONUNBUFFERED", "1").env("MPLBACKEND", "Agg").env("PYTHONIOENCODING", "utf-8");
-        hide(&mut command);
+        prepare(&mut command);
 
         #[cfg(unix)]
         {
@@ -118,7 +121,13 @@ impl Job {
             }
         });
 
-        Ok(Job { state, child })
+        Ok(Job { state, child, cancel: Arc::new(AtomicBool::new(false)) })
+    }
+
+    // UMA TAREFA QUE RODA NUMA THREAD DO PRÓPRIO APP, COMO A ATUALIZAÇÃO DO FIRMWARE
+    pub fn thread(id: u64, kind: &str) -> Job {
+        let state = JobState { id, kind: kind.to_string(), status: "running".to_string(), started: now(), ..Default::default() };
+        Job { state: Arc::new(Mutex::new(state)), child: Arc::new(Mutex::new(None)), cancel: Arc::new(AtomicBool::new(false)) }
     }
 
     pub fn get(&self) -> JobState {
@@ -126,6 +135,8 @@ impl Job {
     }
 
     pub fn cancel(&self) {
+        self.cancel.store(true, Ordering::SeqCst);
+
         let pid = match self.child.lock().unwrap().as_ref() {
             Some(child) => child.id(),
             None => return,
@@ -151,12 +162,18 @@ impl Job {
     }
 }
 
-// O APP NO WINDOWS NÃO TEM CONSOLE: SEM ISSO CADA PROCESSO FILHO ABRE UMA JANELA PRETA, E FECHÁ-LA MATA A TAREFA
-pub fn hide(command: &mut Command) -> &mut Command {
+// O APP NO WINDOWS NÃO TEM CONSOLE: SEM ISSO CADA PROCESSO FILHO ABRE UMA JANELA PRETA, E FECHÁ-LA MATA A TAREFA. O AppRun DO AppImage APONTA O AMBIENTE PARA DENTRO DELE: HERDADO, O PYTHON DA MÁQUINA NÃO SOBE
+pub fn prepare(command: &mut Command) -> &mut Command {
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
         command.creation_flags(CREATE_NO_WINDOW);
+    }
+
+    if std::env::var_os("APPIMAGE").is_some() {
+        for name in APPRUN {
+            command.env_remove(name);
+        }
     }
 
     command
@@ -171,5 +188,20 @@ fn kill(pid: u32, force: bool) {
 
 #[cfg(windows)]
 fn kill(pid: u32, _force: bool) {
-    let _ = hide(Command::new("taskkill").args(["/PID", &pid.to_string(), "/T", "/F"])).status();
+    let _ = prepare(Command::new("taskkill").args(["/PID", &pid.to_string(), "/T", "/F"])).status();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn appimage_nao_vaza_o_ambiente_para_o_python() {
+        std::env::set_var("APPIMAGE", "/tmp/.mount_x/app");
+        let mut command = Command::new("python3");
+        prepare(&mut command);
+        std::env::remove_var("APPIMAGE");
+        let removed: Vec<_> = command.get_envs().filter(|(_, value)| value.is_none()).map(|(name, _)| name.to_string_lossy().to_string()).collect();
+        assert!(removed.contains(&"PYTHONHOME".to_string()) && removed.contains(&"LD_LIBRARY_PATH".to_string()), "{removed:?}");
+    }
 }

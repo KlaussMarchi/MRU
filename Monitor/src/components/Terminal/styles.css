@@ -75,6 +75,7 @@
 .TerminalLine.tx .TerminalText, .TerminalLine.tx .TerminalKind { color: #7dd3fc; }
 .TerminalLine.rx .TerminalText, .TerminalLine.rx .TerminalKind { color: #e5e7eb; }
 .TerminalLine.stream .TerminalText, .TerminalLine.stream .TerminalKind { color: #6ee7b7; opacity: .8; }
+.TerminalLine.log .TerminalText, .TerminalLine.log .TerminalKind { color: #fcd34d; }
 .TerminalLine.info .TerminalText, .TerminalLine.info .TerminalKind { color: #9ca3af; }
 .TerminalLine.error .TerminalText, .TerminalLine.error .TerminalKind { color: #fca5a5; }
 

@@ -18,7 +18,7 @@ const FLOW = [
 
 const TOOLS = [
     {path: '/Monitor', icon: faChartLine, title: 'Monitor', text: 'Gráficos e leituras ao vivo em qualquer modo'},
-    {path: '/Device', icon: faMicrochip, title: 'Dispositivo', text: 'Configuração, align do Kernel e terminal'},
+    {path: '/Device', icon: faMicrochip, title: 'Dispositivo', text: 'Diagnóstico, configuração, atualizar o firmware e terminal'},
     {path: '/HMS', icon: faHelicopter, title: 'HMS', text: 'Painel de helideque com os limites da NORMAM-223'}
 ]
 
@@ -39,9 +39,16 @@ const GUIDES = [
     ]},
     {title: 'Sem MRU por perto', steps: [
         'Em Ajustes, ligue "Simular MRU" e escolha o movimento: sobre a plataforma, navio em ondas ou parado.',
-        'As portas SIM0 (MRU) e SIM1 (plataforma) entram nas listas e na busca automática; o MRU simulado responde como o firmware v1.0.8.',
+        'As portas SIM0 (MRU) e SIM1 (plataforma) entram nas listas e na busca automática; o MRU simulado responde como o firmware v1.0.9.',
         'Em Aquisição, aplique "Para calibração", conecte a plataforma simulada e grave 320 s.',
-        'Salve, calibre e envie o pacote ao MRU simulado em Produção: o fluxo é o mesmo do aparelho de verdade.'
+        'Salve, calibre e envie o pacote ao MRU simulado em Produção: o fluxo é o mesmo do aparelho de verdade.',
+        'Para ver o diagnóstico funcionar, escolha uma falha simulada em Ajustes: Kernel mudo, checksum, reinícios, atualização que falha.'
+    ]},
+    {title: 'Atualizar o firmware', steps: [
+        'Compile o firmware: o caminho do Main.ino.bin já vem preenchido em Dispositivo → Atualizar firmware, ou escolha outro arquivo.',
+        'Confira a versão do arquivo contra a do MRU, o tamanho e a data: o app recusa o que não é o firmware do MRU e avisa se o arquivo é velho.',
+        'Clique em Enviar ao MRU, sem desligar nem tirar o cabo. Um bloco ruim é repetido sozinho, e qualquer falha deixa o firmware atual rodando.',
+        'O firmware novo fica 10 s em prova: se cair, o MRU volta sozinho ao anterior, e o app avisa. Configurações e calibração não mudam.'
     ]},
     {title: 'Eixos e unidades', steps: [
         'SCALE mantém os eixos do Kernel: X boreste, Y proa, Z para cima.',
@@ -50,6 +57,7 @@ const GUIDES = [
         'RAW são os inteiros do Kernel; o Monitor os converte só para mostrar.'
     ]},
     {title: 'Quando algo não responde', steps: [
+        'A faixa no alto de qualquer tela diz o motivo e o que fazer; os detalhes e os eventos do MRU estão em Dispositivo → Diagnóstico.',
         'Nenhuma porta: confira o cabo e a permissão (grupo dialout no Linux).',
         'Porta abre mas sem ACK: o baud do RS232/RS422 pode ser outro; deixe o baud automático.',
         'Linhas ruins subindo: baud errado ou ruído no cabo; o contador fica no painel Stream do Monitor.',
