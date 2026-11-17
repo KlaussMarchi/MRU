@@ -160,6 +160,10 @@ export function getIssues({link, stat, table, tableStat, health, trend, ports, s
 
     const issues = [...checkPort(link, stat, trend, ports)]
 
+    const recording = stat?.recording_error ?? tableStat?.recording_error
+    if(recording)
+        issues.push({key: 'recording', level: 'error', title: 'A gravação parou de salvar', detail: `${recording}. O gráfico continua, mas nada mais vai para o csv: libere espaço ou reconecte o disco e grave de novo.`})
+
     if(link.state == 'synced'){
         issues.push(...checkFirmware(health, link), ...checkStream(link, stat, trend, health))
 

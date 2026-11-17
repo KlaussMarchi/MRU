@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { open } from '@tauri-apps/plugin-dialog'
 import { faCircle, faStop } from '@fortawesome/free-solid-svg-icons'
@@ -11,7 +11,7 @@ import Dropdown from '../../components/Dropdown'
 import { useConfirm } from '../../components/Dialog'
 import { useDevice, useLive } from '../../contexts/DeviceContext'
 import { useGlobalContext } from '../../contexts/GlobalContext'
-import { call, getBaud, getStamp, getStored, setStored, formatDuration, getQuantity, getColor, LAYOUTS, FREQUENCIES, STILL, VARIABLES } from '../../utils'
+import { call, getBaud, getStamp, getStored, setStored, formatBytes, formatDuration, getQuantity, getColor, LAYOUTS, FREQUENCIES, STILL, VARIABLES } from '../../utils'
 import './styles.css'
 
 const MODES = [
@@ -27,6 +27,18 @@ const WINDOWS   = [{value: 30, label: '30 s'}, {value: 60, label: '1 min'}, {val
 const NAMES     = {table: 'plataforma', debug: 'debug (o próprio MRU)'}
 const PHASES    = [{label: 'parado', mark: '', start: 0, end: 20}, {label: 'pitch', start: 20, end: 120}, {label: 'roll', start: 120, end: 220}, {label: 'repouso', start: 220, end: 320}]    // O PROGRAMA DO Table.ino DEPOIS DOS STILL s PARADOS
 const MINIMUM   = PHASES[PHASES.length - 1].end
+
+
+// UMA GRAVAÇÃO NÃO SALVA VOLTA COMO PENDENTE: O recording.json DIZ COMO PAROU; SEM ELE O APP OU O PC CAIU E O DIÁRIO VAI ATÉ O ÚLTIMO SEGUNDO GRAVADO
+function getRecovered(item){
+    const meta    = item.meta ?? {mode: 'desconhecido', reference: null}
+    const started = item.recording?.started ?? (meta.started ? Date.parse(meta.started) / 1000 : null)
+    const info    = item.recording ?? {folder: item.path, started, elapsed: item.modified && started ? item.modified - started : null, rows: {}, released: meta.released ?? null}
+    const still   = info.released != null && info.elapsed != null && info.elapsed < info.released ? [`a gravação terminou nos ${STILL} s parados: a plataforma não chegou a se mover`] : []
+    const how     = !item.recording ? ['a gravação foi interrompida (o app fechou ou o PC desligou): os dados vão até o último segundo gravado'] : item.recording.limit && item.recording.elapsed >= item.recording.limit ? [`parou sozinha pela duração programada (${formatDuration(item.recording.limit)})`] : []
+    const error   = item.recording?.error ? [item.recording.error] : []
+    return {journal: item.path, info, meta: {...meta, duration: Math.round(info.elapsed ?? 0), warnings: [...(meta.warnings ?? []), ...still, ...how, ...error]}}
+}
 
 
 // O QUE MANDAR AO MRU PARA ENTRAR NO MODO; NO CONVERSOR O BAUD ACOMPANHA A TAXA DO STREAM
@@ -57,7 +69,10 @@ export default function AcquisitionPage(){
     const [name, setName]            = useState('')
     const [folder, setFolder]        = useState(null)
     const [view, setViewState]       = useState(getStored('acquisition-view', {chart: {quantity: 'attitude', keys: ['pitch', 'roll']}, seconds: 60}))
+    const [hours, setHours]          = useState('')
+    const [orphans, setOrphans]      = useState([])
     const [confirmation, ask]        = useConfirm()
+    const active                     = useRef(null)    // A PASTA QUE ESTA TELA VIU GRAVANDO: SE ELA PARAR SEM O CLIQUE, FOI A DURAÇÃO PROGRAMADA
 
     const mode        = MODES.find(item => item.key == modeKey)
     const link        = links.mru
@@ -76,6 +91,54 @@ export default function AcquisitionPage(){
     const quantity    = getQuantity(view.chart.quantity)
     const platform    = quantity.key == 'attitude' && table ? view.chart.keys.filter(key => key != 'yaw') : []
     const lines       = [...view.chart.keys.map(key => ({key, label: `${VARIABLES[key].label} MRU`, color: getColor(key)})), ...platform.map(key => ({key, role: 'table', label: `${VARIABLES[key].label} plataforma`, color: getColor(key), dash: [6, 4]}))]
+
+    const parsed = Number(hours.trim().replace(',', '.'))    // O CAMPO É TEXTO: type=number NO WebKit DEVOLVE VAZIO PARA "0,01" E A GRAVAÇÃO SAÍA SEM LIMITE
+    const limit  = hours.trim() && parsed > 0 ? parsed * 3600 : null
+    const badLimit = hours.trim() != '' && !limit
+
+    async function refreshOrphans(){
+        const list = await call('list_recordings', {folder: settings.sessions}).catch(() => [])
+        setOrphans(list)
+        return list
+    }
+
+    useEffect(() => {
+        if(recording){
+            active.current = recording.folder
+            return
+        }
+
+        const folder = active.current    // AINDA MARCADA: PAROU SEM O CLIQUE, PELA DURAÇÃO PROGRAMADA
+        active.current = null
+        refreshOrphans().then(list => {
+            const item = folder && list.find(entry => entry.path == folder)
+
+            if(item && !getStored('acquisition', null))
+                setPending(getRecovered(item))
+        })
+    }, [recording?.folder, settings.sessions])
+
+    // ended = false NO INÍCIO: O AVISO DOS s PARADOS SÓ FAZ SENTIDO COM A GRAVAÇÃO TERMINADA
+    function getMeta(info, ended = true){
+        return {
+            mode: mode.label,
+            reference,
+            started: new Date(info.started * 1000).toISOString(),
+            duration: Math.round(info.elapsed),
+            still: info.still,
+            released: info.released,
+            limit: info.limit,
+            align: link.status?.align ?? null,
+            mru: link.status,
+            settings: link.settings,
+            devices: {target: stats.mru ?? null, reference: stats.table ?? null},
+            warnings: [
+                ...(wrong ? [`o MRU gravou em ${mru.layout}, não em SCALE: o pipeline de calibração não vai usar esta sessão`] : []),
+                ...((stats.mru?.lost ?? 0) > 0 ? [`${stats.mru.lost} pacotes do MRU perdidos pelo salto no time`] : []),
+                ...(ended && info.released != null && info.elapsed < info.released ? [`a gravação terminou nos ${STILL} s parados: a plataforma não chegou a se mover`] : [])
+            ]
+        }
+    }
 
     function setView(changes){
         const next = {...view, ...changes}
@@ -116,7 +179,9 @@ export default function AcquisitionPage(){
         const journal = `${settings.sessions}/.recording-${getStamp()}`
 
         try {
-            await call('record_start', {folder: journal, still: calibration && reference ? STILL : null})
+            const info = await call('record_start', {folder: journal, still: calibration && reference ? STILL : null, limit})
+            active.current = info.folder
+            await call('write_text', {path: `${journal}/meta.json`, content: JSON.stringify(getMeta(info, false), null, 4)})    // JÁ NO INÍCIO: SE O APP CAIR, A GRAVAÇÃO AINDA SE DESCREVE
         }
         catch(failure) {
             setError(String(failure))
@@ -124,28 +189,18 @@ export default function AcquisitionPage(){
     }
 
     async function handleStop(){
+        active.current = null
         const info = await call('record_stop')
-        const meta = {
-            mode: mode.label,
-            reference,
-            started: new Date(info.started * 1000).toISOString(),
-            duration: Math.round(info.elapsed),
-            still: info.still,
-            released: info.released,
-            align: link.status?.align ?? null,
-            mru: link.status,
-            settings: link.settings,
-            devices: {target: stats.mru ?? null, reference: stats.table ?? null},
-            warnings: [
-                ...(wrong ? [`o MRU gravou em ${mru.layout}, não em SCALE: o pipeline de calibração não vai usar esta sessão`] : []),
-                ...((stats.mru?.lost ?? 0) > 0 ? [`${stats.mru.lost} pacotes do MRU perdidos pelo salto no time`] : []),
-                ...(info.released != null && info.elapsed < info.released ? [`a gravação terminou nos ${STILL} s parados: a plataforma não chegou a se mover`] : [])
-            ]
-        }
-
         setName(getStamp(new Date(info.started * 1000)))
         setFolder(null)
-        setPending({journal: info.folder, info, meta})
+        setPending({journal: info.folder, info, meta: getMeta(info)})
+    }
+
+    function handleResume(item){
+        const recovered = getRecovered(item)
+        setName(getStamp(new Date((recovered.info.started ?? Date.now() / 1000) * 1000)))
+        setFolder(null)
+        setPending(recovered)
     }
 
     async function handleSave(){
@@ -153,6 +208,7 @@ export default function AcquisitionPage(){
         await call('write_text', {path: `${pending.journal}/meta.json`, content: JSON.stringify(pending.meta, null, 4)})
         await startJob('session', 'Pipeline/Session/index.py', [pending.journal, output, `${pending.journal}/meta.json`])
         setPending(null)
+        setOrphans(current => current.filter(item => item.path != pending.journal))
     }
 
     async function handleDiscard(){
@@ -161,6 +217,7 @@ export default function AcquisitionPage(){
 
         await call('remove_folder', {path: pending.journal}).catch(failure => setError(String(failure)))
         setPending(null)
+        refreshOrphans()
     }
 
     async function chooseFolder(){
@@ -178,6 +235,18 @@ export default function AcquisitionPage(){
             <div className='Card AcquisitionFlow'>
                 {state == 'setup' && (
                     <div className='CardBody'>
+                        {orphans.length > 0 && (
+                            <div className='Notice warn RecoveredList'>
+                                <b>{orphans.length == 1 ? 'Uma gravação não foi salva' : `${orphans.length} gravações não foram salvas`}</b>
+                                {orphans.map(item => (
+                                    <div key={item.path} className='RecoveredItem'>
+                                        <span>{item.name}<small>{item.meta?.mode ?? '?'} · {formatBytes(item.size)} · {item.recording ? (item.recording.error ? 'parou com erro' : 'parada') : 'interrompida'}</small></span>
+                                        <AsyncButton small text='Abrir' variant='light' onClick={() => handleResume(item)}/>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
                         <div className='FlowStep'>
                             <div className={`Numbered ${ready ? 'done' : ''}`}><span>{ready ? '✓' : 1}</span>Modo do MRU<span className={`Pill ${ready ? 'ok' : flowing ? 'warn' : ''}`}>{ready ? 'pronto' : flowing ? 'aplicar' : 'sem stream'}</span></div>
 
@@ -225,9 +294,15 @@ export default function AcquisitionPage(){
 
                             <div className='FlowPlan'>{plan}</div>
 
+                            <label className='Field FlowLimit'>
+                                <span className='Label'>Parar sozinho depois de (horas)</span>
+                                <input className='Input' inputMode='decimal' placeholder='vazio: só no botão Parar' value={hours} onChange={event => setHours(event.target.value)}/>
+                                <small className={badLimit ? 'FlowLimitBad' : 'Muted'}>{badLimit ? 'Número inválido: use, por exemplo, 24 ou 0,5' : limit ? `Para sozinha em ${formatDuration(limit)}` : 'Sem limite: para só no botão Parar'}</small>
+                            </label>
+
                             {missing.length > 0 && <div className='FlowMissing'>{missing.map(item => <div key={item}>• {item}</div>)}</div>}
 
-                            <AsyncButton text='Iniciar gravação' icon={faCircle} variant='red' large onClick={handleStart} disabled={missing.length > 0}/>
+                            <AsyncButton text='Iniciar gravação' icon={faCircle} variant='red' large onClick={handleStart} disabled={missing.length > 0 || badLimit}/>
                             {error && <div className='Notice bad FlowHint'>{error}</div>}
                         </div>
                     </div>
@@ -237,6 +312,7 @@ export default function AcquisitionPage(){
                     <div className='FlowState'>
                         <div className='Label'>Gravando</div>
                         <div className='Elapsed'><span className='Dot pulse'/>{formatDuration(recording.elapsed)}</div>
+                        {recording.limit && <div className='Muted'>Para sozinha em {formatDuration(recording.limit)} · faltam {formatDuration(recording.limit - recording.elapsed)}</div>}
 
                         {calibration && reference && (
                             <div className='Timeline'>
@@ -260,6 +336,7 @@ export default function AcquisitionPage(){
                             {recording.rows.reference == null && <><span>Referência</span><b>{NAMES[reference] ?? 'nenhuma'}</b></>}
                         </div>
 
+                        {!recording.awake && <div className='Notice warn'>Não consegui impedir a suspensão do PC: desative a suspensão automática nas configurações de energia.</div>}
                         {wrong && <div className='Notice warn'>O MRU está em {layout?.label}, não em SCALE: esta gravação não serve para calibrar.</div>}
 
                         <div className='Spacer'/>
@@ -273,8 +350,8 @@ export default function AcquisitionPage(){
 
                         <div className='Facts wide'>
                             <span>Duração</span><b>{formatDuration(pending.info.elapsed)}</b>
-                            <span>Linhas do MRU</span><b>{(pending.info.rows.target ?? 0).toLocaleString('pt-BR')}</b>
-                            <span>Linhas da plataforma</span><b>{(pending.info.rows.reference ?? 0).toLocaleString('pt-BR')}</b>
+                            <span>Linhas do MRU</span><b>{pending.info.rows.target?.toLocaleString('pt-BR') ?? '—'}</b>
+                            <span>Linhas da plataforma</span><b>{pending.info.rows.reference?.toLocaleString('pt-BR') ?? '—'}</b>
                             <span>Ciclo da plataforma</span><b>{pending.info.released == null || pending.info.elapsed < pending.info.released ? '—' : `desde ${formatDuration(pending.info.released)}`}</b>
                             <span>Referência</span><b>{NAMES[pending.meta.reference] ?? 'nenhuma'}</b>
                         </div>

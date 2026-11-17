@@ -18,7 +18,7 @@ const CHUNK: usize = 1 << 16;
 const TIMEOUT: Duration = Duration::from_millis(20);    // O read NUNCA PRENDE A THREAD NEM GIRA EM VAZIO
 const RETRY: Duration = Duration::from_millis(500);
 const SILENT: u32 = 200;                           // LEITURAS VAZIAS SEGUIDAS QUE SIGNIFICAM PORTA MORTA
-const FLUSH: Duration = Duration::from_secs(1);    // NO MÁXIMO UM SEGUNDO SE PERDE SE O PC CAIR
+const FLUSH: Duration = Duration::from_secs(1);    // NO MÁXIMO UM SEGUNDO SE PERDE SE O APP OU A ENERGIA CAIR (flush + sync_data)
 const STEPS: usize = 50;
 const WRITE: Duration = Duration::from_secs(3);    // SEM ACEITAR NADA POR ESTE TEMPO, A PORTA MORREU
 const SPACING: Duration = Duration::from_millis(120);    // O FIRMWARE LÊ A PORTA A CADA 100 ms: ATÉ A v1.0.8, DOIS COMANDOS NA MESMA LEITURA VIRAM UM SÓ, E O SEGUNDO SE PERDE
@@ -51,6 +51,7 @@ pub struct Stats {
     pub baud: u32,
     pub connected: bool,
     pub error: Option<String>,
+    pub recording_error: Option<String>,    // A THREAD DO DIÁRIO MORREU (DISCO CHEIO, PENDRIVE REMOVIDO): AVISA NA HORA, NÃO SÓ NO PARAR
     pub count: u64,
     pub lost: u64,
     pub bad: u64,
@@ -444,8 +445,11 @@ pub fn process(chunk: &[u8], pending: &mut Vec<u8>, shared: &Arc<(Mutex<Shared>,
                 state.stats.format = Some(packet.format);
                 *state.stats.layouts.entry(packet.layout.name()).or_insert(0) += 1;
 
-                if let Some(journal) = &state.journal {
-                    let _ = journal.send(Row { host, layout: packet.layout, values: packet.values });
+                if state.journal.as_ref().is_some_and(|journal| journal.send(Row { host, layout: packet.layout, values: packet.values }).is_err()) {
+                    let message = "a gravação parou de escrever no disco (cheio ou removido?): pare e confira o erro".to_string();
+                    state.journal = None;
+                    state.stats.recording_error = Some(message.clone());
+                    state.push_text("error", message);
                 }
 
                 let text: String = String::from_utf8_lossy(raw).trim().chars().take(240).collect();
@@ -531,10 +535,33 @@ fn write(mut file: BufWriter<File>, receiver: Receiver<Row>, rows: Arc<AtomicU64
 
         if flushed.elapsed() >= FLUSH {
             file.flush()?;
+            file.get_ref().sync_data()?;    // flush SÓ CHEGA AO CACHE DO SO, QUE PODE LEVAR ~30 s ATÉ O DISCO
             flushed = Instant::now();
         }
     }
 
     file.flush()?;
+    file.get_ref().sync_data()?;
     Ok(rows.load(Ordering::Relaxed))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn diario_morto_avisa_na_hora() {
+        let device = Device::new("teste", 115200);
+        let (sender, receiver) = mpsc::channel();
+        drop(receiver);    // A THREAD DO DIÁRIO MORREU POR ERRO DE DISCO
+        device.shared.0.lock().unwrap().journal = Some(sender);
+
+        let line = b"[1.000,25.000,0.100,-0.200,30.000,0.034,0.017,9.810,0.010,-0.020,0.000,0.002,0.001]\n";
+        process(line, &mut Vec::new(), &device.shared, &mut Tracker::default());
+
+        let state = device.shared.0.lock().unwrap();
+        assert!(state.journal.is_none());
+        assert!(state.stats.recording_error.is_some());
+        assert_eq!(state.samples.len(), 1);    // A TELA SEGUE RECEBENDO
+    }
 }

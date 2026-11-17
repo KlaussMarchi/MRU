@@ -189,3 +189,38 @@
 .FlowState .Actions {
     flex-wrap: wrap;
 }
+
+.FlowLimit {
+    margin: .7rem 0;
+}
+
+.RecoveredList {
+    display: flex;
+    flex-direction: column;
+    gap: .4rem;
+    max-height: 9rem;
+    margin-bottom: 1rem;
+    overflow-y: auto;
+}
+
+.RecoveredItem {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+}
+
+.RecoveredItem > span {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+    font-size: .8rem;
+}
+
+.RecoveredItem small {
+    opacity: .75;
+}
+
+.FlowLimitBad {
+    color: var(--red);
+}

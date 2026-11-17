@@ -13,6 +13,7 @@ POINTS    = 5              # A SPLINE SUAVIZADA PEDE CINCO PONTOS
 CUTOFF    = 2.0            # Hz DO PASSA-BAIXA IDA E VOLTA DA REFERÊNCIA EM DEBUG: ACIMA DA ONDA E DA MESA, ABAIXO DO RUÍDO
 FORMAT    = ['time', 'pitch', 'roll', 'yaw']
 GAP       = 0.5            # s SEM PACOTE: OUTRO TRECHO DO RELÓGIO
+CHUNK     = 200_000        # LINHAS POR BLOCO NA GRAVAÇÃO SEM CALIBRAÇÃO: O PICO DE MEMÓRIA NÃO CRESCE COM A DURAÇÃO
 
 
 def send(event, **data):
@@ -33,6 +34,44 @@ def load(path):
     offset        = (frame.host - frame.time).groupby(segment).transform(lambda part: part.quantile(0.01))
     frame['time'] = (frame.time + offset).fillna(frame.host)
     return frame.drop(columns='host')
+
+
+# O MESMO load() SEM O DIÁRIO INTEIRO NA MEMÓRIA (24 h A 200 Hz PEDIRIAM ~8 GB): A 1ª PASSADA GUARDA SÓ host E time E VÊ
+# AS COLUNAS VAZIAS E AS QUE O pandas LERIA COMO float (UM NaN NUM BLOCO SÓ VIRARIA "352" NUNS E "352.0" NOUTROS); A 2ª GRAVA BLOCO A BLOCO
+def stream(path, output):
+    host, time, filled, floats = [], [], {}, set()
+
+    for chunk in pd.read_csv(path, chunksize=CHUNK):
+        host.append(chunk.host.to_numpy(dtype=float))
+        time.append(chunk.time.to_numpy(dtype=float))
+
+        for column in chunk:
+            filled[column] = filled.get(column, False) or bool(chunk[column].notna().any())
+            floats |= {column} if chunk[column].dtype.kind == 'f' else set()
+
+    if not host or not sum(map(len, host)):
+        return 0
+
+    host, time = pd.Series(np.concatenate(host)), pd.Series(np.concatenate(time))
+
+    if filled['time']:
+        segment = (time.diff() < 0).cumsum()
+        offset  = (host - time).groupby(segment).transform(lambda part: part.quantile(0.01))
+        fixed   = (time + offset).fillna(host)
+    else:
+        fixed = host
+
+    fixed   = (fixed - fixed.min()).to_numpy()
+    columns = [column for column in filled if filled[column]]
+    done    = 0
+
+    for index, chunk in enumerate(pd.read_csv(path, chunksize=CHUNK, usecols=columns, dtype={column: float for column in floats & set(columns)})):
+        chunk = chunk.drop(columns='host') if 'time' in chunk else chunk.rename(columns={'host': 'time'})
+        chunk['time'] = fixed[done:done + len(chunk)]
+        chunk.to_csv(output, index=False, header=index == 0, mode='w' if index == 0 else 'a')
+        done += len(chunk)
+
+    return done
 
 
 # O INSTANTE DE CADA PACOTE DO KERNEL: O CARIMBO TEM O JITTER DA LEITURA E O RELÓGIO DERIVA; A CONTAGEM DE PASSOS (PERDIDO CONTA DOIS) EM RETA, POR TRECHO, DÁ A GRADE DELE
@@ -94,22 +133,27 @@ def merge(target, reference, debug=False):
 
 names  = [name for name in ['target', 'reference'] if os.path.exists(f'{JOURNAL}/{name}.journal.csv')]
 frames = {}
-
-for step, name in enumerate(names, 1):
-    send('progress', step=step, steps=len(names) + 2, stage='Lendo os diários', message=f'lendo {name}.journal.csv')
-    frames[name] = load(f'{JOURNAL}/{name}.journal.csv')
-
+saved  = {}
 os.makedirs(OUTPUT, exist_ok=True)
-start = min([frame.time.min() for frame in frames.values() if not frame.empty] or [0])
-saved = {}
 
-for name, frame in frames.items():
-    if frame.empty:
-        continue
+if names == ['target'] and META.get('reference') != 'debug':    # SEM REFERÊNCIA NÃO HÁ data.csv: O DIÁRIO SÓ VIRA target.csv, EM BLOCOS
+    send('progress', step=1, steps=3, stage='Lendo os diários', message='target.journal.csv em blocos')
+    rows  = stream(f'{JOURNAL}/target.journal.csv', f'{OUTPUT}/target.csv')
+    saved = {'target': rows} if rows else {}
+else:
+    for step, name in enumerate(names, 1):
+        send('progress', step=step, steps=len(names) + 2, stage='Lendo os diários', message=f'lendo {name}.journal.csv')
+        frames[name] = load(f'{JOURNAL}/{name}.journal.csv')
 
-    frame['time'] -= start
-    frame.to_csv(f'{OUTPUT}/{name}.csv', index=False)
-    saved[name] = len(frame)
+    start = min([frame.time.min() for frame in frames.values() if not frame.empty] or [0])
+
+    for name, frame in frames.items():
+        if frame.empty:
+            continue
+
+        frame['time'] -= start
+        frame.to_csv(f'{OUTPUT}/{name}.csv', index=False)
+        saved[name] = len(frame)
 
 send('progress', step=len(names) + 1, steps=len(names) + 2, stage='Casando MRU e plataforma', message=f'{saved} amostras salvas')
 debug    = META.get('reference') == 'debug' and 'target' in saved and 'reference' not in saved

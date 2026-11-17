@@ -38,6 +38,8 @@ arduino-cli compile --fqbn esp32:esp32:esp32 Hardware/Table
 
 # Gravação → sessão: pasta com os *.journal.csv, pasta da sessão e o json de metadados que o app escreve. APAGA a pasta da gravação ao terminar: rode numa cópia
 ~/miniconda3/bin/python Monitor/Pipeline/Session/index.py /caminho/gravacao /caminho/sessao /caminho/meta.json
+# Sem referência (RAW, escala, gravação longa) o Session lê o diário em blocos; check.py confere que sai igual ao load() inteiro
+~/miniconda3/bin/python Monitor/Pipeline/Session/check.py
 
 # O firmware real no PC, sem hardware: shim do Arduino, Kernel falso e portas em pty. scenarios.py cobre atualização e Kernel; recompile antes
 mkdir -p /tmp/mru-host && g++ -std=c++17 -O1 -w -DARDUINO=10000 -DARDUINOJSON_ENABLE_ARDUINO_PRINT=1 -DARDUINOJSON_ENABLE_ARDUINO_STRING=1 -DARDUINOJSON_ENABLE_PROGMEM=0 -IHardware/Embedded/Host/shim -I$HOME/Arduino/libraries/ArduinoJson/src -x c++ Hardware/Embedded/Host/host.cpp -o /tmp/mru-host/mru-host -lutil -lpthread
@@ -180,6 +182,9 @@ App Tauri 2: React em `src/`, Rust em `src-tauri/src/`, `Pipeline/` (com o conve
   o `Table.ino` imprime).
 - `record_start` manda `start` à mesa (real ou simulada), que fica 20 s parada e roda pitch 100 s, roll 100 s e repouso
   100 s em ciclo; `record_stop` manda `stop`.
+  Gravando, um processo filho (`systemd-inhibit`/`caffeinate`/PowerShell) impede o PC de suspender e solta sozinho se o
+  app morrer; `limit` faz o backend parar sozinho. Todo `stop` deixa `recording.json` na `.recording-*`, e o `meta.json`
+  já sai no início: `list_recordings` mostra na Aquisição as paradas sem salvar (duração programada ou app/PC caído).
 - `job.rs` roda os scripts Python, e cada linha JSON do stdout é um evento `progress`/`result`/`error`. Por isso o
   `Pipeline/index.py` reserva o stdout para os eventos e desvia todo `print` para o stderr.
 

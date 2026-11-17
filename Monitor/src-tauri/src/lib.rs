@@ -13,12 +13,13 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::fs;
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::thread;
+use std::time::{Duration, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_opener::OpenerExt;
 
@@ -38,6 +39,8 @@ struct Recording {
     still: Option<f64>,
     journals: Vec<(String, Journal)>,
     released: Option<f64>,
+    limit: Option<f64>,      // s ATÉ PARAR SOZINHA; None GRAVA ATÉ O CLIQUE EM PARAR
+    awake: Option<Child>,    // O PROCESSO QUE SEGURA O PC ACORDADO ENQUANTO GRAVA
 }
 
 struct App {
@@ -73,6 +76,9 @@ struct RecordingInfo {
     still: Option<f64>,
     released: Option<f64>,
     rows: HashMap<String, u64>,
+    limit: Option<f64>,
+    awake: bool,
+    error: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -84,7 +90,7 @@ struct Poll {
 impl Recording {
     fn info(&self) -> RecordingInfo {
         let rows = self.journals.iter().map(|(name, journal)| (name.clone(), journal.rows.load(Ordering::Relaxed))).collect();
-        RecordingInfo { folder: self.folder.display().to_string(), started: self.started, elapsed: now() - self.started, still: self.still, released: self.released, rows }
+        RecordingInfo { folder: self.folder.display().to_string(), started: self.started, elapsed: now() - self.started, still: self.still, released: self.released, rows, limit: self.limit, awake: self.awake.is_some(), error: None }
     }
 }
 
@@ -247,8 +253,40 @@ fn poll(state: State<App>, cursors: HashMap<String, Cursor>, max: usize) -> Poll
     Poll { devices, recording }
 }
 
+// O PC NÃO SUSPENDE ENQUANTO GRAVA: O BLOQUEIO VIVE ENQUANTO O FILHO LÊ A NOSSA PONTA DO stdin, E SOLTA SOZINHO SE O APP MORRER
+fn keep_awake() -> Option<Child> {
+    let mut command = if cfg!(target_os = "linux") {
+        let mut command = Command::new("systemd-inhibit");
+        command.args(["--what=sleep:idle", "--who=MRU Monitor", "--why=gravando um ensaio", "--mode=block", "cat"]);
+        command
+    } else if cfg!(target_os = "macos") {
+        let mut command = Command::new("caffeinate");
+        command.args(["-i", "cat"]);
+        command
+    } else {
+        let mut command = Command::new("powershell");
+        command.args(["-NoProfile", "-NonInteractive", "-Command", "Add-Type -Name Power -Namespace Mru -MemberDefinition '[DllImport(\"kernel32.dll\")] public static extern uint SetThreadExecutionState(uint flags);'; [Mru.Power]::SetThreadExecutionState([uint32]2147483649) | Out-Null; [Console]::In.ReadToEnd() | Out-Null"]);    // ES_CONTINUOUS | ES_SYSTEM_REQUIRED
+        command
+    };
+
+    let mut child = job::prepare(&mut command).stdin(Stdio::piped()).stdout(Stdio::null()).stderr(Stdio::null()).spawn().ok()?;
+    thread::sleep(Duration::from_millis(150));    // NEGADO (polkit, SEM systemd) ELE SAI NA HORA: AÍ A TELA AVISA EM VEZ DE DIZER QUE ESTÁ BLOQUEADO
+
+    if !matches!(child.try_wait(), Ok(None)) {
+        return None;
+    }
+
+    Some(child)
+}
+
+fn release(mut child: Child) {
+    drop(child.stdin.take());
+    let _ = child.kill();
+    let _ = child.wait();
+}
+
 #[tauri::command]
-fn record_start(state: State<App>, folder: String, still: Option<f64>) -> Result<RecordingInfo, String> {
+fn record_start(app: AppHandle, state: State<App>, folder: String, still: Option<f64>, limit: Option<f64>) -> Result<RecordingInfo, String> {
     let mut recording = state.recording.lock().unwrap();
 
     if recording.is_some() {
@@ -264,7 +302,10 @@ fn record_start(state: State<App>, folder: String, still: Option<f64>) -> Result
     for (role, name) in JOURNALS {
         let Some(device) = devices.get(role) else { continue };
         let (journal, sender) = Journal::start(&folder.join(format!("{name}.journal.csv"))).map_err(|error| error.to_string())?;
-        device.shared.0.lock().unwrap().journal = Some(sender);
+        let mut shared = device.shared.0.lock().unwrap();
+        shared.journal = Some(sender);
+        shared.stats.recording_error = None;
+        drop(shared);
         journals.push((name.to_string(), journal));
     }
 
@@ -285,33 +326,89 @@ fn record_start(state: State<App>, folder: String, still: Option<f64>) -> Result
     }
 
     let released = still.filter(|_| table.is_some() || platform);
-    let current = Recording { folder, started, still, journals, released };
+    let limit = limit.filter(|limit| *limit > 0.0);
+    let current = Recording { folder, started, still, journals, released, limit, awake: keep_awake() };
     let info = current.info();
     *recording = Some(current);
+
+    // A DURAÇÃO PROGRAMADA PARA NO BACKEND: VALE COM A TELA EM OUTRA PÁGINA, E A GRAVAÇÃO PARADA APARECE EM "NÃO SALVAS"
+    if let Some(limit) = limit {
+        thread::spawn(move || loop {
+            thread::sleep(Duration::from_millis(500));
+            let state = app.state::<App>();
+            let due = match state.recording.lock().unwrap().as_ref() {
+                Some(current) if current.started == started => now() - started >= limit,
+                _ => return,
+            };
+
+            if due {
+                let _ = stop(&state);
+                return;
+            }
+        });
+    }
+
     Ok(info)
 }
 
 #[tauri::command]
 fn record_stop(state: State<App>) -> Result<RecordingInfo, String> {
-    let current = state.recording.lock().unwrap().take().ok_or("nenhuma gravação em andamento")?;
+    stop(&state)
+}
+
+// FECHA OS DIÁRIOS E DEIXA O recording.json NA PASTA: É POR ELE QUE UMA GRAVAÇÃO NÃO SALVA SE DESCREVE DEPOIS
+fn stop(state: &App) -> Result<RecordingInfo, String> {
+    let mut current = state.recording.lock().unwrap().take().ok_or("nenhuma gravação em andamento")?;
 
     for device in state.devices.lock().unwrap().values() {
-        device.shared.0.lock().unwrap().journal = None;
+        let mut shared = device.shared.0.lock().unwrap();
+        shared.journal = None;
+        shared.stats.recording_error = None;    // O ERRO VAI NA RESPOSTA DO PARAR E NO recording.json; O ALERTA NÃO FICA PARA SEMPRE
     }
 
     if let (Some(_), Some(table)) = (current.released, state.devices.lock().unwrap().get("table")) {
         let _ = table.send("stop", "\r\n");    // A MESA VOLTA PARA CASA E ESPERA O PRÓXIMO start
     }
 
+    if let Some(child) = current.awake.take() {
+        release(child);
+    }
+
     let mut info = current.info();
     info.elapsed = now() - current.started;
 
     for (name, journal) in current.journals {
-        let rows = journal.stop().map_err(|error| format!("erro gravando {name}.csv: {error}"))?;
-        info.rows.insert(name, rows);
+        match journal.stop() {
+            Ok(rows) => _ = info.rows.insert(name, rows),
+            Err(error) => info.error = Some(format!("erro gravando {name}.csv: {error}")),
+        }
     }
 
-    Ok(info)
+    let _ = fs::File::create(current.folder.join("recording.json")).and_then(|mut file| file.write_all(serde_json::to_string_pretty(&info).unwrap_or_default().as_bytes()));
+    info.error.clone().map_or(Ok(info), Err)
+}
+
+// AS GRAVAÇÕES PARADAS E AINDA NÃO SALVAS (.recording-*): PELA DURAÇÃO PROGRAMADA COM A TELA EM OUTRA PÁGINA, OU INTERROMPIDAS PORQUE O APP FECHOU OU O PC CAIU
+#[tauri::command]
+fn list_recordings(state: State<App>, folder: String) -> Vec<Value> {
+    let active = state.recording.lock().unwrap().as_ref().map(|current| current.folder.clone());
+    let Ok(entries) = fs::read_dir(&folder) else { return Vec::new() };
+
+    let mut folders: Vec<Value> = entries
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .filter(|path| path.is_dir() && path.file_name().is_some_and(|name| name.to_string_lossy().starts_with(".recording-")) && Some(path) != active.as_ref())
+        .filter(|path| JOURNALS.iter().any(|(_, name)| path.join(format!("{name}.journal.csv")).exists()))
+        .map(|path| {
+            let journals = JOURNALS.iter().map(|(_, name)| path.join(format!("{name}.journal.csv")));
+            let size: u64 = journals.clone().map(|journal| get_size(&journal)).sum();
+            let modified = journals.filter_map(|journal| fs::metadata(journal).and_then(|meta| meta.modified()).ok()).max().and_then(|time| time.duration_since(UNIX_EPOCH).ok()).map(|time| time.as_secs_f64());
+            json!({"path": path, "name": path.file_name().unwrap().to_string_lossy().trim_start_matches(".recording-"), "recording": read_json(&path.join("recording.json")), "meta": read_json(&path.join("meta.json")), "size": size, "modified": modified})
+        })
+        .collect();
+
+    folders.sort_by(|a, b| b["name"].as_str().cmp(&a["name"].as_str()));
+    folders
 }
 
 #[tauri::command]
@@ -575,7 +672,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .manage(App { devices: Mutex::default(), rig: Arc::new(Rig::new()), recording: Mutex::default(), jobs: Mutex::default(), counter: AtomicU64::new(0) })
         .setup(|app| Ok(fit(&app.get_webview_window("main").expect("janela main do tauri.conf.json"))?))
-        .invoke_handler(tauri::generate_handler![app_defaults, list_ports, discover, connect, disconnect, send, query, firmware_inspect, firmware_start, poll, record_start, record_stop, remove_folder, clear_folder, job_start, job_status, job_cancel, python_check, python_install, simulation_set, simulation_reset, list_sessions, list_calibrations, read_text, write_text, copy_file, open_path, csv_preview])
+        .invoke_handler(tauri::generate_handler![app_defaults, list_ports, discover, connect, disconnect, send, query, firmware_inspect, firmware_start, poll, record_start, record_stop, list_recordings, remove_folder, clear_folder, job_start, job_status, job_cancel, python_check, python_install, simulation_set, simulation_reset, list_sessions, list_calibrations, read_text, write_text, copy_file, open_path, csv_preview])
         .run(tauri::generate_context!())
         .expect("erro ao iniciar o MRU Monitor");
 }
@@ -583,6 +680,31 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn parar_solta_a_suspensao_e_deixa_a_gravacao_descrita() {
+        let folder = std::env::temp_dir().join(format!("mru-stop-{}", std::process::id()));
+        fs::create_dir_all(&folder).unwrap();
+        let (journal, sender) = Journal::start(&folder.join("target.journal.csv")).unwrap();
+        drop(sender);
+
+        let mut awake = keep_awake().expect("o bloqueio de suspensão não abriu");
+        thread::sleep(Duration::from_millis(300));
+        assert!(awake.try_wait().unwrap().is_none(), "o bloqueio morreu sozinho");
+        let pid = awake.id();
+
+        let app = App { devices: Mutex::default(), rig: Arc::new(Rig::new()), recording: Mutex::default(), jobs: Mutex::default(), counter: AtomicU64::new(0) };
+        *app.recording.lock().unwrap() = Some(Recording { folder: folder.clone(), started: now() - 7200.0, still: None, journals: vec![("target".into(), journal)], released: None, limit: Some(3600.0), awake: Some(awake) });
+        stop(&app).unwrap();
+
+        let info = read_json(&folder.join("recording.json")).expect("sem recording.json");
+        assert_eq!(info["limit"], 3600.0);
+        assert!(info["elapsed"].as_f64().unwrap() >= 7200.0);
+        assert!(app.recording.lock().unwrap().is_none());
+        #[cfg(unix)]
+        assert!(unsafe { libc::kill(pid as i32, 0) } != 0, "o processo do bloqueio continuou vivo");
+        fs::remove_dir_all(&folder).unwrap();
+    }
 
     #[test]
     fn cursor_de_um_aparelho_anterior_nao_derruba_o_poll() {
