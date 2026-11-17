@@ -6,14 +6,13 @@
     justify-content: flex-end;
 }
 
-.ConnectionBar .Select {
-    height: 2rem;
+.ConnectionBar .BarSelect {
     width: clamp(9rem, 13vw, 14rem);
-    font-size: .8rem;
+    flex-shrink: 0;
 }
 
-.ConnectionBar .Select.narrow {
-    width: 7.2rem;
+.ConnectionBar .BarSelect.narrow {
+    width: 7.6rem;
 }
 
 .ConnectionDetail {

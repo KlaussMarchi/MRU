@@ -83,7 +83,7 @@
 }
 
 @media (max-width: 1280px) {
-    .MonitorPage .Toolbar .Select.Compact {
+    .MonitorPage .Toolbar .SmoothSelect {
         display: none;
     }
 }

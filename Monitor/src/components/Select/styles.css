@@ -1,0 +1,108 @@
+.Picker {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    height: 2.3rem;
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    padding: 0 .65rem;
+    background: #fff;
+    cursor: pointer;
+    min-width: 0;
+    transition: border-color .15s, box-shadow .15s;
+}
+
+.Picker:hover {
+    border-color: #c9ced6;
+}
+
+.Picker.open, .Picker:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.Picker.compact {
+    height: 2.05rem;
+    font-size: .78rem;
+}
+
+.Picker.disabled {
+    background: var(--soft);
+    cursor: not-allowed;
+}
+
+.Picker input {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-size: .85rem;
+    color: var(--ink);
+    cursor: inherit;
+    text-overflow: ellipsis;
+    padding: 0;
+}
+
+.Picker input[readonly] {
+    caret-color: transparent;
+    user-select: none;
+}
+
+.Picker.compact input {
+    font-size: .78rem;
+}
+
+.Picker input::placeholder {
+    color: var(--faint);
+}
+
+.Picker.disabled input {
+    color: var(--faint);
+}
+
+.PickerIcon {
+    color: var(--faint);
+    font-size: .78rem;
+    flex-shrink: 0;
+}
+
+.PickerChevron {
+    color: var(--muted);
+    font-size: .7rem;
+    flex-shrink: 0;
+    transition: transform .18s ease;
+}
+
+.Picker.open .PickerChevron {
+    transform: rotate(180deg);
+}
+
+.SelectCheck {
+    width: .8rem;
+    flex-shrink: 0;
+    font-size: .72rem;
+    color: var(--accent);
+}
+
+.SelectLabel {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.SelectHint {
+    flex-shrink: 0;
+    font-size: .74rem;
+    font-weight: 450;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', 'Cascadia Mono', 'Fira Code', Menlo, Consolas, monospace;
+}
+
+.SelectLoading {
+    display: inline-flex;
+    align-items: center;
+    gap: .55rem;
+}

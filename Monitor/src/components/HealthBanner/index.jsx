@@ -1,23 +1,30 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AsyncButton from '../AsyncButton'
 import Dialog from '../Dialog'
 import { useDevice, useIssues } from '../../contexts/DeviceContext'
 import './styles.css'
 
+const HOLD    = 700    // ms QUE O PROBLEMA PRECISA DURAR PARA A FAIXA MUDAR OU SUMIR: O QUE PISCA NÃO EMPURRA A TELA
 const ACTIONS = {search: 'Procurar de novo', sync: 'Tentar de novo', restart: 'Reiniciar MRU', stream: 'Iniciar stream', firmware: 'Atualizar firmware'}
 
 
-// O PROBLEMA MAIS GRAVE NUMA LINHA, EM TODAS AS TELAS, COM O QUE DÁ PARA FAZER; O RESTO FICA NOS DETALHES
+// O PROBLEMA MAIS GRAVE NUMA LINHA, EM TODAS AS TELAS, COM O QUE DÁ PARA FAZER; O RESTO FICA NOS DETALHES. ALTURA FIXA, ENTRA E SAI DESLIZANDO
 export default function HealthBanner(){
     const issues   = useIssues()
     const navigate = useNavigate()
     const {connect, disconnect, sync, send, reboot, links, health} = useDevice()
-    const [open, setOpen] = useState(false)
-    const top = issues[0]
+    const [open, setOpen]   = useState(false)
+    const [shown, setShown] = useState(issues[0]?.key ?? null)
+    const last = useRef(issues[0] ?? null)
 
-    if(!top)
-        return null
+    useEffect(() => {
+        const timer = setTimeout(() => setShown(issues[0]?.key ?? null), HOLD)
+        return () => clearTimeout(timer)
+    }, [issues[0]?.key])
+
+    last.current = issues.find(issue => issue.key == shown) ?? last.current    // SAINDO, A FAIXA DESLIZA COM O ÚLTIMO TEXTO
+    const top = last.current
 
     async function act(action){
         const link = links.mru
@@ -46,12 +53,18 @@ export default function HealthBanner(){
 
     return (
         <>
-            <div className={`HealthBanner ${top.level}`}>
-                <span className='HealthMark'>{top.level == 'info' ? 'i' : '!'}</span>
-                <b title={top.title}>{top.title}</b>
-                <span className='HealthDetail' title={top.detail}>{top.detail}</span>
-                {top.action && <AsyncButton small variant='light' text={ACTIONS[top.action]} onClick={() => act(top.action)}/>}
-                <button className='LinkButton' onClick={() => setOpen(true)}>{issues.length > 1 ? `mais ${issues.length - 1}` : 'detalhes'}</button>
+            <div className={`BannerSlot ${shown ? 'open' : ''}`}>
+                <div>
+                    {top && (
+                        <div className={`HealthBanner ${top.level}`}>
+                            <span className='HealthMark'>{top.level == 'info' ? 'i' : '!'}</span>
+                            <b title={top.title}>{top.title}</b>
+                            <span className='HealthDetail' title={top.detail}>{top.detail}</span>
+                            {top.action && <AsyncButton small variant='light' text={ACTIONS[top.action]} onClick={() => act(top.action)}/>}
+                            <button className='LinkButton' onClick={() => setOpen(true)}>{issues.length > 1 ? `mais ${issues.length - 1}` : 'detalhes'}</button>
+                        </div>
+                    )}
+                </div>
             </div>
 
             {open && (

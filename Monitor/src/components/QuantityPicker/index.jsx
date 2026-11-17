@@ -1,3 +1,4 @@
+import Select from '../Select'
 import { QUANTITIES, VARIABLES, getQuantity, getColor } from '../../utils'
 
 
@@ -17,9 +18,7 @@ export default function QuantityPicker({value, onChange, quantities = QUANTITIES
 
     return (
         <div className='QuantityPicker'>
-            <select className='Select' value={quantity.key} onChange={event => choose(event.target.value)} title='Grandeza no gráfico'>
-                {QUANTITIES.filter(item => quantities.includes(item.key)).map(item => <option key={item.key} value={item.key}>{item.label}{item.unit ? ` (${item.unit.split(' ')[0]})` : ''}</option>)}
-            </select>
+            <Select className='QuantitySelect' compact value={quantity.key} onChange={choose} title='Grandeza no gráfico' options={QUANTITIES.filter(item => quantities.includes(item.key)).map(item => ({value: item.key, label: `${item.label}${item.unit ? ` (${item.unit.split(' ')[0]})` : ''}`}))}/>
 
             {quantity.keys.length > 1 && (
                 <div className='Chips'>

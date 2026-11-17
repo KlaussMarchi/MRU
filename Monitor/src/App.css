@@ -365,18 +365,18 @@ button, input, select, textarea {
     min-width: 0;
 }
 
-.QuantityPicker .Select {
-    width: auto;
-    height: 2.05rem;
-    font-weight: 600;
-    font-size: .82rem;
+.QuantityPicker .QuantitySelect {
+    width: 13rem;
+    flex-shrink: 0;
 }
 
-.Select.Compact {
-    width: auto;
-    height: 2.05rem;
-    font-size: .78rem;
-    padding: 0 .4rem 0 .6rem;
+.QuantityPicker .QuantitySelect .Picker input {
+    font-weight: 600;
+}
+
+.SmoothSelect {
+    width: 9.5rem;
+    flex-shrink: 0;
 }
 
 .Segmented {

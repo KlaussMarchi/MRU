@@ -1,10 +1,30 @@
+.BannerSlot {
+    display: grid;
+    grid-template-rows: 0fr;
+    margin-bottom: calc(-1 * var(--gap));
+    opacity: 0;
+    flex-shrink: 0;
+    transition: grid-template-rows .22s ease, margin-bottom .22s ease, opacity .18s ease;
+}
+
+.BannerSlot.open {
+    grid-template-rows: 1fr;
+    margin-bottom: 0;
+    opacity: 1;
+}
+
+.BannerSlot > div {
+    min-height: 0;
+    overflow: hidden;
+}
+
 .HealthBanner {
     display: flex;
     align-items: center;
     gap: .6rem;
-    flex-shrink: 0;
     min-width: 0;
-    padding: .4rem .7rem;
+    height: 2.6rem;    /* A MESMA COM OU SEM BOTÃO: TROCAR DE PROBLEMA NÃO MEXE NA TELA */
+    padding: 0 .7rem;
     border-radius: 12px;
     border: 1px solid transparent;
     font-size: .8rem;

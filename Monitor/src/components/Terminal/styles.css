@@ -89,9 +89,9 @@
     height: 2.2rem;
 }
 
-.TerminalInput .Select {
-    width: 6.5rem;
-    height: 2.2rem;
+.TerminalInput .EndingSelect {
+    width: 7rem;
+    flex-shrink: 0;
 }
 
 .TerminalInput .AsyncButton {

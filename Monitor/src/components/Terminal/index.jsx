@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useDevice, useLive } from '../../contexts/DeviceContext'
 import { useGlobalContext } from '../../contexts/GlobalContext'
+import Select from '../Select'
 import './styles.css'
 
 const KINDS = [
@@ -145,9 +146,7 @@ export default function Terminal({role = 'mru', hint}){
             <div className='TerminalInput'>
                 <input className='Input mono' placeholder='comando, ex.: $status!   (↑ ↓ histórico)' value={message} disabled={!connected} onChange={event => setMessage(event.target.value)} onKeyDown={handleKey}/>
 
-                <select className='Select' value={settings.ending ?? '\r\n'} onChange={event => setSettings({ending: event.target.value})} title='Fim de linha'>
-                    {ENDINGS.map(ending => <option key={ending.label} value={ending.value}>{ending.label}</option>)}
-                </select>
+                <Select className='EndingSelect' value={settings.ending ?? '\r\n'} onChange={ending => setSettings({ending})} title='Fim de linha' search={false} options={ENDINGS.map(ending => ({value: ending.value, label: ending.label}))}/>
 
                 <button className='AsyncButton dark' disabled={!connected || !message.trim()} onClick={() => handleSend()}>Enviar</button>
             </div>

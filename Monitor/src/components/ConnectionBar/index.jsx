@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useDevice, useLive } from '../../contexts/DeviceContext'
 import { BAUDS } from '../../utils'
 import AsyncButton from '../AsyncButton'
+import Select from '../Select'
 import './styles.css'
 
 const TONES   = {synced: 'ok', streaming: 'ok', open: 'warn', silent: 'warn', searching: 'warn', syncing: 'warn', rebooting: 'warn', error: 'bad', off: ''}
@@ -37,16 +38,10 @@ export default function ConnectionBar({role = 'mru'}){
 
             {!active && (
                 <>
-                    <select className='Select' value={port} onChange={event => setPort(event.target.value)} onFocus={refreshPorts} title='Porta'>
-                        <option value='auto'>Porta automática</option>
-                        {ports.map(item => <option key={item.name} value={item.name}>{item.label}</option>)}
-                    </select>
+                    <Select className='BarSelect' compact value={port} onChange={setPort} onOpen={refreshPorts} title='Porta' options={[{value: 'auto', label: 'Porta automática'}, ...ports.map(item => ({value: item.name, label: item.label}))]}/>
 
                     {role == 'mru' && (
-                        <select className='Select narrow' value={baud} disabled={usb} onChange={event => setBaud(event.target.value)} title='Baud rate'>
-                            <option value='auto'>{usb ? 'USB nativo' : 'Baud auto'}</option>
-                            {BAUDS.map(value => <option key={value} value={value}>{value}</option>)}
-                        </select>
+                        <Select className='BarSelect narrow' compact search={false} value={baud} disabled={usb} onChange={setBaud} title='Baud rate' options={[{value: 'auto', label: usb ? 'USB nativo' : 'Baud auto'}, ...BAUDS.map(value => ({value: String(value), label: String(value)}))]}/>
                     )}
 
                     <AsyncButton small text='Conectar' onClick={handleConnect} loading={working}/>

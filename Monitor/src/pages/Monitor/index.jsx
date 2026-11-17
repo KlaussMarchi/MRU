@@ -10,6 +10,7 @@ import AsyncButton from '../../components/AsyncButton'
 import { useDevice, useLive } from '../../contexts/DeviceContext'
 import { getMotion, getInclination } from '../../utils/motion'
 import { LAYOUTS, VARIABLES, formatNumber, formatBytes, formatDuration, getRawFactor, getStored, setStored, getQuantity, getColor } from '../../utils'
+import Select from '../../components/Select'
 import './styles.css'
 
 const READOUTS  = ['pitch', 'roll', 'yaw', 'heave', 'heave_rate', 'tmp']
@@ -63,9 +64,7 @@ export default function MonitorPage(){
                         {WINDOWS.map(option => <span key={option.value} className={view.seconds == option.value ? 'on' : ''} onClick={() => setView({seconds: option.value})}>{option.label}</span>)}
                     </div>
 
-                    <select className='Select Compact' value={view.tau} onChange={event => setView({tau: Number(event.target.value)})} title='Suavização só na tela'>
-                        {SMOOTHING.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
-                    </select>
+                    <Select className='SmoothSelect' compact value={view.tau} onChange={tau => setView({tau: Number(tau)})} title='Suavização só na tela' search={false} options={SMOOTHING.map(option => ({value: option.value, label: option.label}))}/>
 
                     <button className={`IconButton ${paused ? 'on' : ''}`} onClick={() => setPaused(!paused)} title={paused ? 'Continuar' : 'Pausar'}>
                         <FontAwesomeIcon icon={paused ? faPlay : faPause}/>

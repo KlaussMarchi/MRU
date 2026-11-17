@@ -261,7 +261,7 @@ export default function ProductionPage(){
             </div>
 
             <div className='Column ProductionProgress'>
-                <div className='Card fill'>
+                <div className={`Card ${steps.length ? 'fill' : ''}`}>    {/* PARADO, SÓ O PLANO: O CARTÃO TEM O TAMANHO DO TEXTO */}
                     <div className='CardTitle'>Andamento {running && <span className='Pill warn'><span className='Dot pulse'/>em andamento</span>}</div>
 
                     {steps.length == 0 && (
