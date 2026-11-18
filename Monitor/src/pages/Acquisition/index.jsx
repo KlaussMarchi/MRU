@@ -358,7 +358,7 @@ export default function AcquisitionPage(){
                             <span>Referência</span><b>{NAMES[pending.meta.reference] ?? 'nenhuma'}</b>
                         </div>
 
-                        {pending.meta.warnings.map(warning => <div key={warning} className='Notice warn'>{warning}</div>)}
+                        {pending.meta.warnings.map((warning, index) => <div key={index} className='Notice warn'>{warning}</div>)}
 
                         <label className='Field'>
                             <span className='Label'>Nome da sessão</span>
@@ -409,7 +409,7 @@ export default function AcquisitionPage(){
                                     <span>Duração</span><b>{formatDuration(result.duration)}</b>
                                 </div>
 
-                                {result.warnings?.map(warning => <div key={warning} className={`Notice ${warning.startsWith('referência em debug') ? 'info' : 'warn'}`}>{warning}</div>)}
+                                {result.warnings?.map((warning, index) => <div key={index} className={`Notice ${warning.startsWith('referência em debug') ? 'info' : 'warn'}`}>{warning}</div>)}
                             </>
                         )}
 

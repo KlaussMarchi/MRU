@@ -177,7 +177,7 @@ export default function CalibrationPage(){
                 {preview === false && <div className='Notice warn'>Não há data.csv nesta pasta: grave com o MRU e a referência no modo de calibração.</div>}
                 {current && preview !== false && <StaticChart unit='°' data={preview?.angles} lines={LINES}/>}
                 {!current && <div className='Empty'>A prévia mostra os ângulos do MRU contra os da referência. Os eixos do MRU ainda são os do Kernel: o Format os reordena.</div>}
-                {info?.warnings?.filter(warning => !warning.startsWith('referência em debug')).map(warning => <div key={warning} className='Notice warn' style={{marginTop: '.5rem'}}>{warning}</div>)}
+                {info?.warnings?.filter(warning => !warning.startsWith('referência em debug')).map((warning, index) => <div key={index} className='Notice warn' style={{marginTop: '.5rem'}}>{warning}</div>)}
             </div>
 
             <div className='Card CalibrationPipeline'>
