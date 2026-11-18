@@ -83,7 +83,7 @@ export default function HomePage(){
         if(!settings.sessions)
             return
 
-        Promise.all([call('list_sessions', {folder: settings.sessions}), call('list_calibrations', {folder: settings.calibrations})]).then(([sessions, calibrations]) => setLibrary({sessions: sessions.filter(item => item.info?.calibration), calibrations: calibrations.filter(item => item.info)}))
+        Promise.all([call('list_sessions', {folder: settings.sessions}), call('list_calibrations', {folder: settings.calibrations})]).then(([sessions, calibrations]) => setLibrary({sessions: sessions.filter(item => item.info).sort((a, b) => (b.info.created ?? '').localeCompare(a.info.created ?? '')), calibrations: calibrations.filter(item => item.info)}))
     }, [settings.sessions, settings.calibrations])
 
     function getValue(key){
@@ -100,7 +100,7 @@ export default function HomePage(){
     const facts = [
         {label: 'Simulação', value: simulation.enabled ? 'ligada · SIM0 e SIM1' : 'desligada', tone: simulation.enabled ? 'info' : ''},
         {label: 'Python do pipeline', value: !python ? 'verificando' : pythonOk ? `Python ${python.version} completo` : 'incompleto: veja Ajustes', tone: !python ? '' : pythonOk ? 'ok' : 'bad'},
-        {label: 'Sessões de calibração', value: `${library.sessions.length} gravada${library.sessions.length == 1 ? '' : 's'}`, tone: ''},
+        {label: 'Sessões gravadas', value: `${library.sessions.length} · ${library.sessions.filter(item => item.info.calibration).length} de calibração`, tone: ''},
         {label: 'Calibrações', value: `${library.calibrations.length} pacote${library.calibrations.length == 1 ? '' : 's'}`, tone: ''},
         {label: 'Firmware', value: link.firmware ? `${link.firmware}${link.status ? '' : ' (anterior a v1.0.8)'}` : '—', tone: link.firmware && !link.status ? 'warn' : ''}
     ]

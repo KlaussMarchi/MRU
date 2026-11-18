@@ -37,7 +37,7 @@ function getRecovered(item){
     const still   = info.released != null && info.elapsed != null && info.elapsed < info.released ? [`a gravação terminou nos ${STILL} s parados: a plataforma não chegou a se mover`] : []
     const how     = !item.recording ? ['a gravação foi interrompida (o app fechou ou o PC desligou): os dados vão até o último segundo gravado'] : item.recording.limit && item.recording.elapsed >= item.recording.limit ? [`parou sozinha pela duração programada (${formatDuration(item.recording.limit)})`] : []
     const error   = item.recording?.error ? [item.recording.error] : []
-    return {journal: item.path, info, meta: {...meta, duration: Math.round(info.elapsed ?? 0), warnings: [...(meta.warnings ?? []), ...still, ...how, ...error]}}
+    return {journal: item.path, info, meta: {...meta, duration: Math.round(info.elapsed ?? 0), warnings: [...new Set([...(meta.warnings ?? []), ...still, ...how, ...error])]}}    // O meta.json DE UMA TENTATIVA DE SALVAR QUE FALHOU JÁ TRAZ OS AVISOS
 }
 
 
@@ -302,8 +302,10 @@ export default function AcquisitionPage(){
 
                             {missing.length > 0 && <div className='FlowMissing'>{missing.map(item => <div key={item}>• {item}</div>)}</div>}
 
-                            <AsyncButton text='Iniciar gravação' icon={faCircle} variant='red' large onClick={handleStart} disabled={missing.length > 0 || badLimit}/>
-                            {error && <div className='Notice bad FlowHint'>{error}</div>}
+                            <div className='FlowStart'>
+                                <AsyncButton text='Iniciar gravação' icon={faCircle} variant='red' large onClick={handleStart} disabled={missing.length > 0 || badLimit}/>
+                                {error && <div className='Notice bad FlowHint'>{error}</div>}
+                            </div>
                         </div>
                     </div>
                 )}

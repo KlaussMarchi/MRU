@@ -84,7 +84,7 @@
     font-weight: 550;
 }
 
-.FlowStep > .AsyncButton.large {
+.FlowStep > .AsyncButton.large, .FlowStart > .AsyncButton.large {
     width: 100%;
 }
 
@@ -223,4 +223,12 @@
 
 .FlowLimitBad {
     color: var(--red);
+}
+
+/* O BOTÃO DE GRAVAR FICA À VISTA NO PÉ DO CARTÃO: O LOG DO "Aplicar" E O CAMPO DA DURAÇÃO O EMPURRAVAM PARA FORA EM TELA DE NOTEBOOK */
+.FlowStart {
+    position: sticky;
+    bottom: 0;
+    padding-top: .6rem;
+    background: #fff;
 }
