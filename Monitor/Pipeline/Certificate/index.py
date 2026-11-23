@@ -1,70 +1,84 @@
-import os
+import os, datetime
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.colors import HexColor, white
 from reportlab.lib.units import mm
+from reportlab.lib.utils import simpleSplit
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen import canvas
 
-FOLDER  = os.path.dirname(os.path.abspath(__file__))
-LOGO    = f'{FOLDER}/images/measure.png'
-SIGN    = f'{FOLDER}/images/signature.png'
-PLOTTED = ['roll', 'pitch']    # OS DOIS ÂNGULOS QUE O PDF DESENHA
+FOLDER   = os.path.dirname(os.path.abspath(__file__))
+LOGO     = f'{FOLDER}/images/logo.png'
+SIGN     = f'{FOLDER}/images/signature.png'
+PLOTTED  = ['roll', 'pitch']    # OS DOIS ÂNGULOS QUE O PDF DESENHA
+PANEL    = 1.62/3.42            # ALTURA SOBRE LARGURA DOS GRÁFICOS: O figsize DO Analysis
+REGULAR  = 'SourceSans3'
+SEMIBOLD = 'SourceSans3-Semibold'
+BOLD     = 'SourceSans3-Bold'
 
-DARK   = HexColor('#3A1078')
-GREEN  = HexColor('#2E7D32')
-CHECK  = HexColor('#4CAF50')
-TEXT   = HexColor('#333333')
-GRAY   = HexColor('#E0E0E0')
-HEADER = HexColor('#6A3CBC')
-STRIPE = HexColor('#F3EDFA')
-DEBUG  = HexColor('#C62828')
+for name, file in [(REGULAR, 'Regular'), (SEMIBOLD, 'Semibold'), (BOLD, 'Bold')]:
+    pdfmetrics.registerFont(TTFont(name, f'{FOLDER}/fonts/SourceSans3-{file}.ttf'))
 
-FOOTERS = {
-    False: {'background': '#F0F7F0', 'color': CHECK, 'mark': '✓', 'title': 'O sistema MRU atende a todos os requisitos de calibração.', 'text': 'Recomendamos nova calibração em 12 meses.', 'tone': GREEN},
-    True: {'background': '#FDECEC', 'color': DEBUG, 'mark': '!', 'title': 'Ensaio com referência em debug: a referência são os dados do próprio MRU filtrados.', 'text': 'Serve para conferir o pipeline de ponta a ponta; não atesta a calibração do MRU.', 'tone': DEBUG}
+DEEP   = HexColor('#3c0f78')    # A PALETA DO Documents/Datasheet: OS DOCUMENTOS DA MEASURE COM A MESMA CARA
+PURPLE = HexColor('#6b39bd')
+INK    = HexColor('#1f1a2e')
+MUTED  = HexColor('#615b70')
+LINE   = HexColor('#ddd6ea')
+ZEBRA  = HexColor('#f6f4f9')
+TEAL   = HexColor('#2a9d8f')
+RED    = HexColor('#b42318')
+AMBER  = HexColor('#b7791f')
+
+VERDICTS = {
+    'approved': {'title': 'APROVADO', 'mark': 'check', 'label': 'Aprovado', 'color': TEAL, 'ink': HexColor('#1d7468'), 'background': HexColor('#e8f5f2'), 'text': 'O MRU atende a todos os requisitos de calibração deste certificado.'},
+    'failed':   {'title': 'REPROVADO', 'mark': 'cross', 'label': 'Reprovado', 'color': RED, 'ink': RED, 'background': HexColor('#fdecea'), 'text': 'O MRU não atende a todos os requisitos: os itens reprovados estão marcados nas tabelas.'},
+    'debug':    {'title': 'SEM VALIDADE', 'mark': 'alert', 'color': AMBER, 'ink': HexColor('#7f5310'), 'background': HexColor('#fbf3e4'), 'text': 'Referência em debug: os dados de referência são os do próprio MRU filtrados. Confere o pipeline de ponta a ponta, não a calibração.'}
 }
+
+MARKS = {    # AS MARCAS EM TRAÇOS, NA FRAÇÃO DO TAMANHO: O ✓ DA FONTE PARECE UM √
+    'check': [[(-0.45, 0.0), (-0.12, -0.34), (0.45, 0.36)]],
+    'cross': [[(-0.36, -0.36), (0.36, 0.36)], [(-0.36, 0.36), (0.36, -0.36)]],
+    'alert': [[(0, 0.42), (0, -0.08)], [(0, -0.38), (0, -0.39)]]
+}
+
+NOTES = ('Atesta que o MRU foi calibrado conforme os procedimentos internos da Measure Offshore; os resultados valem para o equipamento '
+         'identificado, nas condições do ensaio. Erro é o ângulo medido pelo MRU menos o da plataforma de referência, nos trechos em que ela '
+         'está parada (repouso) e em balanço (movimento). Recomenda-se nova calibração em 12 meses.')
 
 SECTIONS = [
     {
-        'title':  'TESTES DE ACURÁCIA DE ROLL & PITCH',
-        'about':  'O MRU foi submetido a movimentos dinâmicos conhecidos. Comparação entre medido e referência.',
-        'axes':   PLOTTED,
-        'tests':  [('RMS estático (deg)', 'rms_stat', 0.20), ('RMS dinâmico (deg)', 'rms_dyn', 0.50), ('Scale Factor', 'rms_scale_factor', 0.10)],
-        'detail': True,
-        'plots':  True,
-        'gap':    5,
-        'widths': [0.30, 0.18, 0.16, 0.16, 0.20]
+        'title':   'Atitude: roll e pitch',
+        'about':   'A plataforma de referência balança o MRU em pitch e em roll, e o ângulo medido é comparado ao dela em repouso e em movimento.',
+        'columns': ['Roll', 'Pitch'],
+        'tests':   [('Erro RMS em repouso (°)', 'rms_stat', 0.20, PLOTTED), ('Erro RMS em movimento (°)', 'rms_dyn', 0.50, PLOTTED), ('Fator de escala', 'rms_scale_factor', 0.10, PLOTTED)],
+        'plots':   True
     },
     {
-        'title':  'TESTES DE GIROSCÓPIO',
-        'about':  'Verificação através de rotações contínuas em velocidades conhecidas.',
-        'axes':   ['wx', 'wy', 'wz'],
-        'tests':  [('Ruído Estático STD (deg/s)', 'std_stat', 0.30)],
-        'detail': False,
-        'plots':  False,
-        'gap':    5,
-        'widths': [0.40, 0.20, 0.20, 0.20]
-    },
-    {
-        'title':  'TESTE DE ACELERÔMETRO',
-        'about':  'Verificação inclinando o MRU em degraus de 90° em um círculo completo.',
-        'axes':   ['ax', 'ay', 'az'],
-        'tests':  [('Ruído Estático STD (m/s²)', 'std_stat', 0.05)],
-        'detail': False,
-        'plots':  False,
-        'gap':    15,
-        'widths': [0.35, 0.22, 0.22, 0.21]
+        'title':   'Sensores inerciais: ruído em repouso',
+        'about':   'Desvio padrão de cada eixo com o MRU parado sobre a plataforma, nos trechos de repouso do ensaio.',
+        'columns': ['Eixo X', 'Eixo Y', 'Eixo Z'],
+        'tests':   [('Giroscópio (°/s)', 'std_stat', 0.30, ['wx', 'wy', 'wz']), ('Acelerômetro (m/s²)', 'std_stat', 0.05, ['ax', 'ay', 'az'])],
+        'plots':   False
     }
 ]
 
 
-# A FOLHA DO CERTIFICADO, DE CIMA PARA BAIXO: ESPELHO DO Calibration/Certificate
+# NÚMERO COMO SE ESCREVE NO BRASIL
+def formatValue(value, digits):
+    return f'{value:.{digits}f}'.replace('.', ',')
+
+
+# A FOLHA DO CERTIFICADO, DE CIMA PARA BAIXO; TODO draw RECEBE O y ONDE COMEÇA E DEVOLVE O y ONDE PAROU: ESPELHO DO Calibration/Certificate
 class Certificate:
     W, H   = A4
-    MARGIN = 15 * mm
+    MARGIN = 16 * mm
+    ROW    = 16
+    GAP    = 12
 
-    def __init__(self, metrics, plots, info, output, debug=False):
+    def __init__(self, metrics, plots, number, info, output, debug=False):
         self.metrics = metrics
         self.plots   = plots
+        self.number  = number
         self.info    = info
         self.output  = output
         self.debug   = debug
@@ -72,174 +86,204 @@ class Certificate:
     def width(self):
         return self.W - 2*self.MARGIN
 
-    def status(self, value, limit):
-        return 'Aprovado' if value <= limit else 'Reprovado'
-
-    def getHeaders(self, section):
-        measured = [axis.capitalize() for axis in section['axes']] if section['detail'] else ['Medido']
-        return ['Parâmetro', 'Requisito'] + measured + ['Status']
-
-    # UMA LINHA POR REQUISITO, COM O VALOR DE CADA EIXO OU SÓ O PIOR DELES; EIXO QUE NÃO MEDIU AQUILO FICA DE FORA
+    # UMA LINHA POR REQUISITO COM O VALOR DE CADA EIXO; O PIOR EIXO DECIDE; REQUISITO QUE NENHUM EIXO MEDIU FICA DE FORA
     def getRows(self, section):
         rows = []
 
-        for label, key, limit in section['tests']:
-            values = [value for value in (self.metrics.get(axis, {}).get(key) for axis in section['axes']) if value is not None]
+        for label, key, limit, axes in section['tests']:
+            values = [self.metrics.get(axis, {}).get(key) for axis in axes]
+            known  = [value for value in values if value is not None]
 
-            if not values:
+            if not known:
                 continue
 
-            cells = values if section['detail'] else [max(values)]
-            rows.append([label, f'≤ {limit:.4f}'] + [f'{value:.4f}' for value in cells] + [self.status(max(values), limit)])
+            rows.append({'label': label, 'limit': f'≤ {formatValue(limit, 2)}', 'values': ['—' if value is None else formatValue(value, 4) for value in values], 'passed': max(known) <= limit})
 
         return rows
 
+    def getVerdict(self):
+        rows = [row for section in SECTIONS for row in self.getRows(section)]
+        return {'key': 'debug' if self.debug else 'approved' if all(row['passed'] for row in rows) else 'failed', 'passed': sum(row['passed'] for row in rows), 'total': len(rows)}
+
+    def drawText(self, x, y, text, font, size, color, align='left', space=0):
+        c = self.canvas
+        c.setFont(font, size); c.setFillColor(color)
+        {'left': c.drawString, 'right': c.drawRightString, 'center': c.drawCentredString}[align](x, y, text, charSpace=space)
+
+    def drawMark(self, x, y, mark, size, color, width):
+        c = self.canvas
+        c.saveState()
+        c.setStrokeColor(color); c.setLineWidth(width); c.setLineCap(1); c.setLineJoin(1)
+
+        for stroke in MARKS[mark]:
+            path = c.beginPath()
+            path.moveTo(x + stroke[0][0]*size, y + stroke[0][1]*size)
+
+            for dx, dy in stroke[1:]:
+                path.lineTo(x + dx*size, y + dy*size)
+
+            c.drawPath(path, stroke=1, fill=0)
+
+        c.restoreState()
+
+    def drawLines(self, x, y, text, font, size, color, width, leading):
+        for line in simpleSplit(text, font, size, width):
+            self.drawText(x, y, line, font, size, color)
+            y -= leading
+
+        return y
+
+    # O CABEÇALHO DO DATASHEET: LOGO À ESQUERDA, O DOCUMENTO À DIREITA E O FIO ROXO EMBAIXO
     def drawHeader(self):
+        c, top = self.canvas, self.H - 13*mm
+
+        c.drawImage(LOGO, self.MARGIN, top - 36, height=42, width=42*262/175, mask='auto')
+        self.drawText(self.W - self.MARGIN, top - 4, 'CERTIFICADO DE CALIBRAÇÃO', BOLD, 17, DEEP, 'right', 0.4)
+        self.drawText(self.W - self.MARGIN, top - 19, 'Unidade de referência de movimento · Measure MRU', REGULAR, 9, MUTED, 'right')
+        self.drawText(self.W - self.MARGIN, top - 33, f'Nº {self.number}', SEMIBOLD, 9, INK, 'right')
+
+        c.setStrokeColor(PURPLE); c.setLineWidth(0.9)
+        c.line(self.MARGIN, top - 44, self.W - self.MARGIN, top - 44)
+        return top - 44
+
+    # A MARCA D'ÁGUA POR CIMA DE TUDO, GRÁFICOS INCLUSIVE: A REFERÊNCIA FOI O PRÓPRIO MRU
+    def drawWatermark(self):
         c = self.canvas
-        height = 55
 
-        c.setFillColor(DARK)
-        c.rect(0, self.H - height, self.W, height, fill=1, stroke=0)
-        c.drawImage(LOGO, 12, self.H - height + 8, width=120, height=40, preserveAspectRatio=True, mask='auto')
+        c.saveState()
+        c.setFillColor(AMBER); c.setFillAlpha(0.09)
+        c.translate(self.W/2, self.H/2 - 40); c.rotate(38)
+        c.setFont(BOLD, 130); c.drawCentredString(0, -45, 'DEBUG')
+        c.restoreState()
 
-        c.setFillColor(white)
-        c.setFont('Helvetica-Bold', 18); c.drawRightString(self.W - 15, self.H - 28, 'CERTIFICADO DE CALIBRAÇÃO')
-        c.setFont('Helvetica', 12);      c.drawRightString(self.W - 15, self.H - 44, 'MRU')
+    # OS DADOS DO ENSAIO EM DUAS COLUNAS À ESQUERDA E O PARECER À DIREITA, NA MESMA ALTURA
+    def drawSummary(self, top):
+        c       = self.canvas
+        height  = 100
+        left    = self.width() * 0.6
+        right   = self.width() - left - self.GAP
+        x       = self.MARGIN + left + self.GAP
+        verdict = self.getVerdict()
+        style   = VERDICTS[verdict['key']]
+        items   = list(self.info.items())
+        half    = (len(items) + 1) // 2
 
-    # OS DADOS À ESQUERDA E, À DIREITA, O TEXTO QUEBRADO NA LARGURA QUE SOBRA MAIS A ASSINATURA
-    def drawInfo(self, top):
-        c = self.canvas
-        y = top - 10
+        self.drawText(self.MARGIN, top - 9, 'IDENTIFICAÇÃO', BOLD, 7.5, DEEP, space=0.5)
 
-        for label, value in self.info.items():
-            c.setFillColor(TEXT)
-            c.setFont('Helvetica-Bold', 7.5); c.drawString(self.MARGIN + 5, y, f'{label}:')
-            c.setFont('Helvetica', 7.5);      c.drawString(self.MARGIN + 125, y, str(value))
-            y -= 13
+        for index, (label, value) in enumerate(items):
+            column, row = divmod(index, half)
+            px, py      = self.MARGIN + column * left/2, top - 26 - row*22
+            self.drawText(px, py, label, REGULAR, 7, MUTED)
+            self.drawText(px, py - 10, str(value), SEMIBOLD, 9.5, INK)
 
-        left  = self.W/2 + 20
-        limit = self.W - self.MARGIN - left - 10
-        block = c.beginText(left, top - 10)
-        block.setFont('Helvetica', 7)
-        block.setFillColor(TEXT)
-        line  = ''
+        c.setFillColor(style['background'])
+        c.roundRect(x, top - height, right, height, 4, fill=1, stroke=0)
+        c.setFillColor(style['color'])
+        c.rect(x, top - height, 2.5, height, fill=1, stroke=0)
 
-        for word in 'Este certificado atesta que o sistema MRU foi calibrado conforme procedimentos internos.'.split():
-            if c.stringWidth(f'{line} {word}'.strip(), 'Helvetica', 7) < limit:
-                line = f'{line} {word}'.strip()
-                continue
+        c.circle(x + 25, top - 27, 12, fill=1, stroke=0)
+        self.drawMark(x + 25, top - 27, style['mark'], 11, white, 2.2)
+        self.drawText(x + 44, top - 25, style['title'], BOLD, 17, style['ink'], space=0.4)
+        self.drawText(x + 44, top - 38, f'{verdict["passed"]} de {verdict["total"]} requisitos atendidos', SEMIBOLD, 8.5, INK)
+        self.drawLines(x + 14, top - 60, style['text'], REGULAR, 8.5, INK, right - 26, 11)
+        return top - height
 
-            block.textLine(line)
-            line = word
-
-        block.textLine(line)
-        c.drawText(block)
-        c.drawImage(SIGN, left + 60, top - 70, width=90, height=30, preserveAspectRatio=True, mask='auto')
-        c.setFont('Helvetica', 6.5)
-        c.drawString(left + 60, top - 78, 'Eng. de Calibração')
-        return top - 100
-
+    # O TÍTULO NUMERADO DO DATASHEET, EM CAIXA ALTA COM O FIO ROXO, E A DESCRIÇÃO DO ENSAIO
     def drawSection(self, top, number, section):
         c = self.canvas
 
-        c.setFont('Helvetica-Bold', 9); c.setFillColor(DARK)
-        c.drawString(self.MARGIN, top, f'{number}. {section["title"]}')
+        c.setFillColor(PURPLE)
+        c.rect(self.MARGIN, top - 14, 14, 14, fill=1, stroke=0)
+        self.drawText(self.MARGIN + 7, top - 10.5, str(number), BOLD, 9.5, white, 'center')
+        self.drawText(self.MARGIN + 21, top - 11, section['title'].upper(), BOLD, 11, INK, space=0.3)
 
-        c.setFont('Helvetica', 6.5); c.setFillColor(TEXT)
-        c.drawString(self.MARGIN, top - 14, section['about'])
-        return top - 26
+        c.setStrokeColor(PURPLE); c.setLineWidth(0.6)
+        c.line(self.MARGIN, top - 19, self.W - self.MARGIN, top - 19)
+        return self.drawLines(self.MARGIN, top - 30, section['about'], REGULAR, 8.5, MUTED, self.width(), 11) - 1
 
-    def drawTable(self, top, headers, rows, widths):
-        c      = self.canvas
-        table  = self.width()
-        widths = [table*fraction for fraction in widths]
-        x, y   = self.MARGIN, top
+    # CABEÇALHO ROXO, LINHAS ALTERNADAS E O RESULTADO DE CADA REQUISITO NUMA ETIQUETA COLORIDA
+    def drawTable(self, top, section):
+        c       = self.canvas
+        rows    = self.getRows(section)
+        headers = ['Parâmetro', 'Requisito'] + section['columns'] + ['Resultado']
+        first   = self.width() * 0.36
+        last    = self.width() * 0.16
+        middle  = (self.width() - first - last) / (len(headers) - 2)
+        widths  = [first] + [middle] * (len(headers) - 2) + [last]
+        starts  = [self.MARGIN + sum(widths[:index]) for index in range(len(widths))]
+        y       = top
 
-        c.setFillColor(HEADER)
-        c.rect(x, y - 18, table, 18, fill=1, stroke=0)
-        c.setFillColor(white)
-        c.setFont('Helvetica-Bold', 7)
+        c.setFillColor(DEEP)
+        c.rect(self.MARGIN, y - self.ROW, self.width(), self.ROW, fill=1, stroke=0)
 
-        cx = x
-        for i, header in enumerate(headers):
-            c.drawCentredString(cx + widths[i]/2, y - 12, header)
-            cx += widths[i]
+        for index, header in enumerate(headers):
+            self.drawText(starts[index] + 6 if index == 0 else starts[index] + widths[index]/2, y - 11, header, SEMIBOLD, 8, white, 'left' if index == 0 else 'center')
 
-        y -= 18
+        y -= self.ROW
 
         for line, row in enumerate(rows):
-            if line % 2 == 1:
-                c.setFillColor(STRIPE)
-                c.rect(x, y - 16, table, 16, fill=1, stroke=0)
+            if line % 2:
+                c.setFillColor(ZEBRA)
+                c.rect(self.MARGIN, y - self.ROW, self.width(), self.ROW, fill=1, stroke=0)
 
-            cx = x
-            for i, cell in enumerate(row):
-                approved = (str(cell) == 'Aprovado')
-                c.setFillColor(GREEN if approved else TEXT)
-                c.setFont('Helvetica-Bold' if approved else 'Helvetica', 6.5)
-                c.drawCentredString(cx + widths[i]/2, y - 11, str(cell))
-                cx += widths[i]
+            cells = [row['limit']] + row['values']
+            self.drawText(starts[0] + 6, y - 11, row['label'], REGULAR, 8.5, INK)
 
-            y -= 16
+            for index, cell in enumerate(cells, start=1):
+                self.drawText(starts[index] + widths[index]/2, y - 11, cell, REGULAR, 8.5, MUTED if index == 1 else INK, 'center')
 
-        c.setStrokeColor(GRAY)
-        c.setLineWidth(0.3)
-        c.line(x, y, x + table, y)
-        return y - 5
+            style = VERDICTS['approved' if row['passed'] else 'failed']
+            c.setFillColor(style['background'])
+            c.roundRect(starts[-1] + widths[-1]/2 - 31, y - 12.5, 62, 10.5, 5.25, fill=1, stroke=0)
+            label = starts[-1] + widths[-1]/2 - (pdfmetrics.stringWidth(style['label'], SEMIBOLD, 7.5) - 9) / 2
+            self.drawMark(label - 6, y - 7.6, style['mark'], 6, style['ink'], 1.1)
+            self.drawText(label, y - 10.3, style['label'], SEMIBOLD, 7.5, style['ink'])
 
-    # REFERÊNCIA x MEDIDO EM CIMA, ERRO EMBAIXO, UM ÂNGULO POR COLUNA
+            c.setStrokeColor(LINE); c.setLineWidth(0.6)
+            c.line(self.MARGIN, y - self.ROW, self.W - self.MARGIN, y - self.ROW)
+            y -= self.ROW
+
+        return y
+
+    # DETALHE EM MOVIMENTO EM CIMA E ERRO DO ENSAIO INTEIRO EMBAIXO, UM ÂNGULO POR COLUNA, NO TAMANHO EM QUE FORAM DESENHADOS
     def drawPlots(self, top):
-        gap    = 8
-        width  = (self.width() - gap) / 2
-        height = width * (150/250)
+        width  = (self.width() - self.GAP) / 2
+        height = width * PANEL
         y      = top
 
         for name in ['ref_vs_model', 'error']:
             for column, axis in enumerate(PLOTTED):
-                self.canvas.drawImage(self.plots[f'{axis}_{name}'], self.MARGIN + column*(width + gap), y - height, width=width, height=height, mask='auto')
+                self.canvas.drawImage(self.plots[f'{axis}_{name}'], self.MARGIN + column*(width + self.GAP), y - height, width=width, height=height, mask='auto')
 
-            y -= height + 5
+            y -= height + 6
 
-        return y
+        return y + 6
 
-    # FAIXA SOB O CABEÇALHO E MARCA D'ÁGUA: A REFERÊNCIA FOI O PRÓPRIO MRU
-    def drawDebug(self):
-        c = self.canvas
+    # AS OBSERVAÇÕES À ESQUERDA E A ASSINATURA DO RESPONSÁVEL À DIREITA
+    def drawClosing(self, top):
+        c     = self.canvas
+        left  = self.width() * 0.6
+        x     = self.MARGIN + left + 2*self.GAP
+        width = self.W - self.MARGIN - x
 
-        c.setFillColor(DEBUG)
-        c.rect(0, self.H - 72, self.W, 17, fill=1, stroke=0)
-        c.setFillColor(white)
-        c.setFont('Helvetica-Bold', 7.5); c.drawCentredString(self.W/2, self.H - 66, 'REFERÊNCIA EM DEBUG · OS DADOS DE REFERÊNCIA SÃO OS DO PRÓPRIO MRU FILTRADOS · NÃO VALE COMO CERTIFICADO')
+        self.drawText(self.MARGIN, top - 9, 'OBSERVAÇÕES', BOLD, 7.5, DEEP, space=0.5)
+        bottom = self.drawLines(self.MARGIN, top - 22, NOTES, REGULAR, 7.5, MUTED, left, 10)
 
-        c.saveState()
-        c.setFillColor(DEBUG); c.setFillAlpha(0.11)
-        c.translate(self.W/2, self.H/2); c.rotate(40)
-        c.setFont('Helvetica-Bold', 120); c.drawCentredString(0, -40, 'DEBUG')
-        c.restoreState()
+        c.drawImage(SIGN, x + width/2 - 52, top - 44, width=104, height=32.5, mask='auto')
+        c.setStrokeColor(INK); c.setLineWidth(0.5)
+        c.line(x, top - 46, x + width, top - 46)
+        self.drawText(x + width/2, top - 57, 'Eng. de Calibração', SEMIBOLD, 8.5, INK, 'center')
+        self.drawText(x + width/2, top - 67, 'Responsável técnico · Measure Offshore', REGULAR, 7.5, MUTED, 'center')
+        return min(bottom, top - 67)
 
     def drawFooter(self):
-        c      = self.canvas
-        footer = FOOTERS[self.debug]
-        x, y   = self.MARGIN + 12, 17.5
+        c, y = self.canvas, 12*mm
 
-        c.setFillColor(HexColor(footer['background']))
-        c.rect(0, 0, self.W, 35, fill=1, stroke=0)
-        c.setStrokeColor(footer['color'])
-        c.setLineWidth(1)
-        c.line(0, 35, self.W, 35)
-
-        c.setFillColor(footer['color'])
-        c.circle(x, y, 10, fill=1, stroke=0)
-        c.setFillColor(white)
-        c.setFont('Helvetica-Bold', 14); c.drawCentredString(x, y - 5, footer['mark'])
-
-        c.setFillColor(footer['tone'])
-        c.setFont('Helvetica-Bold', 6.5); c.drawString(x + 18, y + 4, footer['title'])
-        c.setFillColor(TEXT)
-        c.setFont('Helvetica', 5.5);      c.drawString(x + 18, y - 6, footer['text'])
-
-        c.setFillColor(DARK)
-        c.setFont('Helvetica-Bold', 7);   c.drawRightString(self.W - self.MARGIN, y + 5, 'measureoffshore.com')
+        c.setStrokeColor(LINE); c.setLineWidth(0.6)
+        c.line(self.MARGIN, y + 10, self.W - self.MARGIN, y + 10)
+        self.drawText(self.MARGIN, y, 'Measure Offshore · measureoffshore.com', SEMIBOLD, 7.5, DEEP)
+        self.drawText(self.W/2, y, f'Certificado {self.number} · emitido em {datetime.datetime.now():%d/%m/%Y %H:%M}', REGULAR, 7.5, MUTED, 'center')
+        self.drawText(self.W - self.MARGIN, y, 'Página 1 de 1', REGULAR, 7.5, MUTED, 'right')
 
     def export(self):
         missing = [axis for axis in PLOTTED if f'{axis}_error' not in self.plots]
@@ -247,21 +291,26 @@ class Certificate:
         if missing:
             raise ValueError(f'a estratégia não estima {missing}: o certificado precisa de roll e pitch')
 
-        self.canvas = canvas.Canvas(self.output, pagesize=A4)
-        self.drawHeader()
+        self.canvas = canvas.Canvas(self.output, pagesize=A4, initialFontName=REGULAR)
+        self.canvas.setTitle(f'Certificado de calibração {self.number}')
+        self.canvas.setAuthor('Measure Offshore')
+        self.canvas.setSubject(f'Calibração do MRU · {" · ".join(str(value) for value in self.info.values())}')
+        self.canvas.setCreator('MRU Monitor')
 
-        if self.debug:
-            self.drawDebug()
-
-        y = self.drawInfo(self.H - (82 if self.debug else 65))
+        y = self.drawSummary(self.drawHeader() - 16)
 
         for number, section in enumerate(SECTIONS, start=1):
-            y = self.drawSection(y - section['gap'], number, section)
-            y = self.drawTable(y - 3, self.getHeaders(section), self.getRows(section), section['widths'])
+            y = self.drawSection(y - 24, number, section)
+            y = self.drawTable(y - 4, section)
 
             if section['plots']:
-                y = self.drawPlots(y - 3)
+                y = self.drawPlots(y - 10)
 
+        self.drawClosing(y - 26)
         self.drawFooter()
+
+        if self.debug:
+            self.drawWatermark()
+
         self.canvas.save()
         return self.output

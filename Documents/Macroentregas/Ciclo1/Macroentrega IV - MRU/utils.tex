@@ -1,0 +1,120 @@
+% NOVOS COMANDOS PARA TÓPICOS E CORES
+\newcommand{\espaco}{\hspace{0.2cm}}
+\newcommand{\espacolongo}{\hspace{1cm}}
+\newcommand{\derivada}{\frac{d}{dx}}
+\newcommand{\seta}{$\rightarrow\,\,\,$}
+\newcommand{\Seta}{$\Rightarrow\,\,\,$}
+\newcommand{\obs}{\color{red} Obs: \color{black}}
+\newcommand{\linha}{\noindent\rule{20cm}{0.4pt}}
+\newcommand{\ponto}{\textbullet \hspace{0.1cm}}
+\newcommand{\cor}[2]{\color{#1}#2\color{black}}
+\newcommand{\cors}[2]{\color{#1}#2 \color{black}}
+\newcommand{\quadrado}{\scalebox{0.8}{$\,\, \blacksquare \,\,$ }}
+
+% COMANDOS PARA CAIXAS COLORIDAS E TEXTOS ESTÉTICOS
+\newcommand{\blueText}[1]{
+    \color{DeepSkyBlue2} #1 \color{black}
+}
+\newcommand{\ex}[1]{
+    \colorbox{DeepSkyBlue2}{\color{white}\textbf{EXEMPLO #1}\color{black}}
+}
+\newcommand{\legenda}[1]{
+    \colorbox{DeepSkyBlue2}{\color{white}\textbf{#1}\color{black}}
+}
+\newcommand{\legendaMatematica}[2]{
+    \phantom{#2} \hfill $#1$ \hfill #2
+}
+\newcommand{\centermat}[1]{
+    \begin{center} $#1$ \end{center}
+}
+\newcommand{\cvsection}[2][]{
+  \bigskip \bigskip{\color{black} \LARGE \bfseries \MakeUppercase{#2}}\\[-1ex]
+  \color{orange}\rule{\linewidth}{2pt} \\ \color{black}
+}
+\newcommand{\cvtag}[1]{
+  \tikz[baseline]\node[anchor=base,draw=black!80!white,rounded corners,inner xsep=1ex,inner ysep=0.75ex,text height=1.5ex,text depth=.25ex]{\color{gray}#1\color{black}};
+  \vspace{0.25ex}
+}
+\newcommand{\cvlang}[2]{%
+    \textcolor{black}{\textbf{#1:}}
+    \textcolor{blue!70!black}{\textbf{#2}}
+}
+\newcommand{\divider}{
+    \textcolor{black!80!white!30}{\hdashrule{\linewidth}{0.6pt}{0.5ex}}\smallskip
+}
+\newcommand{\topico}[1]{
+    \large\color{red}#1\normalsize \color{black} \\
+}
+\newcommand{\titulo}[1]{
+    \begin{center} \Large \color{blue} #1 \normalsize \color{black} \end{center}
+}
+\newcommand{\fillPage}[1]{
+    \color{white} a \color{black}
+    \vfill  
+    
+    #1
+    
+    \vfill
+    \color{white} a \color{black}
+    \newpage
+}
+\newcommand{\modeloTeorema}[2]{
+    \begin{center}
+    \begin{minipage}{.8\linewidth}
+        \tcbset{
+            enhanced,            % ESTILO DO QUADRO
+            left=5mm,            % ESPAÇAMENTO ESQUERDO
+            right=5mm,           % ESPAÇAMENTO DIREITO
+            top=5mm,             % ESPAÇAMENTO SUPERIOR TEXTO
+            bottom=5mm,          % ESPAÇAMENTO INFERIOR TEXTO
+            boxrule=1pt,         % GROSSURA DAS LINHAS DE BORDA
+            fonttitle=\bfseries, % ESTILO DA FONTE DO TÍTULO
+            toptitle=2mm,   % ESPAÇAMENTO SUPERIOR TITULO
+            bottomtitle=2mm % ESPAÇAMENTO INFERIOR TITULO
+        }
+        \begin{tcolorbox}[
+            colback=blue!25!white,     % COR DO FUNDO DO TEXTO
+            colframe=orange!70!yellow, % COR DO FUNDO DO TÍTULO
+            title=\centering \color{black} #1
+            ]
+            #2
+        \end{tcolorbox}
+    \end{minipage}
+    \end{center}
+}
+\newcommand{\titleBox}[4]{
+    \begin{center}
+    \begin{minipage}{.#1\linewidth}
+        \tcbset{
+            enhanced, left=4mm, right=4mm,top=4mm,
+            bottom=4mm,boxrule=2pt
+        }
+        \begin{tcolorbox}[colback=#2]
+            \color{#3} \Large \bfseries \centering
+            #4
+        \end{tcolorbox}
+    \end{minipage}
+    \end{center}
+}
+\newcommand{\bigpar}[1]{
+    \bigg( #1\bigg )
+}
+\newcommand{\bordaImagem}[2]{
+    \efboxsetup{linecolor=black,linewidth=#1, margin=0pt}
+    \efbox{#2}
+}
+
+\newcommand{\referencia}[5]{
+    \begin{flushleft} \noindent \justify \small
+        \hypertarget{#1}{}
+        #1. #2, #3. Disponível em: #4. Acesso em: #5.
+    \end{flushleft}\vspace{-1cm}
+}
+
+\newcommand{\fcol}[2]{%
+  \multicolumn{1}{|m{\dimexpr #1\linewidth - 2\tabcolsep\relax}|}{\centering #2}%
+}
+
+\newcommand{\col}[2]{%
+  \multicolumn{1}{m{\dimexpr #1\linewidth - 2\tabcolsep\relax}|}{\centering #2}%
+}

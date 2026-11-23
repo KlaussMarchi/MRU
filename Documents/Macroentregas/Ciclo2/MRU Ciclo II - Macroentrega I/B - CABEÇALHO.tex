@@ -1,0 +1,44 @@
+\fancypagestyle{modeloTexto}{
+    % MOSTRA CABEÇALHO E NÚMERO DE PÁGINAS
+    \pagestyle{fancy}
+    
+    \chead{
+        \begin{center}
+            \includegraphics[width=17cm]{imagensCapa/head.png}
+        \end{center}
+    }
+    
+    % CABEÇALHO NO CANTO INFERIOR ESQUERDO
+    \lfoot{}
+    
+    % CABEÇALHO NO CANTO INFERIOR DIREITO
+    \rfoot{}
+
+    \cfoot{
+        \vspace{-0.7cm}
+        \thepage
+    }
+    
+    % ESPESSURA DA LINHA DO CABEÇALHO (0 ELIMINA ESSA LINHA)
+    \renewcommand{\headrulewidth}{0pt}    
+}
+
+\fancypagestyle{modeloReferencias}{
+    % MOSTRA CABEÇALHO E NÚMERO DE PÁGINAS
+    \pagestyle{fancy}
+    
+    % CABEÇALHO NO CANTO SUPERIOR ESQUERDO
+    \lhead{}
+        
+    % CABEÇALHO NO CANTO SUPERIOR DIREITO -> \RIGHTMARK MOSTRA A SUBSECTION
+    \rhead{}
+    
+    % CABEÇALHO NO CANTO INFERIOR ESQUERDO
+    \lfoot{}
+    
+    % CABEÇALHO NO CANTO INFERIOR DIREITO
+    \rfoot{}
+    
+    % ESPESSURA DA LINHA DO CABEÇALHO (0 ELIMINA ESSA LINHA)
+    \renewcommand{\headrulewidth}{0pt}   
+}

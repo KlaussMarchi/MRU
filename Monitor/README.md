@@ -10,7 +10,7 @@ Monitor/
 ├── src/                 interface React: telas em src/pages, componentes em src/components, contextos e utils
 ├── src-tauri/           backend em Rust: serial, descoberta de porta e baud, simulador, gravação, tarefas Python
 ├── Pipeline/            pipeline de calibração (os algoritmos de Calibration/): Format → Certificado
-│   └── Session/         transforma a gravação em target.csv, reference.csv, data.csv e info.json
+│   └── Session/         transforma a gravação em mru.csv (dados) ou target.csv, reference.csv e data.csv (ensaio), com o info.json
 ├── Data/                sessões e calibrações em desenvolvimento (Sessions/, Calibrations/; fora do Git)
 └── public/, index.html  favicon e a página que o Vite monta
 ```
@@ -141,11 +141,12 @@ A porta fica reservada durante o envio, então outra tela não consegue mandar c
 
 ## 9. Referência em debug (sem a plataforma)
 
-Na Aquisição, em modo de calibração e sem a plataforma conectada, a caixa **Sem plataforma · referência em debug**
-deixa gravar e calibrar só com o MRU. O `Session` usa como referência os ângulos do próprio MRU (pitch, roll e proa)
+Na Aquisição, com o MRU preparado para calibração e sem a plataforma conectada, a caixa **Referência em debug** deixa
+gravar e calibrar só com o MRU. O `Session` usa como referência os ângulos do próprio MRU (pitch, roll e proa)
 filtrados sem atraso (Butterworth de 2ª ordem a 2 Hz, ida e volta) e marca a sessão com `reference: debug`. O pipeline
 roda inteiro, mesmo sem trecho parado ou sem balanço, e o pacote sai com `reference: debug` no `calibration.json`; o
-certificado ganha a faixa e a marca d'água **REFERÊNCIA EM DEBUG** e um rodapé avisando que não atesta a calibração.
+certificado sai com o parecer **SEM VALIDADE** e a marca d'água **DEBUG** por cima da folha, avisando que não atesta a
+calibração.
 Com a plataforma conectada, a referência é sempre a dela.
 
 ## 10. Telas
@@ -163,7 +164,7 @@ uma cor fixa; a plataforma aparece tracejada na cor da variável do MRU.
 |---|---|
 | Início | Horizonte artificial e leituras ao vivo, conexão automática, estado do ambiente, o fluxo Aquisição → Calibração → Produção com o último resultado de cada passo, ferramentas e guias. |
 | Monitor | Gráfico ao vivo, todas as leituras, saúde do stream, resumo de 20 min (Arf, VArf, SHR) e o terminal, aberto ao entrar e recolhível, com o stream na taxa em que chega (o chip *Stream* esconde). |
-| Aquisição | Três passos com o estado de cada um: modo (calibração, SCALE, CALIBRATED, RAW ou como está) com o que o MRU transmite agora, referência (plataforma ou debug) e gravar, com o que vai acontecer e o que ainda falta; gravação com cronômetro e a linha do tempo do programa da plataforma (parado → pitch → roll → repouso), e a sessão salva, com o gráfico do MRU contra a plataforma. |
+| Aquisição | O botão de gravar fica ativo assim que o MRU transmite e grava o que ele transmite. *Preparar o MRU* (opcional) troca o modo (Calibração, Escala, Calibrado, Bruto) e marca o atual com "agora"; *Referência* conecta a plataforma. O cartão do pé diz antes do clique o que vai sair: **gravação de dados** (um `mru.csv` só com as colunas do stream, para monitorar horas ou dias) ou, com o MRU em Calibração (SCALE a 200 Hz) e a plataforma ou a referência em debug, **ensaio de calibração** (a plataforma recebe `start`, e a linha do tempo mostra parado → pitch → roll → repouso). A sessão salva leva à Calibração. |
 | Calibração | Sessões, prévia, pipeline e a biblioteca de pacotes com o resultado de cada um. Durante o pipeline, uma janela mostra as etapas, a barra, o tempo decorrido e o restante. |
 | Produção | Envia a calibração pela serial (`CL:`, CRC por chave, flash, reinício, conferência) e configura a saída de operação com autostream. |
 | Dispositivo | Identificação do MRU, reiniciar, ver a configuração em JSON, **diagnóstico** com a lista do que está bem e os eventos do MRU desde o boot, e em abas a configuração com um reinício só, a **atualização do firmware** e o align do Kernel, com o terminal largo na mesma tela. |
@@ -186,7 +187,7 @@ uma cor fixa; a plataforma aparece tracejada na cor da variável do MRU.
 | `4 - Heave/1 - Model.ipynb` | `Heave/index.py` |
 | `5 - Lever/1 - Model.ipynb` | `Lever/index.py` (o ponto vem da tela de Calibração) |
 | `Analysis.ipynb` | `Analysis/index.py` |
-| `Certificate/1 - Certificate.ipynb` | `Certificate/index.py` (+ `images/`) |
+| `Certificate/1 - Certificate.ipynb` | `Certificate/index.py` (+ `images/` e `fonts/`, a Source Sans 3 do datasheet) |
 | células de exportação dos `config.h` | `Firmware/index.py` (escreve os `config.h` e lê de volta as chaves do `CL:`) |
 
 **Tempo.** Num ensaio de ~5 min a 200 Hz o pipeline leva ~4 min com KalmanFusion e ~20 s com LinearFit (antes, mais de

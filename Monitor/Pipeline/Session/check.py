@@ -1,4 +1,4 @@
-# CONFERE QUE A SESSÃO EM BLOCOS (stream) SAI IGUAL BYTE A BYTE À DO load() INTEIRO NA MEMÓRIA
+# CONFERE QUE A SESSÃO EM BLOCOS (stream, mru.csv) SAI IGUAL BYTE A BYTE À DO load() INTEIRO NA MEMÓRIA (target.csv)
 # USO: python Pipeline/Session/check.py   (reference: debug FORÇA O CAMINHO ANTIGO; null, O NOVO)
 import numpy as np, os, subprocess, sys, tempfile, filecmp
 
@@ -13,27 +13,29 @@ ints = rng.integers(-20000, 20000, (ROWS, 9))
 header = 'host,layout,time,tmp,pitch,roll,yaw,ax,ay,az,wx,wy,wz,heave,heave_rate,q0,q1,q2,q3'
 
 
-def line(i):
+def line(i, mixed):
     tmp    = '' if i == ROWS - 10 else '352'    # NaN SÓ NO ÚLTIMO BLOCO: O pandas INTEIRO LÊ A COLUNA COMO float
-    layout = 'raw' if i < 100_000 else 'scale'
+    layout = 'raw' if mixed and i < 100_000 else 'scale'
     time   = '' if i == 5 else f'{t[i]:.3f}'
     return f'{host[i]:.6f},{layout},{time},{tmp},' + ','.join(map(str, ints[i])) + ',0.001,,,,,'
 
 
-def run(folder, reference):
-    journal = os.path.join(folder, f'rec-{reference}')
+def run(folder, reference, mixed):
+    name    = f'{reference}-{mixed}'
+    journal = os.path.join(folder, f'rec-{name}')
     os.makedirs(journal)
 
     with open(os.path.join(journal, 'target.journal.csv'), 'w') as file:
-        file.write(header + '\n' + '\n'.join(map(line, range(ROWS))) + '\n')
+        file.write(header + '\n' + '\n'.join(line(i, mixed) for i in range(ROWS)) + '\n')
 
-    meta = os.path.join(folder, f'meta-{reference}.json')
+    meta = os.path.join(folder, f'meta-{name}.json')
     open(meta, 'w').write(f'{{"mode": "teste", "reference": {"null" if reference == "new" else chr(34) + "debug" + chr(34)}, "warnings": []}}')
-    subprocess.run([sys.executable, SCRIPT, journal, os.path.join(folder, reference), meta], check=True, stdout=subprocess.DEVNULL)
-    return os.path.join(folder, reference, 'target.csv')
+    subprocess.run([sys.executable, SCRIPT, journal, os.path.join(folder, name), meta], check=True, stdout=subprocess.DEVNULL)
+    return os.path.join(folder, name, 'mru.csv' if reference == 'new' else 'target.csv')
 
 
 with tempfile.TemporaryDirectory() as folder:
-    old, new = run(folder, 'old'), run(folder, 'new')
-    assert filecmp.cmp(old, new, shallow=False), 'o target.csv em blocos difere do inteiro'
-    print('ok: target.csv em blocos igual ao inteiro,', ROWS, 'linhas')
+    for mixed in [True, False]:
+        old, new = run(folder, 'old', mixed), run(folder, 'new', mixed)
+        assert filecmp.cmp(old, new, shallow=False), f'o mru.csv em blocos difere do target.csv inteiro (layout {"misto" if mixed else "único"})'
+        print('ok: mru.csv em blocos igual ao target.csv inteiro, layout', 'misto' if mixed else 'único', ROWS, 'linhas')

@@ -6,90 +6,288 @@
     padding: 1.1rem 1.15rem;
 }
 
-.AcquisitionFlow .CardBody {
-    margin-right: -.5rem;
-    padding-right: .5rem;
+/* O PAINEL INTEIRO NA ALTURA DA JANELA: AS SEÇÕES EM CIMA E O CARTÃO DE GRAVAR PRESO NO PÉ */
+.AcquireSetup {
+    display: flex;
+    flex-direction: column;
+    gap: .9rem;
+    flex: 1;
+    min-height: 0;
 }
 
-.FlowStep + .FlowStep {
-    margin-top: 1.1rem;
-    padding-top: 1.1rem;
+.AcquireSteps {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.AcquireSection + .AcquireSection {
+    margin-top: .9rem;
+    padding-top: .9rem;
     border-top: 1px solid var(--soft);
 }
 
-.FlowStep .ConnectionBar {
+.AcquireHead {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    margin-bottom: .6rem;
+    font-weight: 650;
+    font-size: .9rem;
+}
+
+.AcquireHead .Pill {
+    margin-left: auto;
+}
+
+.AcquireSection .ConnectionBar {
     justify-content: flex-start;
 }
 
-.FlowStep .ConnectionBar .BarSelect {
+.AcquireSection .ConnectionBar .BarSelect {
     flex: 1;
     width: auto;
     min-width: 7rem;
 }
 
-.FlowFields {
-    margin-top: .7rem;
+.AcquireDebug, .AcquireHint {
+    margin-top: .55rem;
 }
 
-.FlowStep .Numbered .Pill {
-    margin-left: auto;
-    font-weight: 600;
+.AcquireHint {
+    font-size: .76rem;
+    line-height: 1.4;
 }
 
-.FlowNow {
-    display: flex;
-    align-items: center;
-    gap: .55rem;
-    margin-top: .7rem;
-    padding: .45rem .5rem .45rem .7rem;
-    border-radius: 10px;
-    background: var(--soft);
-    font-size: .8rem;
+.ModeGrid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: .4rem;
 }
 
-.FlowNow > span {
+.ModeTile {
     display: flex;
     flex-direction: column;
-    flex: 1;
+    gap: .1rem;
     min-width: 0;
-    font-size: .7rem;
+    padding: .5rem .65rem;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: #fff;
+    text-align: left;
+    cursor: pointer;
+    transition: border-color .15s, background .15s;
 }
 
-.FlowNow b {
-    font-size: .82rem;
+.ModeTile:hover:not(:disabled) {
+    border-color: #c4c9d2;
+}
+
+.ModeTile.active {
+    border-color: var(--accent);
+    box-shadow: inset 0 0 0 1px var(--accent);
+    background: #f7fcfd;
+}
+
+.ModeTile:disabled {
+    cursor: not-allowed;
+    background: #fcfcfd;
+}
+
+.ModeTile:disabled .ModeName, .ModeTile:disabled small {
+    opacity: .6;
+}
+
+.ModeName {
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+    font-weight: 600;
+    font-size: .83rem;
     color: var(--ink);
+    min-width: 0;
+}
+
+.ModeTile small {
+    font-size: .72rem;
+    color: var(--muted);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    font-variant-numeric: tabular-nums;
 }
 
-.FlowPlan {
-    font-size: .8rem;
-    line-height: 1.5;
-    color: var(--ink);
-    margin-bottom: .7rem;
+.ModeNow {
+    display: inline-flex;
+    align-items: center;
+    gap: .25rem;
+    margin-left: auto;
+    font-size: .62rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    color: var(--green);
 }
 
-.FlowMissing {
+.ModeNow::before {
+    content: '';
+    width: .42rem;
+    height: .42rem;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.ModeFields {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+    gap: .5rem;
+    align-items: end;
+    margin-top: .6rem;
+}
+
+.ModeFields .AsyncButton {
+    min-width: 5.5rem;
+}
+
+.ModeFixed {
+    grid-column: span 2;
     display: flex;
     flex-direction: column;
-    gap: .2rem;
-    margin-bottom: .7rem;
-    padding: .5rem .7rem;
-    border-radius: 10px;
-    background: var(--amber-soft);
-    color: var(--amber);
+    justify-content: center;
+    min-height: 2.4rem;
+    padding: 0 .7rem;
+    border-radius: 9px;
+    background: var(--soft);
     font-size: .78rem;
+    font-weight: 600;
+}
+
+.ModeFixed small {
+    font-size: .7rem;
+    font-weight: 450;
+    color: var(--muted);
+}
+
+.ModeHint {
+    margin-top: .55rem;
+    font-size: .76rem;
+    line-height: 1.4;
+    color: var(--muted);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.ModeHint.mono {
+    font-size: .72rem;
+}
+
+.ModeFailure {
+    margin-top: .5rem;
+}
+
+/* O QUE O BOTÃO VAI GRAVAR, DITO ANTES DO CLIQUE: DADOS EM CINZA, ENSAIO DE CALIBRAÇÃO NA COR DE DESTAQUE */
+.RecordBox {
+    display: flex;
+    flex-direction: column;
+    gap: .6rem;
+    flex-shrink: 0;
+    padding: .8rem;
+    border-radius: 12px;
+    background: var(--soft);
+    transition: background .2s;
+}
+
+.RecordBox.calibration {
+    background: var(--accent-soft);
+}
+
+.RecordKind {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    min-width: 0;
+}
+
+.RecordKind > span:last-child {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.RecordKind b {
+    font-size: .9rem;
+}
+
+.RecordKind small {
+    font-size: .72rem;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.RecordIcon {
+    display: grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 9px;
+    background: #fff;
+    color: var(--muted);
+    flex-shrink: 0;
+}
+
+.RecordBox.calibration .RecordIcon {
+    color: var(--accent-strong);
+}
+
+.RecordPlan {
+    font-size: .78rem;
+    line-height: 1.45;
+    color: var(--text);
+}
+
+.RecordLimit {
+    display: flex;
+    align-items: center;
+    gap: .45rem;
+    font-size: .78rem;
+    color: var(--muted);
+    white-space: nowrap;
+}
+
+.RecordLimit .Input {
+    width: 4.5rem;
+    height: 2rem;
+    text-align: right;
+}
+
+.RecordLimit .Input.bad {
+    border-color: var(--red);
+}
+
+.RecordLimit small {
+    margin-left: auto;
+    font-size: .72rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.RecordReason {
+    font-size: .76rem;
     font-weight: 550;
+    color: var(--amber);
 }
 
-.FlowStep > .AsyncButton.large, .FlowStart > .AsyncButton.large {
+.RecordReason.bad {
+    color: var(--red);
+}
+
+.RecordBox .AsyncButton.large {
     width: 100%;
-}
-
-.FlowCheck, .FlowHint {
-    margin-top: .65rem;
 }
 
 .FlowState {
@@ -102,6 +300,15 @@
 
 .FlowState .AsyncButton.large {
     width: 100%;
+}
+
+.FlowWarnings {
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
 }
 
 .FlowPath {
@@ -188,18 +395,15 @@
 
 .FlowState .Actions {
     flex-wrap: wrap;
-}
-
-.FlowLimit {
-    margin: .7rem 0;
+    margin-top: 0;
 }
 
 .RecoveredList {
     display: flex;
     flex-direction: column;
     gap: .4rem;
-    max-height: 9rem;
-    margin-bottom: 1rem;
+    flex-shrink: 0;
+    max-height: 7.5rem;
     overflow-y: auto;
 }
 
@@ -219,16 +423,7 @@
 
 .RecoveredItem small {
     opacity: .75;
-}
-
-.FlowLimitBad {
-    color: var(--red);
-}
-
-/* O BOTÃO DE GRAVAR FICA À VISTA NO PÉ DO CARTÃO: O LOG DO "Aplicar" E O CAMPO DA DURAÇÃO O EMPURRAVAM PARA FORA EM TELA DE NOTEBOOK */
-.FlowStart {
-    position: sticky;
-    bottom: 0;
-    padding-top: .6rem;
-    background: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }

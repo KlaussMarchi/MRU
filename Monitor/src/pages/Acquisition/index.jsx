@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { open } from '@tauri-apps/plugin-dialog'
-import { faCircle, faStop } from '@fortawesome/free-solid-svg-icons'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faBullseye, faCircle, faFileCsv, faStop } from '@fortawesome/free-solid-svg-icons'
 import Page from '../../components/Page'
 import ConnectionBar from '../../components/ConnectionBar'
 import LiveChart from '../../components/LiveChart'
@@ -15,11 +16,10 @@ import { call, getBaud, getStamp, getStored, setStored, formatBytes, formatDurat
 import './styles.css'
 
 const MODES = [
-    {key: 'calibration', label: 'Para calibração', layout: 'scale', detail: 'Modo aquisição do firmware: SCALE em LIST a 200 Hz, RS232/RS422 a 460800. É o que o pipeline de calibração espera.'},
-    {key: 'scale', label: 'Escala do Kernel', streamer: 2, layout: 'scale', detail: 'Unidades físicas nos eixos do Kernel, sem a calibração do projeto.'},
-    {key: 'calibrated', label: 'Calibrado', streamer: 0, layout: 'calibrated', detail: 'A cadeia calibrada do firmware, para validar uma calibração.'},
-    {key: 'raw', label: 'Bruto (RAW)', streamer: 1, layout: 'raw', detail: 'Os inteiros que o Kernel envia, sem conversão.'},
-    {key: 'keep', label: 'Como está', detail: 'Grava o que o MRU já transmite, sem mudar nada.'}
+    {key: 'calibration', label: 'Calibração', hint: 'SCALE · LIST · 200 Hz', layout: 'scale', detail: 'Modo aquisição do firmware: SCALE em LIST a 200 Hz, RS232/RS422 a 460800. Com a referência, a gravação vira um ensaio de calibração.'},
+    {key: 'scale', label: 'Escala', hint: 'unidades físicas', streamer: 2, layout: 'scale', detail: 'Unidades físicas nos eixos do Kernel, sem a calibração do projeto.'},
+    {key: 'calibrated', label: 'Calibrado', hint: 'saída de operação', streamer: 0, layout: 'calibrated', detail: 'A cadeia calibrada do firmware: a saída de operação, para validar uma calibração ou monitorar.'},
+    {key: 'raw', label: 'Bruto', hint: 'inteiros do Kernel', streamer: 1, layout: 'raw', detail: 'Os inteiros que o Kernel envia, sem conversão.'}
 ]
 
 const PROTOCOLS = [{value: 1, label: 'LIST (recomendado)'}, {value: 0, label: 'JSON'}]
@@ -43,9 +43,6 @@ function getRecovered(item){
 
 // O QUE MANDAR AO MRU PARA ENTRAR NO MODO; NO CONVERSOR O BAUD ACOMPANHA A TAXA DO STREAM
 function getChanges(mode, frequency, protocol, link){
-    if(mode.key == 'keep')
-        return null
-
     if(mode.key == 'calibration')
         return {kernel_mode: 0, device_mode: 1}
 
@@ -59,11 +56,13 @@ export default function AcquisitionPage(){
     const {links, configure, send} = useDevice()
     const {stats, recording} = useLive()
     const {settings, jobs, startJob, clearJob, setSelection, python} = useGlobalContext()
-    const [modeKey, setModeKey]      = useState('calibration')
+    const [choice, setChoice]        = useState(null)
     const [frequency, setFrequency]  = useState(100)
     const [protocol, setProtocol]    = useState(1)
     const [debug, setDebug]          = useState(false)
-    const [steps, setSteps]          = useState([])
+    const [applying, setApplying]    = useState(false)
+    const [progress, setProgress]    = useState('')
+    const [failure, setFailure]      = useState('')
     const [error, setError]          = useState('')
     const [pending, setPendingState] = useState(getStored('acquisition', null))
     const [name, setName]            = useState('')
@@ -74,27 +73,45 @@ export default function AcquisitionPage(){
     const [confirmation, ask]        = useConfirm()
     const active                     = useRef(null)    // A PASTA QUE ESTA TELA VIU GRAVANDO: SE ELA PARAR SEM O CLIQUE, FOI A DURAÇÃO PROGRAMADA
 
-    const mode        = MODES.find(item => item.key == modeKey)
+    const mode        = MODES.find(item => item.key == choice)
     const link        = links.mru
     const mru         = stats.mru
     const table       = stats.table
     const synced      = link.state == 'synced'
     const flowing     = (mru?.rate ?? 0) > 0
-    const calibration = modeKey == 'calibration'
-    const reference   = table ? (table.rate > 0 ? 'table' : null) : calibration && debug ? 'debug' : null    // PLATAFORMA ABERTA E MUDA AINDA ESTÁ NO HOMING: O start SE PERDERIA
+    const stream      = flowing ? `${LAYOUTS[mru.layout]?.label ?? '?'} · ${mru.format?.toUpperCase()} · ${Math.round(mru.rate)} Hz` : null
+    const prepared    = flowing && mru.layout == 'scale' && mru.rate > 150    // O QUE O MODO AQUISIÇÃO ENTREGA E O PIPELINE DE CALIBRAÇÃO ESPERA
+    const current     = prepared ? 'calibration' : MODES.find(item => flowing && item.key != 'calibration' && item.layout == mru.layout)?.key
+    const homing      = Boolean(table) && !(table.rate > 0)    // PLATAFORMA ABERTA E MUDA AINDA ESTÁ NO HOMING: O start SE PERDERIA
+    const reference   = !prepared || homing ? null : table ? 'table' : debug ? 'debug' : null
+    const calibration = reference != null
     const job         = jobs.session
-    const layout      = LAYOUTS[mru?.layout]
-    const wrong       = calibration && flowing && mru?.layout != 'scale'
-    const ready       = flowing && (mode.layout == null || (mru?.layout == mode.layout && (!calibration || mru?.rate > 150)))
-    const missing     = [...(!synced ? ['conectar e sincronizar o MRU no alto da tela'] : !ready ? [flowing ? `aplicar o modo "${mode.label}" no MRU` : 'o MRU precisa estar transmitindo'] : []), ...(calibration && !reference ? [table ? 'esperar a plataforma terminar o homing e transmitir' : 'conectar a plataforma ou marcar a referência em debug'] : [])]
-    const plan        = !calibration ? 'Grava o que o MRU transmite até você parar. A sessão sai sem o data.csv de calibração.' : reference == 'table' ? `Grava o MRU e a plataforma. No mesmo instante a plataforma recebe start: fica ${STILL} s parada, depois pitch 100 s, roll 100 s e repouso 100 s. Pare depois de ${formatDuration(MINIMUM)}, quando o ciclo fecha.` : link.simulated ? `Grava só o MRU simulado, que faz o ciclo da plataforma: ${STILL} s parado, pitch, roll e repouso. A referência sai dos ângulos dele, filtrados. Pare depois de ${formatDuration(MINIMUM)}.` : `Grava só o MRU; a referência sai dos ângulos dele, filtrados. Deixe-o parado nos primeiros ${STILL} s e depois balance em pitch e em roll.`
     const quantity    = getQuantity(view.chart.quantity)
     const platform    = quantity.key == 'attitude' && table ? view.chart.keys.filter(key => key != 'yaw') : []
     const lines       = [...view.chart.keys.map(key => ({key, label: `${VARIABLES[key].label} MRU`, color: getColor(key)})), ...platform.map(key => ({key, role: 'table', label: `${VARIABLES[key].label} plataforma`, color: getColor(key), dash: [6, 4]}))]
 
-    const parsed = Number(hours.trim().replace(',', '.'))    // O CAMPO É TEXTO: type=number NO WebKit DEVOLVE VAZIO PARA "0,01" E A GRAVAÇÃO SAÍA SEM LIMITE
-    const limit  = hours.trim() && parsed > 0 ? parsed * 3600 : null
+    const parsed   = Number(hours.trim().replace(',', '.'))    // O CAMPO É TEXTO: type=number NO WebKit DEVOLVE VAZIO PARA "0,01" E A GRAVAÇÃO SAÍA SEM LIMITE
+    const limit    = hours.trim() && parsed > 0 ? parsed * 3600 : null
     const badLimit = hours.trim() != '' && !limit
+
+    const tag = !prepared ? {tone: '', text: 'só na calibração'} :
+                reference ? {tone: 'ok', text: NAMES[reference]} :
+                            {tone: 'warn', text: homing ? 'no homing' : 'falta'}
+
+    const hint = !prepared  ? 'Para um ensaio de calibração, prepare o MRU em Calibração e conecte a plataforma.' :
+                 homing     ? 'A plataforma está conectada mas ainda não transmite: espere o homing terminar.' :
+                 !reference ? 'Conecte a plataforma (Table.ino, 115200 bps) ou use a referência em debug. Sem referência, grava só os dados.' : ''
+
+    const plan = !calibration         ? `Salva ${stream ?? 'o que o MRU transmitir'} num CSV só com as colunas do stream.` :
+                 reference == 'table' ? `A plataforma recebe start: ${STILL} s parada, depois pitch, roll e repouso de 100 s cada. Pare depois de ${formatDuration(MINIMUM)}.` :
+                 link.simulated       ? `O MRU simulado faz o ciclo da plataforma e a referência sai dos ângulos dele, filtrados. Pare depois de ${formatDuration(MINIMUM)}.` :
+                                        `A referência sai dos ângulos do próprio MRU, filtrados: deixe-o parado ${STILL} s e depois balance em pitch e em roll.`
+
+    const reason = !flowing && link.state == 'off' ? 'Conecte o MRU no alto da tela.' :
+                   !flowing                        ? 'O MRU não está transmitindo.' :
+                   applying                        ? 'Esperando o MRU voltar no modo novo.' :
+                   homing && prepared              ? 'Espere a plataforma terminar o homing.' :
+                   badLimit                        ? 'Duração inválida: use, por exemplo, 48 ou 0,5.' : ''
 
     async function refreshOrphans(){
         const list = await call('list_recordings', {folder: settings.sessions}).catch(() => [])
@@ -118,11 +135,12 @@ export default function AcquisitionPage(){
         })
     }, [recording?.folder, settings.sessions])
 
-    // ended = false NO INÍCIO: O AVISO DOS s PARADOS SÓ FAZ SENTIDO COM A GRAVAÇÃO TERMINADA
+    // O TIPO E A REFERÊNCIA VÊM DA GRAVAÇÃO, NÃO DA TELA: SAIR DA PÁGINA NO MEIO NÃO OS MUDA; ended = false NO INÍCIO, QUANDO O AVISO DOS s PARADOS NÃO FAZ SENTIDO
     function getMeta(info, ended = true){
+        const source = info.still == null ? null : info.rows.reference != null ? 'table' : 'debug'
         return {
-            mode: mode.label,
-            reference,
+            mode: stream ?? '—',
+            reference: source,
             started: new Date(info.started * 1000).toISOString(),
             duration: Math.round(info.elapsed),
             still: info.still,
@@ -131,9 +149,8 @@ export default function AcquisitionPage(){
             align: link.status?.align ?? null,
             mru: link.status,
             settings: link.settings,
-            devices: {target: stats.mru ?? null, reference: stats.table ?? null},
+            devices: {target: stats.mru ?? null, reference: source == 'table' ? stats.table ?? null : null},
             warnings: [
-                ...(wrong ? [`o MRU gravou em ${mru.layout}, não em SCALE: o pipeline de calibração não vai usar esta sessão`] : []),
                 ...((stats.mru?.lost ?? 0) > 0 ? [`${stats.mru.lost} pacotes do MRU perdidos pelo salto no time`] : []),
                 ...(ended && info.released != null && info.elapsed < info.released ? [`a gravação terminou nos ${STILL} s parados: a plataforma não chegou a se mover`] : [])
             ]
@@ -151,26 +168,24 @@ export default function AcquisitionPage(){
         setStored('acquisition', value)
     }
 
-    function report(message){
-        setSteps(current => [...current, message].slice(-5))
-    }
-
     async function handleApply(){
-        setError('')
-        setSteps([])
-        const changes = getChanges(mode, frequency, protocol, link)
+        setFailure('')
+        setApplying(true)
 
         try {
-            if(changes)
-                await configure(changes, report)
+            await configure(getChanges(mode, frequency, protocol, link), setProgress)
 
-            if(!flowing && modeKey != 'calibration')
+            if(!flowing && mode.key != 'calibration')
                 await send('$stream_start!')
 
-            report('pronto: confira o stream ao lado e inicie a gravação')
+            setProgress(`Modo ${mode.label} aplicado: confira o stream no gráfico ao lado.`)
+            setChoice(null)
         }
-        catch(failure) {
-            setError(String(failure))
+        catch(failed) {
+            setFailure(String(failed))
+        }
+        finally {
+            setApplying(false)
         }
     }
 
@@ -179,12 +194,12 @@ export default function AcquisitionPage(){
         const journal = `${settings.sessions}/.recording-${getStamp()}`
 
         try {
-            const info = await call('record_start', {folder: journal, still: calibration && reference ? STILL : null, limit})
+            const info = await call('record_start', {folder: journal, still: calibration ? STILL : null, limit})
             active.current = info.folder
             await call('write_text', {path: `${journal}/meta.json`, content: JSON.stringify(getMeta(info, false), null, 4)})    // JÁ NO INÍCIO: SE O APP CAIR, A GRAVAÇÃO AINDA SE DESCREVE
         }
-        catch(failure) {
-            setError(String(failure))
+        catch(failed) {
+            setError(String(failed))
         }
     }
 
@@ -215,7 +230,7 @@ export default function AcquisitionPage(){
         if(!await ask('Descartar a gravação', 'Os dados brutos desta gravação serão apagados.', 'Descartar'))
             return
 
-        await call('remove_folder', {path: pending.journal}).catch(failure => setError(String(failure)))
+        await call('remove_folder', {path: pending.journal}).catch(failed => setError(String(failed)))
         setPending(null)
         refreshOrphans()
     }
@@ -231,92 +246,89 @@ export default function AcquisitionPage(){
     const state  = job ? (job.status == 'running' ? 'saving' : 'saved') : pending ? 'pending' : recording ? 'recording' : 'setup'
 
     return (
-        <Page title='Aquisição' subtitle={recording ? `Gravando em ${recording.folder}` : 'Configure o MRU, conecte a referência e grave o ensaio'} actions={<ConnectionBar role='mru'/>} className='AcquisitionPage'>
+        <Page title='Aquisição' subtitle={recording ? `Gravando em ${recording.folder}` : 'Grave o que o MRU transmite ou prepare-o para um ensaio de calibração'} actions={<ConnectionBar role='mru'/>} className='AcquisitionPage'>
             <div className='Card AcquisitionFlow'>
                 {state == 'setup' && (
-                    <div className='CardBody'>
+                    <div className='AcquireSetup'>
                         {orphans.length > 0 && (
                             <div className='Notice warn RecoveredList'>
                                 <b>{orphans.length == 1 ? 'Uma gravação não foi salva' : `${orphans.length} gravações não foram salvas`}</b>
                                 {orphans.map(item => (
                                     <div key={item.path} className='RecoveredItem'>
-                                        <span>{item.name}<small>{item.meta?.mode ?? '?'} · {formatBytes(item.size)} · {item.recording ? (item.recording.error ? 'parou com erro' : 'parada') : 'interrompida'}</small></span>
+                                        <span>{item.name}<small>{item.meta?.reference ? 'calibração' : 'dados'} · {item.meta?.mode ?? '?'} · {formatBytes(item.size)} · {item.recording ? (item.recording.error ? 'parou com erro' : 'parada') : 'interrompida'}</small></span>
                                         <AsyncButton small text='Abrir' variant='light' onClick={() => handleResume(item)}/>
                                     </div>
                                 ))}
                             </div>
                         )}
 
-                        <div className='FlowStep'>
-                            <div className={`Numbered ${ready ? 'done' : ''}`}><span>{ready ? '✓' : 1}</span>Modo do MRU<span className={`Pill ${ready ? 'ok' : flowing ? 'warn' : ''}`}>{ready ? 'pronto' : flowing ? 'aplicar' : 'sem stream'}</span></div>
+                        <div className='AcquireSteps'>
+                            <div className='AcquireSection'>
+                                <div className='AcquireHead'>Preparar o MRU<span className='Pill'>opcional</span></div>
 
-                            <div className='Choices'>
-                                {MODES.map(item => (
-                                    <div key={item.key} className={`Choice ${item.key == modeKey ? 'active' : ''}`} onClick={() => setModeKey(item.key)}>
-                                        <div className='ChoiceTitle'>{item.label}</div>
-                                        {item.key == modeKey && <div className='ChoiceText'>{item.detail}</div>}
-                                    </div>
-                                ))}
-                            </div>
-
-                            {!['calibration', 'keep'].includes(modeKey) && (
-                                <div className='Row FlowFields'>
-                                    <div className='Grow'><Dropdown label='Frequência' value={frequency} onChange={setFrequency} options={FREQUENCIES.map(value => ({value, label: `${value} Hz`}))}/></div>
-                                    <div className='Grow'><Dropdown label='Protocolo' value={protocol} onChange={setProtocol} options={PROTOCOLS}/></div>
+                                <div className='ModeGrid'>
+                                    {MODES.map(item => (
+                                        <button key={item.key} className={`ModeTile ${item.key == choice ? 'active' : ''}`} title={item.detail} disabled={!synced || applying} onClick={() => setChoice(item.key == choice ? null : item.key)}>
+                                            <span className='ModeName'>{item.label}{item.key == current && <span className='ModeNow'>agora</span>}</span>
+                                            <small>{item.hint}</small>
+                                        </button>
+                                    ))}
                                 </div>
-                            )}
 
-                            <div className='FlowNow'>
-                                <span className='Muted'>O MRU transmite<b>{flowing ? `${layout?.label ?? '?'} · ${mru.format?.toUpperCase()} · ${Math.round(mru.rate)} Hz` : synced ? 'nada' : 'MRU desconectado'}</b></span>
-                                {modeKey != 'keep' && <AsyncButton small text={ready ? 'Aplicar de novo' : 'Aplicar no MRU'} variant={ready ? 'ghost' : 'dark'} onClick={handleApply} disabled={!synced}/>}
+                                {mode && (
+                                    <div className='ModeFields'>
+                                        {mode.key == 'calibration' ? <div className='ModeFixed'>RS232/RS422 a 460800 bps<small>o MRU reinicia no modo aquisição</small></div> : <><Dropdown label='Frequência' value={frequency} onChange={setFrequency} options={FREQUENCIES.map(value => ({value, label: `${value} Hz`}))}/><Dropdown label='Protocolo' value={protocol} onChange={setProtocol} options={PROTOCOLS}/></>}
+                                        <AsyncButton text='Aplicar' onClick={handleApply} loading={applying}/>
+                                    </div>
+                                )}
+
+                                <div className={`ModeHint ${applying ? 'mono' : ''}`}>{applying ? progress : mode ? mode.detail : progress || (synced ? 'Escolha um modo para reconfigurar o MRU. Sem isso, grava como ele está.' : 'Sincronize o MRU para mudar o modo. Sem isso, grava como ele está.')}</div>
+                                {failure && <div className='Notice bad ModeFailure'>{failure}</div>}
                             </div>
 
-                            {steps.length > 0 && <div className='Steps mono'>{steps.map((step, index) => <div key={index}>{step}</div>)}</div>}
+                            <div className='AcquireSection'>
+                                <div className='AcquireHead'>Referência<span className={`Pill ${tag.tone}`}>{tag.text}</span></div>
+                                <ConnectionBar role='table'/>
+
+                                {prepared && !table && (
+                                    <label className='CheckBox AcquireDebug'>
+                                        <input type='checkbox' checked={debug} onChange={event => setDebug(event.target.checked)}/>
+                                        <span>Referência em debug<small>os ângulos do próprio MRU filtrados, só para testar o pipeline; a calibração sai marcada</small></span>
+                                    </label>
+                                )}
+
+                                {hint && <div className='Muted AcquireHint'>{hint}</div>}
+                            </div>
                         </div>
 
-                        <div className='FlowStep'>
-                            <div className={`Numbered ${reference ? 'done' : ''}`}><span>{reference ? '✓' : 2}</span>Referência<span className={`Pill ${reference ? 'ok' : calibration ? 'warn' : ''}`}>{reference ? NAMES[reference] : calibration ? 'falta' : 'opcional'}</span></div>
-                            <ConnectionBar role='table'/>
+                        <div className={`RecordBox ${calibration ? 'calibration' : ''}`}>
+                            <div className='RecordKind'>
+                                <span className='RecordIcon'><FontAwesomeIcon icon={calibration ? faBullseye : faFileCsv}/></span>
+                                <span><b>{calibration ? 'Ensaio de calibração' : 'Gravação de dados'}</b><small>{calibration ? `referência: ${NAMES[reference]} · sai pronta para calibrar` : 'sai um mru.csv com o que o MRU transmitir'}</small></span>
+                            </div>
 
-                            {!table && calibration && (
-                                <label className='CheckBox FlowCheck'>
-                                    <input type='checkbox' checked={debug} onChange={event => setDebug(event.target.checked)}/>
-                                    <span>Sem plataforma · referência em debug<small>os ângulos do próprio MRU filtrados, só para testar o pipeline de ponta a ponta; a calibração sai marcada</small></span>
-                                </label>
-                            )}
+                            <div className='RecordPlan'>{plan}</div>
 
-                            {table && !reference && <div className='Notice warn FlowHint'>A plataforma está conectada mas não transmite: espere o homing terminar.</div>}
-                            {!table && <div className='Muted FlowHint'>{calibration ? 'Conecte a plataforma (Table.ino, 115200 bps) ou marque a referência em debug.' : 'Fora do modo de calibração a referência é opcional.'}</div>}
-                        </div>
-
-                        <div className='FlowStep'>
-                            <div className='Numbered'><span>3</span>Gravar</div>
-
-                            <div className='FlowPlan'>{plan}</div>
-
-                            <label className='Field FlowLimit'>
-                                <span className='Label'>Parar sozinho depois de (horas)</span>
-                                <input className='Input' inputMode='decimal' placeholder='vazio: só no botão Parar' value={hours} onChange={event => setHours(event.target.value)}/>
-                                <small className={badLimit ? 'FlowLimitBad' : 'Muted'}>{badLimit ? 'Número inválido: use, por exemplo, 24 ou 0,5' : limit ? `Para sozinha em ${formatDuration(limit)}` : 'Sem limite: para só no botão Parar'}</small>
+                            <label className='RecordLimit'>
+                                <span>Parar sozinha após</span>
+                                <input className={`Input mono ${badLimit ? 'bad' : ''}`} inputMode='decimal' placeholder='—' value={hours} onChange={event => setHours(event.target.value)}/>
+                                <span>horas</span>
+                                <small>{limit ? formatDuration(limit) : 'sem limite'}</small>
                             </label>
 
-                            {missing.length > 0 && <div className='FlowMissing'>{missing.map(item => <div key={item}>• {item}</div>)}</div>}
-
-                            <div className='FlowStart'>
-                                <AsyncButton text='Iniciar gravação' icon={faCircle} variant='red' large onClick={handleStart} disabled={missing.length > 0 || badLimit}/>
-                                {error && <div className='Notice bad FlowHint'>{error}</div>}
-                            </div>
+                            {(reason || error) && <div className={`RecordReason ${error ? 'bad' : ''}`}>{error || reason}</div>}
+                            <AsyncButton text={calibration ? 'Gravar ensaio de calibração' : 'Gravar dados'} icon={faCircle} variant='red' large onClick={handleStart} disabled={Boolean(reason)}/>
                         </div>
                     </div>
                 )}
 
                 {state == 'recording' && (
                     <div className='FlowState'>
-                        <div className='Label'>Gravando</div>
+                        <div className='Label'>{recording.still != null ? 'Gravando ensaio de calibração' : 'Gravando dados'}</div>
                         <div className='Elapsed'><span className='Dot pulse'/>{formatDuration(recording.elapsed)}</div>
                         {recording.limit && <div className='Muted'>Para sozinha em {formatDuration(recording.limit)} · faltam {formatDuration(recording.limit - recording.elapsed)}</div>}
 
-                        {calibration && reference && (
+                        {recording.still != null && (
                             <div className='Timeline'>
                                 <div className='TimelineBar'>
                                     {PHASES.map(phase => <div key={phase.label} className={`TimelinePhase ${recording.elapsed >= phase.end ? 'done' : recording.elapsed >= phase.start ? 'now' : ''}`} style={{flex: phase.end - phase.start}}/>)}
@@ -333,13 +345,13 @@ export default function AcquisitionPage(){
 
                         <div className='Facts wide'>
                             <span>MRU</span><b>{(recording.rows.target ?? 0).toLocaleString('pt-BR')} linhas · {Math.round(mru?.rate ?? 0)} Hz · {mru?.lost ?? 0} perdidas</b>
+                            <span>Stream</span><b>{stream ?? 'parado'}</b>
                             {recording.rows.reference != null && <><span>Referência</span><b>{recording.rows.reference.toLocaleString('pt-BR')} linhas · {Math.round(table?.rate ?? 0)} Hz</b></>}
                             {recording.released != null && <><span>Plataforma</span><b>{recording.elapsed < recording.released ? `parada até ${formatDuration(recording.released)}` : `em ciclo desde ${formatDuration(recording.released)}`}</b></>}
-                            {recording.rows.reference == null && <><span>Referência</span><b>{NAMES[reference] ?? 'nenhuma'}</b></>}
+                            {recording.still != null && recording.rows.reference == null && <><span>Referência</span><b>{NAMES.debug}</b></>}
                         </div>
 
                         {!recording.awake && <div className='Notice warn'>Não consegui impedir a suspensão do PC: desative a suspensão automática nas configurações de energia.</div>}
-                        {wrong && <div className='Notice warn'>O MRU está em {layout?.label}, não em SCALE: esta gravação não serve para calibrar.</div>}
 
                         <div className='Spacer'/>
                         <AsyncButton text='Parar gravação' icon={faStop} variant='red' large onClick={handleStop}/>
@@ -348,17 +360,20 @@ export default function AcquisitionPage(){
 
                 {state == 'pending' && (
                     <div className='FlowState'>
-                        <div className='Numbered done'><span>✓</span>Gravação encerrada</div>
+                        <div className='Numbered done'><span>✓</span>{pending.meta.reference ? 'Ensaio de calibração encerrado' : 'Gravação de dados encerrada'}</div>
 
                         <div className='Facts wide'>
                             <span>Duração</span><b>{formatDuration(pending.info.elapsed)}</b>
+                            <span>Stream</span><b>{pending.meta.mode ?? '—'}</b>
                             <span>Linhas do MRU</span><b>{pending.info.rows.target?.toLocaleString('pt-BR') ?? '—'}</b>
-                            <span>Linhas da plataforma</span><b>{pending.info.rows.reference?.toLocaleString('pt-BR') ?? '—'}</b>
-                            <span>Ciclo da plataforma</span><b>{pending.info.released == null || pending.info.elapsed < pending.info.released ? '—' : `desde ${formatDuration(pending.info.released)}`}</b>
-                            <span>Referência</span><b>{NAMES[pending.meta.reference] ?? 'nenhuma'}</b>
+                            {pending.meta.reference && <><span>Referência</span><b>{NAMES[pending.meta.reference]}</b></>}
+                            {pending.meta.reference == 'table' && <><span>Linhas da plataforma</span><b>{pending.info.rows.reference?.toLocaleString('pt-BR') ?? '—'}</b></>}
+                            {pending.meta.reference == 'table' && <><span>Ciclo da plataforma</span><b>{pending.info.released == null || pending.info.elapsed < pending.info.released ? '—' : `desde ${formatDuration(pending.info.released)}`}</b></>}
                         </div>
 
-                        {pending.meta.warnings.map((warning, index) => <div key={index} className='Notice warn'>{warning}</div>)}
+                        <div className='FlowWarnings'>
+                            {pending.meta.warnings.map((warning, index) => <div key={index} className='Notice warn'>{warning}</div>)}
+                        </div>
 
                         <label className='Field'>
                             <span className='Label'>Nome da sessão</span>
@@ -375,7 +390,6 @@ export default function AcquisitionPage(){
 
                         {python?.missing?.length > 0 && <div className='Notice warn'>O Python configurado não tem {python.missing.join(', ')}: ajuste em Ajustes antes de salvar.</div>}
 
-                        <div className='Spacer'/>
                         <div className='Actions end'>
                             <AsyncButton text='Descartar' variant='ghost' onClick={handleDiscard}/>
                             <AsyncButton text='Salvar sessão' onClick={handleSave} disabled={!name.trim() || python?.error}/>
@@ -393,27 +407,37 @@ export default function AcquisitionPage(){
 
                 {state == 'saved' && (
                     <div className='FlowState'>
-                        <div className={`Numbered ${job.status == 'done' ? 'done' : ''}`}><span>{job.status == 'done' ? '✓' : '!'}</span>{job.status == 'done' ? 'Sessão salva' : 'Falha ao salvar'}</div>
+                        <div className={`Numbered ${job.status == 'done' ? 'done' : ''}`}><span>{job.status == 'done' ? '✓' : '!'}</span>{job.status != 'done' ? 'Falha ao salvar' : result.calibration ? 'Sessão de calibração salva' : 'Dados salvos'}</div>
 
                         {job.status != 'done' && <div className='Notice bad'>{job.error ?? 'o script terminou com erro'}<pre className='mono'>{job.log.slice(-6).join('\n')}</pre></div>}
 
                         {job.status == 'done' && (
                             <>
-                                <div className='Muted mono FlowPath'>{result.folder}</div>
+                                <div className='Muted mono FlowPath'>{result.columns ? `${result.folder}/mru.csv` : result.folder}</div>
 
-                                <div className='Facts wide'>
-                                    <span>Amostras do MRU</span><b>{result.samples?.target?.toLocaleString('pt-BR') ?? '—'}</b>
-                                    <span>Amostras da plataforma</span><b>{result.samples?.reference?.toLocaleString('pt-BR') ?? '—'}</b>
-                                    <span>data.csv</span><b>{result.calibration ? `${result.data.toLocaleString('pt-BR')} linhas · ${result.static.toLocaleString('pt-BR')} paradas · ${result.rate} Hz` : 'não gerado'}</b>
-                                    <span>Referência</span><b>{NAMES[result.reference] ?? '—'}</b>
-                                    <span>Duração</span><b>{formatDuration(result.duration)}</b>
+                                {result.columns ? (
+                                    <div className='Facts wide'>
+                                        <span>Linhas</span><b>{result.samples?.target?.toLocaleString('pt-BR') ?? '—'}</b>
+                                        <span>Stream</span><b>{result.mode ?? '—'}</b>
+                                        <span>Duração</span><b>{formatDuration(result.duration)}</b>
+                                        <span>Colunas</span><b className='small mono'>{result.columns.join(', ')}</b>
+                                    </div>
+                                ) : (
+                                    <div className='Facts wide'>
+                                        <span>Amostras do MRU</span><b>{result.samples?.target?.toLocaleString('pt-BR') ?? '—'}</b>
+                                        <span>Amostras da plataforma</span><b>{result.samples?.reference?.toLocaleString('pt-BR') ?? '—'}</b>
+                                        <span>data.csv</span><b>{result.calibration ? `${result.data.toLocaleString('pt-BR')} linhas · ${result.static.toLocaleString('pt-BR')} paradas · ${result.rate} Hz` : 'não gerado'}</b>
+                                        <span>Referência</span><b>{NAMES[result.reference] ?? '—'}</b>
+                                        <span>Duração</span><b>{formatDuration(result.duration)}</b>
+                                    </div>
+                                )}
+
+                                <div className='FlowWarnings'>
+                                    {result.warnings?.map((warning, index) => <div key={index} className={`Notice ${warning.startsWith('referência em debug') ? 'info' : 'warn'}`}>{warning}</div>)}
                                 </div>
-
-                                {result.warnings?.map((warning, index) => <div key={index} className={`Notice ${warning.startsWith('referência em debug') ? 'info' : 'warn'}`}>{warning}</div>)}
                             </>
                         )}
 
-                        <div className='Spacer'/>
                         <div className='Actions end'>
                             {job.status == 'done' && <AsyncButton small text='Abrir pasta' variant='light' onClick={() => call('open_path', {path: result.folder})}/>}
                             <AsyncButton small text='Nova gravação' variant='light' onClick={() => clearJob('session')}/>
@@ -427,15 +451,13 @@ export default function AcquisitionPage(){
                 <div className='Toolbar'>
                     <QuantityPicker value={view.chart} onChange={chart => setView({chart})}/>
                     <div className='Spacer'/>
-                    <span className={`Pill ${flowing ? layout?.tone ?? '' : ''}`}>MRU {flowing ? `${layout?.label ?? '?'} · ${mru.format?.toUpperCase()} · ${Math.round(mru.rate)} Hz` : 'parado'}</span>
-                    <span className={`Pill ${table ? 'info' : ''}`}>plataforma {table ? `${Math.round(table.rate)} Hz` : reference == 'debug' ? 'em debug' : '—'}</span>
 
                     <div className='Segmented'>
                         {WINDOWS.map(option => <span key={option.value} className={view.seconds == option.value ? 'on' : ''} onClick={() => setView({seconds: option.value})}>{option.label}</span>)}
                     </div>
                 </div>
 
-                <LiveChart lines={lines} unit={quantity.unit} digits={quantity.digits} seconds={view.seconds} empty={synced ? 'o MRU não está transmitindo: aplique um modo' : 'conecte o MRU no alto da tela'}/>
+                <LiveChart lines={lines} unit={quantity.unit} digits={quantity.digits} seconds={view.seconds} empty={link.state == 'off' ? 'conecte o MRU no alto da tela' : 'o MRU não está transmitindo'}/>
             </div>
 
             {confirmation}

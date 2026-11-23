@@ -11,7 +11,7 @@ import { call, APP_VERSION } from '../../utils'
 import './styles.css'
 
 const FOLDERS = [
-    {key: 'sessions', label: 'Sessões gravadas', hint: 'cada gravação vira uma pasta com target.csv, data.csv e info.json'},
+    {key: 'sessions', label: 'Sessões gravadas', hint: 'cada gravação vira uma pasta com info.json e o mru.csv (dados) ou target.csv, reference.csv e data.csv (calibração)'},
     {key: 'calibrations', label: 'Calibrações', hint: 'cada calibração vira um pacote com certificado, figuras, config.h e calibration.json'}
 ]
 

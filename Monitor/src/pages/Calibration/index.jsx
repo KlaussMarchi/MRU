@@ -7,7 +7,7 @@ import Dropdown from '../../components/Dropdown'
 import Overlay from '../../components/Overlay'
 import StaticChart from '../../components/StaticChart'
 import { useGlobalContext } from '../../contexts/GlobalContext'
-import { call, getStamp, getColor, formatNumber, formatDuration, formatBytes, ALIGNS, MODELS } from '../../utils'
+import { call, getStamp, getColor, formatNumber, formatDuration, ALIGNS, MODELS } from '../../utils'
 import './styles.css'
 
 const STRATEGIES = {
@@ -72,10 +72,10 @@ export default function CalibrationPage(){
 
     async function refresh(){
         const [sessionList, calibrationList] = await Promise.all([call('list_sessions', {folder: settings.sessions}), call('list_calibrations', {folder: settings.calibrations})])
-        const usable = sessionList.filter(item => item.files['data.csv'] || item.files['target.csv'])
+        const usable = sessionList.filter(item => item.files['data.csv'])    // SÓ O ENSAIO DE CALIBRAÇÃO TEM data.csv; A GRAVAÇÃO DE DADOS (mru.csv) NÃO ENTRA AQUI
         setSessions(usable)
         setLibrary(calibrationList.filter(item => item.info))
-        setSource(current => current ?? usable.find(item => item.info?.calibration)?.path ?? null)
+        setSource(current => current ?? usable[0]?.path ?? null)
     }
 
     const current = useMemo(() => {
@@ -84,8 +84,6 @@ export default function CalibrationPage(){
 
         return sessions.find(item => item.path == source) ?? {name: source.split(/[\\/]/).pop(), path: source, info: null, files: {}}
     }, [source, sessions])
-
-    const dataPath = current ? `${current.path}/data.csv` : null
 
     useEffect(() => {
         setPreview(null)
@@ -100,17 +98,17 @@ export default function CalibrationPage(){
         if(current.info?.mru?.id)
             setSerial(current.info.mru.id)
 
-        call('csv_preview', {path: dataPath, columns: PREVIEW}).then(response => setPreview(getPreview(response))).catch(() => setPreview(false))
+        call('csv_preview', {path: `${current.path}/data.csv`, columns: PREVIEW}).then(response => setPreview(getPreview(response))).catch(() => setPreview(false))
     }, [current?.path, Boolean(current?.info)])    // A SESSÃO VINDA DA AQUISIÇÃO CHEGA ANTES DA LISTA: O info DELA (SÉRIE, ALIGN) SÓ VEM DEPOIS
 
     async function chooseFolder(){
-        const folder = await open({directory: true, defaultPath: settings.sessions, title: 'Sessão com data.csv'})
+        const folder = await open({directory: true, defaultPath: settings.sessions, title: 'Ensaio de calibração (pasta com data.csv)'})
 
         if(folder)
             setSource(folder)
     }
 
-    async function handleRun(){
+    async function handleStart(){
         setError('')
         const angles  = align == NO_ALIGN ? null : ALIGNS.find(item => item.value == align).angles
         const request = {session: current.path, output: settings.calibrations, strategy, gravity: Number(gravity), id: serial || null, align: angles, point: point.map(Number), copy_data: true}
@@ -132,14 +130,14 @@ export default function CalibrationPage(){
             await call('copy_file', {from: `${item.path}/certificate.pdf`, to: target})
     }
 
-    const ready    = current?.files?.['data.csv'] && point.every(value => Number.isFinite(Number(value)))
+    const ready    = Boolean(preview) && point.every(value => Number.isFinite(Number(value)))    // A PRÉVIA SÓ CARREGA COM O data.csv: VALE TAMBÉM PARA A PASTA ESCOLHIDA EM "outra pasta…"
     const missing  = Boolean(python?.error || python?.missing?.length)
     const selected = library.find(item => item.path == chosen)
     const info     = current?.info
     const debug    = info?.reference == 'debug'
 
     return (
-        <Page title='Calibração' subtitle='Filtros, correção, atitude, heave e braço sobre uma sessão gravada; o resultado vira um pacote com certificado e parâmetros' className='CalibrationPage'>
+        <Page title='Calibração' subtitle='Escolha o ensaio, calibre e confira o resultado: o pacote sai com certificado e segue para a Produção' className='CalibrationPage'>
             {job?.status == 'running' && (
                 <Overlay title={`Calibrando ${serial || 'o MRU'} · ${strategy}`} stage={job.stage} message={job.message} progress={job.steps ? job.step / job.steps : null} started={job.started} log={job.log} stages={STAGES}>
                     <AsyncButton text='Cancelar' variant='light' onClick={() => cancelJob('pipeline')}/>
@@ -152,7 +150,7 @@ export default function CalibrationPage(){
                 <div className='List'>
                     {sessions.length == 0 && (
                         <div className='Empty'>
-                            <span>Nenhuma sessão gravada ainda.</span>
+                            <span>Nenhuma sessão de calibração. Na Aquisição, prepare o MRU em Calibração e conecte a referência.</span>
                             <AsyncButton small text='Gravar em Aquisição' variant='light' onClick={() => navigate('/Acquisition')}/>
                         </div>
                     )}
@@ -160,7 +158,7 @@ export default function CalibrationPage(){
                     {sessions.map(item => (
                         <div key={item.path} className={`ListItem ${source == item.path ? 'selected' : ''}`} onClick={() => setSource(item.path)}>
                             <div className='ListName'><span>{item.name}</span>{item.info?.reference == 'debug' && <span className='Pill info'>debug</span>}</div>
-                            <div className='ListMeta'>{item.info?.calibration ? `${formatDuration(item.info.duration)} · ${item.info.rate} Hz · ${item.info.mru?.id ?? item.info.mode ?? ''}` : 'sem data.csv de calibração'}</div>
+                            <div className='ListMeta'>{formatDuration(item.info?.duration)} · {item.info?.rate ?? '?'} Hz · {item.info?.mru?.id ?? item.info?.mode ?? ''}</div>
                         </div>
                     ))}
                 </div>
@@ -174,7 +172,7 @@ export default function CalibrationPage(){
                     {info?.data && <span className='hint'>{info.data.toLocaleString('pt-BR')} amostras · {info.rate} Hz · {formatDuration(info.duration)} · {((preview?.still ?? 0) * 100).toFixed(0)}% parado</span>}
                 </div>
 
-                {preview === false && <div className='Notice warn'>Não há data.csv nesta pasta: grave com o MRU e a referência no modo de calibração.</div>}
+                {preview === false && <div className='Notice warn'>Esta pasta não é um ensaio de calibração (não tem data.csv). Na Aquisição, prepare o MRU em Calibração e conecte a referência.</div>}
                 {current && preview !== false && <StaticChart unit='°' data={preview?.angles} lines={LINES}/>}
                 {!current && <div className='Empty'>A prévia mostra os ângulos do MRU contra os da referência. Os eixos do MRU ainda são os do Kernel: o Format os reordena.</div>}
                 {info?.warnings?.filter(warning => !warning.startsWith('referência em debug')).map((warning, index) => <div key={index} className='Notice warn' style={{marginTop: '.5rem'}}>{warning}</div>)}
@@ -190,7 +188,7 @@ export default function CalibrationPage(){
                         <div className='Muted PipelineHint'>{STRATEGIES[strategy]}</div>
                     </div>
 
-                    <AsyncButton text='Calibrar' large onClick={handleRun} disabled={!ready || missing || !Number(gravity)}/>
+                    <AsyncButton text='Calibrar' large onClick={handleStart} disabled={!ready || missing || !Number(gravity)}/>
                 </div>
 
                 <div className='PipelineFields'>
@@ -246,7 +244,7 @@ export default function CalibrationPage(){
 
                 {selected && (
                     <div className='Card CalibrationResult'>
-                        <div className='CardTitle'>Resultado <span className='hint'>{formatDuration(Object.values(selected.info.timings ?? {}).reduce((sum, value) => sum + value, 0))} de processamento</span></div>
+                        <div className='CardTitle'>Resultado</div>
 
                         <div className='CardBody'>
                             {selected.info.reference == 'debug' && <div className='Notice info' style={{marginBottom: '.5rem'}}>Referência em debug: os números comparam o MRU com ele mesmo.</div>}
@@ -269,10 +267,10 @@ export default function CalibrationPage(){
                             </div>
                         </div>
 
-                        <div className='Actions'>
-                            {selected.info.files?.certificate && <AsyncButton small text='Certificado' variant='light' onClick={() => call('open_path', {path: `${selected.path}/certificate.pdf`})}/>}
-                            {selected.info.files?.certificate && <AsyncButton small text='Exportar PDF…' variant='light' onClick={() => exportPdf(selected)}/>}
-                            <AsyncButton small text='Pasta' variant='ghost' onClick={() => call('open_path', {path: selected.path})}/>
+                        <div className='ResultLinks'>
+                            {selected.info.files?.certificate && <button className='LinkButton' onClick={() => call('open_path', {path: `${selected.path}/certificate.pdf`})}>certificado</button>}
+                            {selected.info.files?.certificate && <button className='LinkButton' onClick={() => exportPdf(selected)}>exportar PDF…</button>}
+                            <button className='LinkButton' onClick={() => call('open_path', {path: selected.path})}>pasta</button>
                         </div>
 
                         <AsyncButton text='Enviar ao MRU em Produção' onClick={() => { setSelection(current => ({...current, calibration: selected.path})); navigate('/Production') }}/>

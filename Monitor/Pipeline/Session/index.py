@@ -13,11 +13,18 @@ POINTS    = 5              # A SPLINE SUAVIZADA PEDE CINCO PONTOS
 CUTOFF    = 2.0            # Hz DO PASSA-BAIXA IDA E VOLTA DA REFERÊNCIA EM DEBUG: ACIMA DA ONDA E DA MESA, ABAIXO DO RUÍDO
 FORMAT    = ['time', 'pitch', 'roll', 'yaw']
 GAP       = 0.5            # s SEM PACOTE: OUTRO TRECHO DO RELÓGIO
-CHUNK     = 200_000        # LINHAS POR BLOCO NA GRAVAÇÃO SEM CALIBRAÇÃO: O PICO DE MEMÓRIA NÃO CRESCE COM A DURAÇÃO
+CHUNK     = 200_000        # LINHAS POR BLOCO NA GRAVAÇÃO DE DADOS: O PICO DE MEMÓRIA NÃO CRESCE COM A DURAÇÃO
+DIGITS    = 6              # CASAS DO time NOS CSV: O host DO DIÁRIO É EM µs
 
 
 def send(event, **data):
     print(json.dumps({'event': event, **data}, ensure_ascii=False), flush=True)
+
+
+# O DIÁRIO COMO VAI PARA O CSV: time EM µs E SEM A COLUNA layout QUANDO ELA NÃO MUDA
+def tidy(frame):
+    frame = frame.assign(time=frame.time.round(DIGITS))
+    return frame.drop(columns='layout') if frame.layout.nunique() == 1 else frame
 
 
 # O DIÁRIO NO RELÓGIO DO PC: O DO APARELHO DESLOCADO PELO MENOR ATRASO DE CHEGADA, UM DESLOCAMENTO POR REINÍCIO
@@ -36,21 +43,22 @@ def load(path):
     return frame.drop(columns='host')
 
 
-# O MESMO load() SEM O DIÁRIO INTEIRO NA MEMÓRIA (24 h A 200 Hz PEDIRIAM ~8 GB): A 1ª PASSADA GUARDA SÓ host E time E VÊ
-# AS COLUNAS VAZIAS E AS QUE O pandas LERIA COMO float (UM NaN NUM BLOCO SÓ VIRARIA "352" NUNS E "352.0" NOUTROS); A 2ª GRAVA BLOCO A BLOCO
+# O MESMO load() + tidy() SEM O DIÁRIO INTEIRO NA MEMÓRIA (24 h A 200 Hz PEDIRIAM ~8 GB): A 1ª PASSADA GUARDA SÓ host E time E VÊ
+# AS COLUNAS VAZIAS, OS layout E AS COLUNAS QUE O pandas LERIA COMO float (UM NaN NUM BLOCO SÓ VIRARIA "352" NUNS E "352.0" NOUTROS); A 2ª GRAVA BLOCO A BLOCO
 def stream(path, output):
-    host, time, filled, floats = [], [], {}, set()
+    host, time, filled, floats, layouts = [], [], {}, set(), set()
 
     for chunk in pd.read_csv(path, chunksize=CHUNK):
         host.append(chunk.host.to_numpy(dtype=float))
         time.append(chunk.time.to_numpy(dtype=float))
+        layouts |= set(chunk.layout.dropna())
 
         for column in chunk:
             filled[column] = filled.get(column, False) or bool(chunk[column].notna().any())
             floats |= {column} if chunk[column].dtype.kind == 'f' else set()
 
     if not host or not sum(map(len, host)):
-        return 0
+        return 0, []
 
     host, time = pd.Series(np.concatenate(host)), pd.Series(np.concatenate(time))
 
@@ -61,8 +69,8 @@ def stream(path, output):
     else:
         fixed = host
 
-    fixed   = (fixed - fixed.min()).to_numpy()
-    columns = [column for column in filled if filled[column]]
+    fixed   = (fixed - fixed.min()).round(DIGITS).to_numpy()
+    columns = [column for column in filled if filled[column] and not (column == 'layout' and len(layouts) == 1)]
     done    = 0
 
     for index, chunk in enumerate(pd.read_csv(path, chunksize=CHUNK, usecols=columns, dtype={column: float for column in floats & set(columns)})):
@@ -71,7 +79,7 @@ def stream(path, output):
         chunk.to_csv(output, index=False, header=index == 0, mode='w' if index == 0 else 'a')
         done += len(chunk)
 
-    return done
+    return done, list(chunk.columns)
 
 
 # O INSTANTE DE CADA PACOTE DO KERNEL: O CARIMBO TEM O JITTER DA LEITURA E O RELÓGIO DERIVA; A CONTAGEM DE PASSOS (PERDIDO CONTA DOIS) EM RETA, POR TRECHO, DÁ A GRADE DELE
@@ -131,15 +139,16 @@ def merge(target, reference, debug=False):
     return data[['time', 'static'] + columns]
 
 
-names  = [name for name in ['target', 'reference'] if os.path.exists(f'{JOURNAL}/{name}.journal.csv')]
-frames = {}
-saved  = {}
+names      = [name for name in ['target', 'reference'] if os.path.exists(f'{JOURNAL}/{name}.journal.csv')]
+frames     = {}
+saved      = {}
+monitoring = META.get('reference') is None and names == ['target']    # O APP SÓ PEDE REFERÊNCIA NUM ENSAIO DE CALIBRAÇÃO; FORA DELE GRAVA SÓ O MRU
 os.makedirs(OUTPUT, exist_ok=True)
 
-if names == ['target'] and META.get('reference') != 'debug':    # SEM REFERÊNCIA NÃO HÁ data.csv: O DIÁRIO SÓ VIRA target.csv, EM BLOCOS
-    send('progress', step=1, steps=3, stage='Lendo os diários', message='target.journal.csv em blocos')
-    rows  = stream(f'{JOURNAL}/target.journal.csv', f'{OUTPUT}/target.csv')
-    saved = {'target': rows} if rows else {}
+if monitoring:
+    send('progress', step=1, steps=2, stage='Gravando mru.csv', message='target.journal.csv em blocos')
+    rows, header = stream(f'{JOURNAL}/target.journal.csv', f'{OUTPUT}/mru.csv')
+    saved        = {'target': rows} if rows else {}
 else:
     for step, name in enumerate(names, 1):
         send('progress', step=step, steps=len(names) + 2, stage='Lendo os diários', message=f'lendo {name}.journal.csv')
@@ -152,30 +161,35 @@ else:
             continue
 
         frame['time'] -= start
-        frame.to_csv(f'{OUTPUT}/{name}.csv', index=False)
+        tidy(frame).to_csv(f'{OUTPUT}/{name}.csv', index=False)
         saved[name] = len(frame)
 
-send('progress', step=len(names) + 1, steps=len(names) + 2, stage='Casando MRU e plataforma', message=f'{saved} amostras salvas')
-debug    = META.get('reference') == 'debug' and 'target' in saved and 'reference' not in saved
-complete = all(name in saved for name in ['target', 'reference'])
-data     = merge(frames['target'], getDebug(frames['target']), debug=True) if debug else merge(frames['target'], frames['reference']) if complete else None
-warnings = META.pop('warnings', [])
+    send('progress', step=len(names) + 1, steps=len(names) + 2, stage='Casando MRU e plataforma', message=f'{saved} amostras salvas')
+
+debug       = META.get('reference') == 'debug' and 'target' in saved and 'reference' not in saved
+complete    = all(name in saved for name in ['target', 'reference'])
+data        = merge(frames['target'], getDebug(frames['target']), debug=True) if debug else merge(frames['target'], frames['reference']) if complete else None
+warnings    = META.pop('warnings', [])
+calibrating = META.get('reference') is not None or complete
 META['reference'] = 'debug' if debug else 'table' if complete else None
 
-if (complete or debug) and data is None:
+if calibrating and data is None:
     warnings.append('o MRU não estava na escala (SCALE) ou a referência tem poucos pontos: sem data.csv de calibração')
 
 if debug and data is not None:
     warnings.append('referência em debug: os ângulos do próprio MRU filtrados fazem o papel da plataforma; a calibração e o relatório saem marcados e não valem como certificado')
 
 info = {
-    'description': 'target = MRU em teste, reference = plataforma de referência (Table)',
+    'description': 'mru.csv = o que o MRU transmitiu, nas colunas do stream, com time em s desde o início' if monitoring else 'target = MRU em teste, reference = plataforma de referência (Table)',
     'created': datetime.datetime.now().isoformat(timespec='seconds'),
     'samples': saved,
     'calibration': data is not None,
     'warnings': warnings,
     **META
 }
+
+if monitoring:
+    info |= {'columns': header}
 
 if data is not None:
     send('progress', step=len(names) + 2, steps=len(names) + 2, stage='Gravando data.csv', message=f'{len(data)} linhas para o Calibration')

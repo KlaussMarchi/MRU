@@ -186,7 +186,9 @@ Aceleração e giro recebem as métricas de ruído; os ângulos, heave e `hr` ta
 
 **7 · Certificate — comparar com os requisitos e montar o PDF**
 
-Lê os JSON e gráficos gerados pelo Analysis. Para cada requisito, compara o valor medido com o limite; quando a linha cobre vários eixos, o **pior valor** determina o status. Os requisitos de ruído usam desvio padrão, enquanto os de roll/pitch usam erros RMS.
+Lê os JSON e gráficos gerados pelo Analysis. Para cada requisito, compara o valor medido com o limite; quando a linha cobre vários eixos, o **pior valor** determina o status, e cada eixo aparece na sua coluna. Os requisitos de ruído usam desvio padrão, enquanto os de roll/pitch usam erros RMS. O parecer (aprovado ou reprovado, com quantos requisitos foram atendidos) sai das próprias tabelas.
+
+A folha segue a identidade do `Documents/Datasheet`: Source Sans 3 embutida (`Certificate/fonts/`, licença OFL), a paleta roxa e verde-água, logo, títulos numerados e tabelas no mesmo estilo, vírgula decimal. Os gráficos do Analysis saem no tamanho exato em que o PDF os desenha: em cima, 20 s no meio do balanço (referência × medido); embaixo, o erro do ensaio inteiro na escala dele, com o repouso sombreado.
 
 Os limites atuais no notebook são **0,20° de RMS estático e 0,50° de RMS dinâmico** para roll/pitch, **0,30°/s de ruído** para o giroscópio e **0,05 m/s² de ruído** para o acelerômetro.
 

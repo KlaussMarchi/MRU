@@ -300,7 +300,7 @@ fn record_start(app: AppHandle, state: State<App>, folder: String, still: Option
     let mut journals = Vec::new();
 
     for (role, name) in JOURNALS {
-        let Some(device) = devices.get(role) else { continue };
+        let Some(device) = devices.get(role).filter(|_| role == "mru" || still.is_some()) else { continue };    // SEM still A GRAVAÇÃO É DE DADOS: SÓ O MRU, MESMO COM A MESA ABERTA
         let (journal, sender) = Journal::start(&folder.join(format!("{name}.journal.csv"))).map_err(|error| error.to_string())?;
         let mut shared = device.shared.0.lock().unwrap();
         shared.journal = Some(sender);
@@ -310,7 +310,7 @@ fn record_start(app: AppHandle, state: State<App>, folder: String, still: Option
     }
 
     if journals.is_empty() {
-        return Err("conecte o MRU ou a mesa antes de gravar".to_string());
+        return Err("conecte o MRU antes de gravar".to_string());
     }
 
     let started = now();

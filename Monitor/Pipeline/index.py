@@ -20,11 +20,13 @@ from Analysis.index import Analysis
 from Certificate.index import Certificate
 from Firmware.index import Firmware
 
-STAGES  = [('format', 'Format', 1), ('filters', 'Filtros', 7), ('correction', 'Correção', 1), ('attitude', 'Atitude', 0), ('heave', 'Heave', 4), ('lever', 'Braço de alavanca', 1), ('analysis', 'Análise', 1), ('certificate', 'Certificado', 3)]    # s TÍPICOS A 200 Hz
-ATTITUDE = {'KalmanFusion': 200, 'LinearFit': 1, 'MachineLearning': 3}    # s TÍPICOS DA ATITUDE DE CADA ESTRATÉGIA, NO LUGAR DO 0 DE CIMA
-GRAVITY = 9.785    # m/s² LOCAL DO LABORATÓRIO QUANDO O PEDIDO NÃO TRAZ
-EVERY   = 0.5      # s ENTRE DOIS EVENTOS DE PROGRESSO
-EVENTS  = None
+STAGES     = [('format', 'Format', 1), ('filters', 'Filtros', 7), ('correction', 'Correção', 1), ('attitude', 'Atitude', 0), ('heave', 'Heave', 4), ('lever', 'Braço de alavanca', 1), ('analysis', 'Análise', 1), ('certificate', 'Certificado', 3)]    # s TÍPICOS A 200 Hz
+ATTITUDE   = {'KalmanFusion': 200, 'LinearFit': 1, 'MachineLearning': 3}    # s TÍPICOS DA ATITUDE DE CADA ESTRATÉGIA, NO LUGAR DO 0 DE CIMA
+STRATEGIES = {'KalmanFusion': 'Fusão de Kalman', 'LinearFit': 'Ajuste linear', 'MachineLearning': 'Aprendizado de máquina'}    # O NOME DE CADA ESTRATÉGIA NO CERTIFICADO
+GRAVITY    = 9.785    # m/s² LOCAL DO LABORATÓRIO QUANDO O PEDIDO NÃO TRAZ
+RENEWAL    = 365      # dias ATÉ A PRÓXIMA CALIBRAÇÃO RECOMENDADA
+EVERY      = 0.5      # s ENTRE DOIS EVENTOS DE PROGRESSO
+EVENTS     = None
 
 
 def send(event, **data):
@@ -188,16 +190,16 @@ if __name__ == '__main__':
         started = time.time()
         PROGRESS.stage('certificate')
         details = {
-            'Modelo do MRU': 'Measure MRU',
-            'Número de Série': serial,
-            'Nº do Certificado': f'MO-{created:%Y%m%d-%H%M}',
-            'Data da Calibração': created.strftime('%d/%m/%Y'),
-            'Estratégia': f'{model.name} (filters)',
-            'Referência': 'DEBUG · o próprio MRU filtrado' if debug else 'Plataforma de referência',
-            'Técnico': 'Measure Offshore'
+            'Equipamento':        'Measure MRU',
+            'Número de série':    serial,
+            'Data da calibração': f'{created:%d/%m/%Y}',
+            'Próxima calibração': f'{created + datetime.timedelta(days=RENEWAL):%d/%m/%Y}',
+            'Estratégia':         STRATEGIES[strategy],
+            'Referência':         'Debug: o próprio MRU filtrado' if debug else 'Plataforma de referência',
+            'Executado por':      'Measure Offshore'
         }
 
-        Certificate(analysis.info(), plots, details, os.path.join(bundle, 'certificate.pdf'), debug).export()
+        Certificate(analysis.info(), plots, f'MO-{created:%Y%m%d-%H%M}', details, os.path.join(bundle, 'certificate.pdf'), debug).export()
         timings['certificate'] = time.time() - started
 
         params   = {**filters.getParams(), **correction.getParams(), **model.getParams(), **heave.getParams(), **lever.getParams()}

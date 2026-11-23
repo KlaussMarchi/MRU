@@ -1,0 +1,79 @@
+% ABNT - PACOTE DE ACENTUAÇÃO
+\usepackage[utf8]{inputenc} 
+
+% MARGENS LEFT RIGHT TOP E BOTTOM
+\usepackage[lmargin=2cm,
+            tmargin=0.6cm,
+            rmargin=2cm,
+            bmargin=3cm,
+            headsep=0.0cm,
+            includeheadfoot]{geometry}
+
+\setlength\headheight{2.8cm}
+
+% LEVA O ESTILO DO TEXTO PARA OUTROS PROGRAMAS TIPO WORD
+\usepackage[T1]{fontenc}
+
+% PÕE O PRIMEIRO PARÁGRAFO AUTOMATICAMENTE
+\usepackage{indentfirst}
+
+% HABILITA A UTILIZAÇÃO DE FONTES
+\renewcommand{\familydefault}{\sfdefault}
+
+\usepackage[onehalfspacing]{setspace}  % ESPAÇAMENTO ENTRE AS LINHAS
+\usepackage[brazil]{babel}             % TRADUZ PARA PORTUGUÊS
+\usepackage{comment}                   % COLOCAR COMENTÁRIOS
+\usepackage{enumerate}                 % PACOTE PARA ENUMERAÇÃO
+\usepackage{multirow, multicol}        % FORMATAR TABELAS
+\usepackage{colortbl}                  % TABULAR COM COR 
+\usepackage{lipsum}                    % TEXTO ALEATORIO
+\usepackage{dashrule}                  % USAR LINHAS PONTILHADAS
+\usepackage{paracol}                   % TEXTOS EM COLUNAS
+\usepackage{hyperref}                  % HIPERLINKS NO SUMÁRIO
+
+\pagestyle{empty}       % PREENCHIMENTO DA PÁGINA (FANCY HABILITA)
+\usepackage{fancyhdr}   % CABEÇALHO E RODAPÉ
+\fancyhf{}              % SEM NUMERAÇÃO NO MEIO PÁGINA
+
+\usepackage{graphicx}   % PACOTE PARA IMAGENS
+\usepackage{efbox}      % PACOTE PARA BORDAS EM IMAGENS
+\usepackage{subfig}     % IMAGENS LADO A LADO
+\usepackage{float}      % POSICIONAR IMAGEM NO COMANDO FIGURE
+\usepackage{tabularx}   % PARA TABULAR MAIS BONITO
+
+% HABILITAR CORES PARA TEXTOS E CAIXAS DE TEXTO COLORIDAS
+\usepackage[x11names]{xcolor}
+
+% COR TOPICOS \SECTION{}
+\usepackage{sectsty}
+
+% CAIXA DE TEXTO COLORIDA COM TÍTULO
+\usepackage{wrapfig}
+\usepackage[most]{tcolorbox}
+
+% MATEMÁTICA
+\usepackage{mathrsfs}
+\usepackage{amsmath}
+\usepackage{amsthm}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{dsfont}
+\usepackage{mathtools}
+\usepackage{tikz}                        
+\usetikzlibrary{babel,quotes, angles}   % ÂNGULOS
+\usepackage{esvect}                     % VETORES \vv{}
+\everymath{\displaystyle}               % FRAÇÕES MAIS BONITAS
+
+% \cancel{x}, \bcancel{x} (invertido), \cancelto{x}{para y}   
+\usepackage{cancel}
+
+% OUTROS
+%\usepackage{parskip}        % ALINHAMENTO TEXTO (ELIMINA PARÁGRAFOS)
+\usepackage{blindtext}      % IMPRIME TEXTO ALEATÓRIO \blindtext
+\usepackage{fancybox}       % MARGENS CUSTOMIZÁVEIS
+
+% FONTE MATEMÁTICA
+\DeclareMathVersion{testemath}
+\SetSymbolFont{operators}{testemath}{OT1}{bch}{n}{n}
+\SetSymbolFont{letters}{testemath}{OML}{bch}{n}{n}
+\mathversion{testemath}

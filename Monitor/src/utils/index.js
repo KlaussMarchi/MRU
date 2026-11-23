@@ -200,7 +200,7 @@ export function formatFloat(value){
         return 'nan'
 
     const single = Math.fround(value)
-    return Number.isInteger(single) ? String(single) : single.toPrecision(9).replace(/\.?0+(e|$)/, '$1')
+    return Object.is(single, -0) ? '-0' : Number.isInteger(single) ? String(single) : single.toPrecision(9).replace(/\.?0+(e|$)/, '$1')    // String(-0) DÁ "0": O strtof GUARDARIA +0 E O CRC DO -0 DO PACOTE NÃO BATERIA
 }
 
 // AMOSTRAS DE UM APARELHO EM COLUNAS CIRCULARES: A TELA LÊ A JANELA SEM COPIAR O HISTÓRICO

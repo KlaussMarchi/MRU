@@ -31,6 +31,29 @@
     max-height: 68%;
 }
 
+.CalibrationResult .CardBody {
+    overflow-x: hidden;
+}
+
+.CalibrationResult .Table {
+    table-layout: fixed;
+    font-size: .76rem;
+}
+
+.CalibrationResult .Table th, .CalibrationResult .Table td {
+    padding: .38rem .3rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ResultLinks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .3rem .9rem;
+    margin-top: .7rem;
+}
+
 .CalibrationResult > .AsyncButton {
     width: 100%;
     margin-top: .5rem;
@@ -93,7 +116,7 @@
 
 @media (max-width: 1250px) {
     .CalibrationPage .PageBody {
-        grid-template-columns: minmax(13rem, 16rem) minmax(0, 1fr);
+        grid-template-columns: minmax(15rem, 17rem) minmax(0, 1fr);
         grid-template-rows: minmax(0, 1fr) minmax(0, 1fr) auto;
         grid-template-areas: 'sessions preview' 'library preview' 'library pipeline';
     }

@@ -9,8 +9,10 @@ import { useGlobalContext } from '../../contexts/GlobalContext'
 import { call, getBaud, getCRC, getLoad, formatFloat, formatNumber, BAUDS, FREQUENCIES, OUTPUTS, PROTOCOLS, LAYOUTS, MODELS } from '../../utils'
 import './styles.css'
 
-const COMMAND = 200    // CARACTERES POR CL:, ABAIXO DO CMD_MAX_SIZE = 256 DO FIRMWARE
+const COMMAND = 200     // CARACTERES POR CL:, ABAIXO DO CMD_MAX_SIZE = 256 DO FIRMWARE
 const NONE    = 'none'
+const REPLY   = 2500    // ms PELA RESPOSTA DE UM CL: OU DO $status!
+const FLASH   = 3000    // ms PELAS RESPOSTAS QUE LISTAM TODAS AS CHAVES OU MEXEM NA FLASH
 
 
 // OS VALORES DE UMA CHAVE EM COMANDOS CL:CHAVE@posicao$v1,v2,...! QUE CABEM NO BUFFER DO FIRMWARE
@@ -95,7 +97,7 @@ export default function ProductionPage(){
     async function upload(){
         const firmware = bundle.info.firmware
         step('lendo as chaves e tamanhos que este firmware aceita ($calibration_check!)')
-        const check = JSON.parse(await query('$calibration_check!', ['"keys"'], 3000).catch(() => { throw new Error('o MRU não respondeu $calibration_check!: atualize o firmware para v1.0.8') }))
+        const check = JSON.parse(await query('$calibration_check!', ['"keys"'], FLASH).catch(() => { throw new Error('o MRU não respondeu $calibration_check!: atualize o firmware para v1.0.8') }))
         const model = firmware.ATTITUDE_MODEL[0]
         const keys  = []
 
@@ -120,25 +122,26 @@ export default function ProductionPage(){
 
         for(const [index, command] of commands.entries()){
             step(`enviando ${command.key} (${index + 1}/${commands.length})`)
-            const response = await query(command.text, [`$OK:${command.key}@${command.offset}+`, `$ERROR:${command.key}`], 2500).catch(() => query(command.text, [`$OK:${command.key}@${command.offset}+`, `$ERROR:${command.key}`], 2500))
+            const expect   = [`$OK:${command.key}@${command.offset}+`, `$ERROR:${command.key}`]
+            const response = await query(command.text, expect, REPLY).catch(() => query(command.text, expect, REPLY))    // UMA LINHA PERDIDA NO RS232 SE REPETE UMA VEZ
 
             if(response.includes('ERROR'))
                 throw new Error(`o MRU recusou ${command.text.slice(0, 60)}…`)
         }
 
         step('conferindo o CRC de cada chave antes de gravar')
-        const pending = JSON.parse(await query('$calibration_check!', ['"keys"'], 3000))
+        const pending = JSON.parse(await query('$calibration_check!', ['"keys"'], FLASH))
         const wrong   = getMismatch(pending, firmware, keys)
 
         if(wrong.length)
             throw new Error(`CRC diferente em ${wrong.join(', ')}: nada foi gravado`)
 
         step('gravando na flash e reiniciando')
-        await query('$calibration_save!', ['$CALIBRATION SAVED!'], 3000)
+        await query('$calibration_save!', ['$CALIBRATION SAVED!'], FLASH)
         await reboot(link.settings)
 
         step('conferindo a calibração gravada')
-        const saved = JSON.parse(await query('$calibration_check!', ['"keys"'], 3000))
+        const saved = JSON.parse(await query('$calibration_check!', ['"keys"'], FLASH))
         const after = getMismatch(saved, firmware, keys)
 
         if(saved.source != 'flash' || after.length)
@@ -167,7 +170,7 @@ export default function ProductionPage(){
         step('apagando a calibração da flash')
 
         try {
-            await query('$calibration_erase!', ['$CALIBRATION ERASED!'], 3000)
+            await query('$calibration_erase!', ['$CALIBRATION ERASED!'], FLASH)
             await reboot(link.settings)
             finish('o MRU usa de novo a calibração compilada')
         }
@@ -190,7 +193,7 @@ export default function ProductionPage(){
             step(`configurando: ${calibrated ? 'CALIBRATED' : 'SCALE'}, ${PROTOCOLS.find(item => item.value == protocol).label}, ${frequency} Hz, ${OUTPUTS.find(item => item.value == output).label} a ${baud} bps`)
             await configure(changes, text => step(text))
 
-            const final = JSON.parse(await query('$status!', ['"firmware"'], 2500))
+            const final = JSON.parse(await query('$status!', ['"firmware"'], REPLY))
             const expected = {device_mode: 0, kernel_mode: 0, streamer_mode: changes.streamer_mode, protocol, autostream: true}
             const wrong = Object.entries(expected).filter(([key, value]) => final[key] != value).map(([key]) => key)
 
@@ -228,7 +231,7 @@ export default function ProductionPage(){
                     )}
 
                     {bundle?.info.reference == 'debug' && <div className='Notice warn ProductionNotice'>Este pacote saiu de uma sessão com referência em debug: serve para testar o envio, não para operar.</div>}
-                    {bundle && <div className='Notice info ProductionNotice'>Confira o braço (LEVER_POINT) e o período do heave antes de ir a bordo: os do pacote são os do ensaio na plataforma.</div>}
+                    {bundle && <div className='Muted ProductionNotice'>Confira o braço (LEVER_POINT) e o período do heave antes de ir a bordo: os do pacote são os do ensaio na plataforma.</div>}
 
                     <div className='Actions end'>
                         {flash && <AsyncButton text='Apagar a da flash' variant='ghost' onClick={handleErase} disabled={!synced || running}/>}

@@ -12,7 +12,7 @@ português; código em inglês.
 
 ## Comandos
 
-Não há linter. Verificar = compilar o firmware, rodar os testes do app, executar o notebook ou o módulo do pipeline
+Os caminhos abaixo partem da raiz do repositório, mesmo com a sessão aberta em `Monitor/`. Não há linter. Verificar = compilar o firmware, rodar os testes do app, executar o notebook ou o módulo do pipeline
 afetado e, quando um algoritmo muda dos dois lados, comparar C++ e Python no host (ver "Espelhamento").
 
 ```bash
@@ -29,7 +29,7 @@ arduino-cli compile --fqbn esp32:esp32:esp32 Hardware/Table
 
 # MRU Monitor (app Tauri): ver Monitor/README.md
 (cd Monitor && npm install && npm run tauri dev)
-(cd Monitor/src-tauri && cargo test --lib) && (cd Monitor && npx vite build)    # testes do backend e build do frontend (o frontend não tem testes)
+(cd Monitor/src-tauri && cargo test --lib) && (cd Monitor && npx vite build)    # testes do backend (~30 s; um deles abre o systemd-inhibit de verdade) e build do frontend (o frontend não tem testes)
 (cd Monitor/src-tauri && cargo test --lib kernel_parado_tem_o_ruido_do_test3)   # um teste só, pelo nome
 (cd Monitor && npx tauri build --debug --no-bundle)                             # binário em src-tauri/target/debug, sem instalador; acusa Tauri divergente entre crate e npm
 
@@ -38,7 +38,7 @@ arduino-cli compile --fqbn esp32:esp32:esp32 Hardware/Table
 
 # Gravação → sessão: pasta com os *.journal.csv, pasta da sessão e o json de metadados que o app escreve. APAGA a pasta da gravação ao terminar: rode numa cópia
 ~/miniconda3/bin/python Monitor/Pipeline/Session/index.py /caminho/gravacao /caminho/sessao /caminho/meta.json
-# Sem referência (RAW, escala, gravação longa) o Session lê o diário em blocos; check.py confere que sai igual ao load() inteiro
+# Gravação de dados (sem referência) vira mru.csv lido em blocos; check.py confere que sai igual ao load() inteiro
 ~/miniconda3/bin/python Monitor/Pipeline/Session/check.py
 
 # O firmware real no PC, sem hardware: shim do Arduino, Kernel falso e portas em pty. scenarios.py cobre atualização e Kernel; recompile antes
@@ -180,7 +180,7 @@ App Tauri 2: React em `src/`, Rust em `src-tauri/src/`, `Pipeline/` (com o conve
   virando lixo, e a mesa do `Table.ino`. O MRU simulado sai transmitindo CALIBRATED/LIST a 100 Hz em 115200 bps e a
   mesa simulada cicla sozinha, seguindo o alvo como o FastAccelStepper (até ~2,5° atrás da senoide, a mesma posição que
   o `Table.ino` imprime).
-- `record_start` manda `start` à mesa (real ou simulada), que fica 20 s parada e roda pitch 100 s, roll 100 s e repouso
+- No ensaio de calibração, `record_start` manda `start` à mesa (real ou simulada), que fica 20 s parada e roda pitch 100 s, roll 100 s e repouso
   100 s em ciclo; `record_stop` manda `stop`.
   Gravando, um processo filho (`systemd-inhibit`/`caffeinate`/PowerShell) impede o PC de suspender e solta sozinho se o
   app morrer; `limit` faz o backend parar sozinho. Todo `stop` deixa `recording.json` na `.recording-*`, e o `meta.json`
@@ -201,7 +201,7 @@ provar ali não prova flash, UART nem USB de verdade.
   (refs, 20 min na taxa máxima). O estado React (`useLive`) só muda a cada 250 ms; o `LiveChart` desenha por
   `requestAnimationFrame` direto das `Series`, 0,12 s atrás do relógio. Amostra ao vivo não passa por estado React: é
   o que mantém 200 Hz fluido.
-- O diagnóstico está em toda tela: `Page` monta a `HealthBanner`, e `utils/diagnostics.js` (`getIssues`) deduz o motivo de `link`, `stats`, tendência de 10 s, `$diagnostics!` e das próprias amostras, na ordem porta → ACK → Kernel → stream → dados. O `DeviceContext` só pergunta ao MRU fora da gravação e da atualização, de 5 em 5 s (10 s abaixo de 57600 bps, 3 s sem stream, e na hora quando chega um evento ou o stream para ou volta), em `query` com `quiet`, que não vai ao terminal.
+- O diagnóstico está em toda tela: `Page` monta a `HealthBanner`, e `utils/diagnostics.js` (`getIssues`) deduz o motivo de `link`, `stats`, tendência de 10 s, `$diagnostics!` e das próprias amostras, na ordem porta → ACK → Kernel → stream → dados. O `DeviceContext` só pergunta ao MRU fora da gravação e da atualização, de 5 em 5 s (10 s numa serial abaixo de 57600 bps, 3 s sem stream, e na hora quando chega um evento ou o stream para ou volta), em `query` com `quiet`, que não vai ao terminal.
 - Nada de `box-shadow` em volta de canvas ou do que muda a cada quadro: o WebKitGTK refaz o borrão inteiro, e a sombra do `.Card` sozinha derrubava o gráfico de 62 para 24 fps, com o JavaScript usando só 9% do tempo. Para medir fluidez, use a janela real (WebKit), não um navegador.
 - Nenhuma tela rola: cada página usa `Page` e cabe de 1024×640 (mínimo em `tauri.conf.json`) a 1920×1080; só listas,
   terminal e painéis longos rolam por dentro. Um gráfico por tela, com grandeza e variáveis selecionáveis e cor fixa por
@@ -212,7 +212,12 @@ provar ali não prova flash, UART nem USB de verdade.
 
 **Sessão e referência**
 
-`Pipeline/Session/index.py` transforma os diários em `target.csv`, `reference.csv`, `data.csv` e `info.json`: recupera
+A Aquisição grava sempre o que o MRU transmite; o tipo sai do stream, não de uma escolha: SCALE acima de 150 Hz (o modo
+aquisição) com a plataforma transmitindo ou a referência em debug marcada é **ensaio de calibração** (`still` no
+`record_start`, a mesa recebe `start` e entra no diário); qualquer outro caso é **gravação de dados**, só o MRU, e o
+`meta.json` sai com `reference: null`. `Pipeline/Session/index.py` faz da gravação de dados um `mru.csv` em blocos (só
+as colunas preenchidas, sem `layout` quando ele não muda, `time` em µs; `columns` no `info.json`) e do ensaio
+`target.csv`, `reference.csv`, `data.csv` e `info.json`. A Calibração lista só pastas com `data.csv`. No ensaio, recupera
 o instante de cada pacote pela contagem de passos em reta (o carimbo tem ±1 ms de jitter e o relógio deriva; sem isso
 o Format derivava o jitter da referência) e interpola a mesa por spline suavizada nesses instantes. Sem a mesa, a
 **referência em debug** usa os ângulos do próprio MRU filtrados (`reference: debug` na sessão, no `calibration.json` e
